@@ -45,26 +45,38 @@ export function Sankara3DEmblem({
           />
         </div>
 
-        {/* Ambient Core Glow */}
-        <motion.div
-          animate={{
-            scale: [1, 1.15, 1],
-            opacity: [0.3, 0.15, 0.3],
-          }}
-          transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          className="absolute w-36 h-36 rounded-full bg-white/20 blur-2xl pointer-events-none z-10"
-        />
+        {/* Plain Clean Center Disc (ensures logo is completely clear and unobstructed) */}
+        <div className="absolute z-10 w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-[#0B0B0E]/95 border border-white/20 shadow-[0_0_50px_rgba(0,0,0,0.9),0_0_20px_rgba(255,255,255,0.15)] flex items-center justify-center pointer-events-none">
+          {/* Subtle White Neon Edge Halo */}
+          <motion.div
+            animate={{
+              opacity: [0.6, 0.9, 0.6],
+              scale: [0.98, 1.04, 0.98],
+            }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+            className="absolute inset-2 rounded-full bg-white/10 blur-xl pointer-events-none"
+          />
+        </div>
 
-        {/* Center Sankara Eye Logo */}
+        {/* Center Sankara Eye Logo with White Neon Edge Glow */}
         <motion.div
           animate={{ y: [0, -3, 0] }}
           transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          className="relative z-20 flex items-center justify-center pointer-events-none p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.25)]"
+          className="relative z-20 flex items-center justify-center pointer-events-none p-2"
         >
+          {/* White Neon Silhouette Layer */}
+          <img
+            src="/sankara-eye-logo.png"
+            alt=""
+            aria-hidden="true"
+            className={`absolute ${s.logo} object-contain filter drop-shadow-[0_0_12px_rgba(255,255,255,0.95)] drop-shadow-[0_0_28px_rgba(255,255,255,0.7)] drop-shadow-[0_0_50px_rgba(255,255,255,0.4)] opacity-90 pointer-events-none`}
+          />
+
+          {/* Sharp Foreground Logo */}
           <img
             src="/sankara-eye-logo.png"
             alt="Sankara Eye Care Institutions"
-            className={`${s.logo} object-contain filter drop-shadow-[0_4px_20px_rgba(0,0,0,0.8)]`}
+            className={`relative z-10 ${s.logo} object-contain drop-shadow-[0_4px_15px_rgba(0,0,0,0.9)]`}
           />
         </motion.div>
       </div>
