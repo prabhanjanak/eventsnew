@@ -179,12 +179,52 @@ export default function IdCardDesignerPage() {
         if (d.sheetConfigJson) sheetConfig = JSON.parse(d.sheetConfigJson);
       } catch {}
 
+      if (placeholders.length === 0) {
+        placeholders = [
+          {
+            id: "ph_name_default",
+            type: "name",
+            label: "Delegate Name",
+            xPercent: 10,
+            yPercent: 57,
+            widthPercent: 80,
+            heightPercent: 9,
+            isLocked: false,
+            fontFamily: "Inter, sans-serif",
+            fontSizePt: 24,
+            fontWeight: "bold",
+            color: "#0F172A",
+            align: "center",
+            textTransform: "uppercase",
+            truncate: true,
+          },
+          {
+            id: "ph_role_default",
+            type: "custom_text",
+            label: "Role Category (DELEGATE)",
+            xPercent: 15,
+            yPercent: 76,
+            widthPercent: 70,
+            heightPercent: 8,
+            isLocked: false,
+            fontFamily: "Inter, sans-serif",
+            fontSizePt: 16,
+            fontWeight: "bold",
+            color: "#FFFFFF",
+            align: "center",
+            textTransform: "uppercase",
+            customSampleText: "DELEGATE",
+            truncate: true,
+          },
+        ];
+      }
+
       setPreRegDesign({
         id: d.id,
         eventId: activeEventId || 1,
         cardType: "preregistered",
-        templateImageUrl: d.templateImageUrl,
-        backTemplateImageUrl: d.backTemplateImageUrl,
+        templateImageUrl: d.templateImageUrl || "/demo_id_card_front.png",
+        backTemplateImageUrl: d.backTemplateImageUrl || "/demo_id_card_back.png",
         widthInches: d.widthInches || "3.46",
         heightInches: d.heightInches || "5.51",
         dpi: d.dpi || 300,
