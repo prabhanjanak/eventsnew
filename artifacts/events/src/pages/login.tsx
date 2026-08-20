@@ -99,24 +99,42 @@ export default function Login() {
       </header>
 
       {/* ── Centered Login Main Card ────────────────────────────────────────── */}
-      <main className="relative z-10 max-w-md mx-auto px-4 py-10 sm:py-16 w-full flex-1 flex flex-col justify-center items-center">
+      <main className="relative z-10 max-w-md mx-auto px-4 py-8 sm:py-12 w-full flex-1 flex flex-col justify-center items-center">
         
-        {/* ── Header with 50th Anniversary Emblem ── */}
-        <div className="text-center space-y-3 flex flex-col items-center mb-6">
-          <div className="w-20 h-20 rounded-full overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.6)] border-2 border-amber-400/40 bg-[#001D4A] p-0 flex items-center justify-center">
-            <img
-              src={`${BASE_URL}/sankara-50th-logo.png`}
-              alt="Sankara 50 Years"
-              className="w-full h-full object-cover rounded-full"
-            />
+        {/* ── Official Sankara Eye Foundation & 50-Year Emblem Header ── */}
+        <div className="text-center space-y-4 flex flex-col items-center mb-6">
+          
+          {/* Dual Emblem Banner: Sankara Eye + 50 Year Jubilee */}
+          <div className="flex items-center justify-center gap-4">
+            {/* Sankara Eye Emblem in Frosted Circle */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-[#141622]/90 border border-white/15 p-3 flex items-center justify-center shadow-[0_10px_30px_rgba(0,0,0,0.6)] backdrop-blur-xl group hover:border-white/30 transition-all">
+              <img
+                src={`${BASE_URL}/sankara-eye-logo.png`}
+                alt="Sankara Eye Foundation Icon"
+                className="w-full h-full object-contain filter brightness-110 drop-shadow-[0_2px_8px_rgba(255,255,255,0.3)]"
+              />
+            </div>
+
+            {/* 50 Years Coin Emblem */}
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.6)] border border-amber-400/40 bg-[#001D4A] p-0 flex items-center justify-center">
+              <img
+                src={`${BASE_URL}/sankara-50th-logo.png`}
+                alt="50 Years Social Impact"
+                className="w-full h-full object-cover"
+              />
+            </div>
           </div>
 
+          {/* Institutional Title & Subtitle */}
           <div className="space-y-1">
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Staff & Coordinator Login
+            <div className="text-xs font-bold tracking-widest text-indigo-400 uppercase font-mono">
+              Sankara Eye Foundation
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              Coordinator & Staff Access
             </h1>
-            <p className="text-xs text-zinc-400 leading-relaxed">
-              Sign in with your employee credentials to access administrative tools.
+            <p className="text-xs text-zinc-400 max-w-xs mx-auto leading-relaxed">
+              Enter your official credentials to access the event management system.
             </p>
           </div>
         </div>
