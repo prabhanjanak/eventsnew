@@ -88,82 +88,82 @@ function Router() {
 
       {/* Participant / Faculty */}
       <Route path="/participant/dashboard">
-        {() => <AppLayout><ParticipantDashboard /></AppLayout>}
+        <AppLayout><ParticipantDashboard /></AppLayout>
       </Route>
 
       {/* Admin Events Management — Main Command Center */}
       <Route path="/admin">
-        {() => <AppLayout><EventsManager /></AppLayout>}
+        <AppLayout><EventsManager /></AppLayout>
       </Route>
       <Route path="/admin/events">
-        {() => <AppLayout><EventsManager /></AppLayout>}
+        <AppLayout><EventsManager /></AppLayout>
       </Route>
 
       {/* Admin Operations */}
       <Route path="/admin/dashboard">
-        {() => <AppLayout><AdminDashboard /></AppLayout>}
+        <AppLayout><AdminDashboard /></AppLayout>
       </Route>
       <Route path="/admin/participants">
-        {() => <AppLayout><AdminParticipants /></AppLayout>}
+        <AppLayout><AdminParticipants /></AppLayout>
       </Route>
       <Route path="/admin/crew-vendors">
-        {() => <AppLayout><AdminCrewVendors /></AppLayout>}
+        <AppLayout><AdminCrewVendors /></AppLayout>
       </Route>
       <Route path="/admin/on-spot">
-        {() => <AppLayout><AdminOnSpot /></AppLayout>}
+        <AppLayout><AdminOnSpot /></AppLayout>
       </Route>
       <Route path="/admin/participants/:id">
-        {() => <AppLayout><AdminParticipantDetail /></AppLayout>}
+        <AppLayout><AdminParticipantDetail /></AppLayout>
       </Route>
       <Route path="/admin/food-sessions">
-        {() => <AppLayout><FoodSessions /></AppLayout>}
+        <AppLayout><FoodSessions /></AppLayout>
       </Route>
       <Route path="/admin/food-scanner">
-        {() => <AppLayout><FoodScanner /></AppLayout>}
+        <AppLayout><FoodScanner /></AppLayout>
       </Route>
       <Route path="/admin/food-logs">
-        {() => <AppLayout><FoodLogs /></AppLayout>}
+        <AppLayout><FoodLogs /></AppLayout>
       </Route>
       <Route path="/admin/attendance-scanner">
-        {() => <AppLayout><AttendanceScanner /></AppLayout>}
+        <AppLayout><AttendanceScanner /></AppLayout>
       </Route>
       <Route path="/admin/attendance-logs">
-        {() => <AppLayout><AttendanceLogs /></AppLayout>}
+        <AppLayout><AttendanceLogs /></AppLayout>
       </Route>
       <Route path="/admin/event-staff">
-        {() => <AppLayout><EventStaffPage /></AppLayout>}
+        <AppLayout><EventStaffPage /></AppLayout>
       </Route>
       <Route path="/admin/system-users">
-        {() => <AppLayout><SystemUsers /></AppLayout>}
+        <AppLayout><SystemUsers /></AppLayout>
       </Route>
       <Route path="/admin/settings">
-        {() => <AppLayout><AdminSettings /></AppLayout>}
+        <AppLayout><AdminSettings /></AppLayout>
       </Route>
       <Route path="/admin/logs">
-        {() => <AppLayout><AdminLogs /></AppLayout>}
+        <AppLayout><AdminLogs /></AppLayout>
       </Route>
       <Route path="/admin/sync-sessions">
-        {() => <AppLayout><AdminSyncSessions /></AppLayout>}
+        <AppLayout><AdminSyncSessions /></AppLayout>
       </Route>
       <Route path="/admin/sessions">
-        {() => <AppLayout><AdminSessions /></AppLayout>}
+        <AppLayout><AdminSessions /></AppLayout>
       </Route>
       <Route path="/admin/event-sessions">
-        {() => <AppLayout><AdminEventSessions /></AppLayout>}
+        <AppLayout><AdminEventSessions /></AppLayout>
       </Route>
       <Route path="/admin/traffic">
-        {() => <AppLayout><TrafficMonitor /></AppLayout>}
+        <AppLayout><TrafficMonitor /></AppLayout>
       </Route>
       <Route path="/admin/whatsapp">
-        {() => <AppLayout><WhatsAppBroadcast /></AppLayout>}
+        <AppLayout><WhatsAppBroadcast /></AppLayout>
       </Route>
 
       {/* Track Coordinator — both paths work */}
       <Route path="/track/dashboard">
-        {() => <AppLayout><CoordinatorDashboard /></AppLayout>}
+        <AppLayout><CoordinatorDashboard /></AppLayout>
       </Route>
       <Route path="/coordinator/dashboard">
-        {() => <AppLayout><CoordinatorDashboard /></AppLayout>}
+        <AppLayout><CoordinatorDashboard /></AppLayout>
       </Route>
 
       {/* Food Coordinator */}
