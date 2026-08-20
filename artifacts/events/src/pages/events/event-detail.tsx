@@ -39,6 +39,7 @@ import {
   ImageIcon,
   FileText,
   Ticket,
+  Camera,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -697,6 +698,51 @@ export default function EventDetailPage() {
                   <p className="text-[10px] text-zinc-500 font-medium truncate">{event.venue || "Sankara Eye Hospital"}</p>
                 </div>
               </div>
+
+              {/* Access Your Photos / Samaro AI Gallery Action Button */}
+              {(() => {
+                const photosGalleryUrl =
+                  (event as any)?.photosUrl ||
+                  (event as any)?.galleryUrl ||
+                  (event?.slug?.toLowerCase().includes("vision") || event?.title?.toLowerCase().includes("vision")
+                    ? "https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media"
+                    : "https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media");
+
+                return (
+                  <div className="pt-2">
+                    <a
+                      href={photosGalleryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative flex items-center justify-between p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-600/20 via-indigo-600/20 to-purple-600/20 hover:from-blue-600/30 hover:via-indigo-600/30 hover:to-purple-600/30 border border-indigo-500/40 hover:border-indigo-400/80 shadow-xl shadow-indigo-950/40 transition-all duration-300 transform active:scale-[0.99] cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3.5 sm:gap-4">
+                        <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-indigo-500/25 border border-indigo-400/40 flex items-center justify-center text-indigo-300 group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-white transition-all shadow-inner">
+                          <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm sm:text-base font-black text-white group-hover:text-indigo-200 transition-colors flex items-center gap-1.5">
+                              Access Your Photos &amp; Event Media
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-500/50 text-[10px] font-black uppercase tracking-wider">
+                              Samaro.ai AI Gallery
+                            </span>
+                          </div>
+                          <p className="text-xs text-zinc-400 mt-0.5">
+                            Browse, find your photos using AI facial recognition, and download high-resolution event media.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-indigo-300 group-hover:text-white group-hover:translate-x-1 transition-all pl-2 shrink-0">
+                        <span className="text-xs font-bold hidden sm:inline">Open Gallery</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </div>
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* ── 1. 3D RANDOMIZED CURSOR-REACTIVE PHOTO EXHIBITION (ABOVE CONTENT) ── */}

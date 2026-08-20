@@ -567,7 +567,7 @@ export default function EventsDirectory() {
                       : "text-zinc-500 hover:text-zinc-300"
                   }`}
                 >
-                  Past Archives ({pastCount})
+                  Past Events ({pastCount})
                 </button>
               </div>
 
