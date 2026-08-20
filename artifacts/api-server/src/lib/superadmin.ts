@@ -121,6 +121,25 @@ export async function ensureSuperAdmin() {
         `ALTER TABLE coupons ADD COLUMN IF NOT EXISTS event_id integer`,
         `ALTER TABLE rsvp ADD COLUMN IF NOT EXISTS event_id integer`,
         `ALTER TABLE system_users ADD COLUMN IF NOT EXISTS assigned_event_ids jsonb DEFAULT '[]'::jsonb`,
+        `CREATE TABLE IF NOT EXISTS id_card_designs (
+          id serial PRIMARY KEY,
+          event_id integer NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+          card_type text NOT NULL DEFAULT 'preregistered',
+          template_image_url text,
+          width_inches text NOT NULL DEFAULT '5.51',
+          height_inches text NOT NULL DEFAULT '3.46',
+          dpi integer NOT NULL DEFAULT 300,
+          orientation text NOT NULL DEFAULT 'landscape',
+          placeholders_json text,
+          sheet_config_json text,
+          status text NOT NULL DEFAULT 'draft',
+          version integer NOT NULL DEFAULT 1,
+          published_version integer,
+          created_by_id integer,
+          created_at timestamp DEFAULT now() NOT NULL,
+          updated_at timestamp DEFAULT now() NOT NULL
+        )`,
+        `CREATE INDEX IF NOT EXISTS id_card_designs_event_card_type_idx ON id_card_designs(event_id, card_type)`,
       ];
 
       for (const statement of ddlStatements) {

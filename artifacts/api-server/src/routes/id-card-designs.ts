@@ -1,0 +1,310 @@
+import { Router, type Request, type Response } from "express";
+import { eq, and, sql, inArray } from "drizzle-orm";
+import { db, eventsTable, participantsTable, idCardDesignsTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/requireAuth";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const cleanName = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+    cb(null, `id_template_${cleanName}_${Date.now()}${ext}`);
+  },
+});
+
+const uploadTemplate = multer({
+  storage,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB max
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/png") || file.originalname.toLowerCase().endsWith(".png")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only high-resolution PNG images are allowed for ID Card Templates."));
+    }
+  },
+});
+
+const router = Router();
+
+// Helper to resolve Event from slug or numeric id
+async function resolveEvent(slugOrId: string) {
+  const isNum = /^\d+$/.test(slugOrId);
+  if (isNum) {
+    const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(slugOrId)));
+    return event || null;
+  }
+  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.slug, slugOrId));
+  return event || null;
+}
+
+// ── 1. GET /api/events/:slugOrId/id-card-design ──────────────────────────────
+router.get(
+  "/events/:slugOrId/id-card-design",
+  requireAuth(["super_admin", "admin", "event_coordinator"]),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const event = await resolveEvent(req.params.slugOrId);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+
+      const cardType = (req.query.cardType as string) || "preregistered";
+
+      const [design] = await db
+        .select()
+        .from(idCardDesignsTable)
+        .where(
+          and(
+            eq(idCardDesignsTable.eventId, event.id),
+            eq(idCardDesignsTable.cardType, cardType)
+          )
+        )
+        .limit(1);
+
+      // Also calculate stats for this event
+      const attendees = await db
+        .select()
+        .from(participantsTable)
+        .where(eq(participantsTable.eventId, event.id));
+
+      const totalPreRegistered = attendees.filter((a) => !(a as any).isOnSpotLinked && a.name !== "Unassigned Pass").length;
+      const totalOnSpot = attendees.filter((a) => (a as any).isOnSpotLinked || a.name === "Unassigned Pass").length;
+      const totalCards = attendees.length;
+
+      // Calculate ready count: attendee has valid name and registrationNumber
+      const readyForPrinting = attendees.filter(
+        (a) => a.registrationNumber && a.name && a.name !== "Unassigned Pass"
+      ).length;
+
+      res.json({
+        event: {
+          id: event.id,
+          slug: event.slug,
+          title: event.title,
+          venue: event.venue,
+          city: event.city,
+          startDate: event.startDate,
+          endDate: event.endDate,
+        },
+        design: design || {
+          eventId: event.id,
+          cardType,
+          templateImageUrl: null,
+          widthInches: "5.51",
+          heightInches: "3.46",
+          dpi: 300,
+          orientation: "landscape",
+          placeholdersJson: JSON.stringify([]),
+          sheetConfigJson: JSON.stringify({
+            paperSize: "A4",
+            cardsPerRow: 2,
+            cardsPerCol: 3,
+            marginTopMm: 10,
+            marginLeftMm: 10,
+            gapXmm: 5,
+            gapYmm: 5,
+            showCutMarks: true,
+          }),
+          status: "not_configured",
+          version: 1,
+          publishedVersion: null,
+        },
+        stats: {
+          totalPreRegistered,
+          totalOnSpot,
+          totalCards,
+          readyForPrinting,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch ID card design" });
+    }
+  }
+);
+
+// ── 2. POST /api/events/:slugOrId/id-card-design ─────────────────────────────
+router.post(
+  "/events/:slugOrId/id-card-design",
+  requireAuth(["super_admin", "admin", "event_coordinator"]),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const event = await resolveEvent(req.params.slugOrId);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+
+      const {
+        cardType = "preregistered",
+        templateImageUrl,
+        widthInches = "5.51",
+        heightInches = "3.46",
+        dpi = 300,
+        orientation = "landscape",
+        placeholders,
+        sheetConfig,
+        status = "draft",
+      } = req.body;
+
+      const placeholdersJson = typeof placeholders === "string" ? placeholders : JSON.stringify(placeholders || []);
+      const sheetConfigJson = typeof sheetConfig === "string" ? sheetConfig : JSON.stringify(sheetConfig || {});
+
+      // Check existing design
+      const [existing] = await db
+        .select()
+        .from(idCardDesignsTable)
+        .where(
+          and(
+            eq(idCardDesignsTable.eventId, event.id),
+            eq(idCardDesignsTable.cardType, cardType)
+          )
+        )
+        .limit(1);
+
+      let result;
+      const user = (req as any).user;
+
+      if (existing) {
+        const nextVersion = existing.version + 1;
+        const publishedVersion = status === "published" ? nextVersion : existing.publishedVersion;
+
+        [result] = await db
+          .update(idCardDesignsTable)
+          .set({
+            templateImageUrl: templateImageUrl !== undefined ? templateImageUrl : existing.templateImageUrl,
+            widthInches: String(widthInches),
+            heightInches: String(heightInches),
+            dpi: Number(dpi) || 300,
+            orientation,
+            placeholdersJson,
+            sheetConfigJson,
+            status,
+            version: nextVersion,
+            publishedVersion,
+            createdById: user?.id || existing.createdById,
+            updatedAt: new Date(),
+          })
+          .where(eq(idCardDesignsTable.id, existing.id))
+          .returning();
+      } else {
+        [result] = await db
+          .insert(idCardDesignsTable)
+          .values({
+            eventId: event.id,
+            cardType,
+            templateImageUrl,
+            widthInches: String(widthInches),
+            heightInches: String(heightInches),
+            dpi: Number(dpi) || 300,
+            orientation,
+            placeholdersJson,
+            sheetConfigJson,
+            status,
+            version: 1,
+            publishedVersion: status === "published" ? 1 : null,
+            createdById: user?.id || null,
+          })
+          .returning();
+      }
+
+      res.json({
+        success: true,
+        message: status === "published" ? "ID Card Design published successfully! ✓" : "ID Card Design saved as draft.",
+        design: result,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to save ID card design" });
+    }
+  }
+);
+
+// ── 3. POST /api/events/:slugOrId/id-card-design/upload-template ─────────────
+router.post(
+  "/events/:slugOrId/id-card-design/upload-template",
+  requireAuth(["super_admin", "admin", "event_coordinator"]),
+  uploadTemplate.single("template"),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const event = await resolveEvent(req.params.slugOrId);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+
+      if (!req.file) {
+        res.status(400).json({ error: "No PNG file provided" });
+        return;
+      }
+
+      const fileUrl = `/uploads/${req.file.filename}`;
+      res.json({
+        success: true,
+        url: fileUrl,
+        filename: req.file.originalname,
+        size: req.file.size,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to upload template PNG" });
+    }
+  }
+);
+
+// ── 4. GET /api/events/:slugOrId/id-card-design/attendees ─────────────────────
+router.get(
+  "/events/:slugOrId/id-card-design/attendees",
+  requireAuth(["super_admin", "admin", "event_coordinator"]),
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const event = await resolveEvent(req.params.slugOrId);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+
+      const attendees = await db
+        .select()
+        .from(participantsTable)
+        .where(eq(participantsTable.eventId, event.id));
+
+      // Validate each attendee record for card readiness
+      const enriched = attendees.map((a: any) => {
+        const hasName = Boolean(a.name && a.name.trim() && a.name !== "Unassigned Pass");
+        const hasOrg = Boolean(a.institution && a.institution.trim() && a.institution !== "Unassigned Physical Card");
+        const hasId = Boolean(a.registrationNumber && a.registrationNumber.trim());
+        const hasQr = Boolean(a.registrationNumber && a.registrationNumber.trim());
+        const isReady = hasName && hasId && hasQr;
+
+        return {
+          id: a.id,
+          registrationNumber: a.registrationNumber,
+          name: a.name || "Unassigned",
+          institution: a.institution || "—",
+          email: a.email || "—",
+          mobile: a.mobile || "—",
+          delegateType: a.delegateType || "delegate",
+          isOnSpot: Boolean(a.isOnSpotLinked || a.name === "Unassigned Pass"),
+          hasName,
+          hasOrg,
+          hasId,
+          hasQr,
+          isReady,
+        };
+      });
+
+      res.json(enriched);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to fetch attendees for ID card batch print" });
+    }
+  }
+);
+
+export default router;

@@ -51,6 +51,7 @@ import CoordinatorDashboard from "@/pages/coordinator/dashboard";
 import FoodCoordinatorDashboard from "@/pages/food/dashboard";
 import ScientificSubmissions from "@/pages/scientific/submissions";
 import StaffChangePassword from "@/pages/staff/change-password";
+import IdCardDesignerPage from "@/pages/admin/id-card-designer";
 
 // Wire the stored JWT into every generated API hook so useGetMe etc. send auth headers
 setAuthTokenGetter(() => {
@@ -105,6 +106,9 @@ function Router() {
       </Route>
       <Route path="/admin/participants">
         <AppLayout><AdminParticipants /></AppLayout>
+      </Route>
+      <Route path="/admin/id-card-designer">
+        <AppLayout><IdCardDesignerPage /></AppLayout>
       </Route>
       <Route path="/admin/crew-vendors">
         <AppLayout><AdminCrewVendors /></AppLayout>

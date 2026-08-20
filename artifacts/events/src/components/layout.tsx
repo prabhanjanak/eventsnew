@@ -57,6 +57,7 @@ export function AppLayout({ children }: LayoutProps) {
           const items = [
             { label: "Overview & Telemetry", href: `/admin/dashboard?eventId=${eid}`, icon: LayoutDashboard },
             { label: "Delegates & Registrations", href: `/admin/participants?eventId=${eid}`, icon: Users },
+            { label: "ID Card Designing", href: `/admin/id-card-designer?eventId=${eid}`, icon: Sparkles },
             { label: "Exhibitors & Crew", href: `/admin/crew-vendors?eventId=${eid}`, icon: QrCode },
             { label: "On-Spot Registration Desk", href: `/admin/on-spot?eventId=${eid}`, icon: ClipboardList },
             { label: "Coordinators & Staff", href: `/admin/event-staff?eventId=${eid}`, icon: ShieldAlert },

@@ -26,6 +26,7 @@ import rsvpRouter from "./rsvp";
 import whatsappRouter from "./whatsapp";
 import syncSessionsRouter from "./sync-sessions";
 import walletRouter from "./wallet";
+import idCardDesignsRouter from "./id-card-designs";
 import { startRsvpScheduler } from "../lib/rsvp-scheduler";
 
 const router: IRouter = Router();
@@ -57,8 +58,9 @@ router.use(rsvpRouter);
 router.use(whatsappRouter);
 router.use(syncSessionsRouter);
 router.use(walletRouter);
+router.use(idCardDesignsRouter);
 
-// Start the RSVP email reminder scheduler
+// Initialize WhatsApp RSVP auto-sending scheduler (runs every 60 seconds)
 startRsvpScheduler();
 
 export default router;
