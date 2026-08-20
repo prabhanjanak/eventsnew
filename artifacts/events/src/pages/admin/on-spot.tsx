@@ -89,8 +89,10 @@ export default function AdminOnSpot() {
   // QR & Print states
   const [qrParticipant, setQrParticipant] = useState<{ id: number; name: string; registrationNumber: string } | null>(null);
   const [printCard, setPrintCard] = useState<any | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Input refs for rapid keyboard / scan gun workflow
+  const activationSectionRef = useRef<HTMLDivElement>(null);
   const scanGunInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +177,52 @@ export default function AdminOnSpot() {
       phoneInputRef.current?.focus();
     }
   };
+
+  // Helper to activate any card clicked directly from the generated cards list
+  const selectCardForActivation = (card: any) => {
+    const code = card.registrationNumber;
+    setScannedCardCode(code);
+    setActiveCardId(code);
+    setLinkRole(card.delegateType || "delegate");
+    setShowSuggestions(false);
+
+    if (card.isOnSpotLinked && card.name && card.name !== "Unassigned Pass") {
+      setLinkName(card.name);
+      setLinkPhone(card.mobile || "");
+      setLinkOrg(card.institution || "");
+      setCardStatusMessage({
+        type: "existing",
+        text: `Card ${code} is currently assigned to ${card.name}. You can edit details below.`,
+      });
+    } else {
+      setLinkName("");
+      setLinkPhone("");
+      setLinkOrg("");
+      setCardStatusMessage({
+        type: "ready",
+        text: `Card ${code} selected — Enter Name, Phone & Org to make valid.`,
+      });
+    }
+
+    // Scroll smoothly to activation counter & focus
+    if (activationSectionRef.current) {
+      activationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setTimeout(() => {
+      phoneInputRef.current?.focus();
+    }, 250);
+  };
+
+  // Live matching card suggestions for auto-fill as the user types
+  const cardSuggestions = scannedCardCode.trim()
+    ? onSpotCards
+        .filter(
+          (c) =>
+            c.registrationNumber?.toLowerCase().includes(scannedCardCode.toLowerCase().trim()) ||
+            c.name?.toLowerCase().includes(scannedCardCode.toLowerCase().trim())
+        )
+        .slice(0, 8)
+    : [];
 
   // Handle Generating Cards by Number or Range
   const handleGenerateCards = async () => {
@@ -462,7 +510,10 @@ export default function AdminOnSpot() {
 
       {/* ── SCAN GUN INSTANT ACTIVATION STATION (MAIN WORKFLOW) ─────────────── */}
       {!isCoordinatorViewOnly && (
-        <div className="p-6 sm:p-8 rounded-3xl bg-[#151518] border-2 border-[#2A2A32] shadow-2xl space-y-5">
+        <div
+          ref={activationSectionRef}
+          className="p-6 sm:p-8 rounded-3xl bg-[#151518] border-2 border-[#2A2A32] shadow-2xl space-y-5"
+        >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#242429] pb-4">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-white text-zinc-950 flex items-center justify-center shadow-md">
@@ -473,7 +524,7 @@ export default function AdminOnSpot() {
                   Scan Gun Activation Counter
                 </h2>
                 <p className="text-[11px] text-zinc-400">
-                  Step 1: Scan card QR/barcode with gun → Step 2: Enter Phone &amp; Name → Step 3: Card becomes Valid
+                  Step 1: Scan card or select generated card # → Step 2: Enter Phone &amp; Name → Step 3: Card becomes Valid
                 </p>
               </div>
             </div>
@@ -491,11 +542,18 @@ export default function AdminOnSpot() {
           <form onSubmit={handleActivateCard} autoComplete="off" autoCorrect="off" spellCheck={false} className="space-y-4">
             {/* Top Bar: Scan Gun Input */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-              <div className="sm:col-span-8 space-y-1.5">
-                <Label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <ScanLine className="w-3.5 h-3.5 text-zinc-400" />
-                  1. Scan Physical Card with Gun (or enter Card #) *
-                </Label>
+              <div className="sm:col-span-8 space-y-1.5 relative">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <ScanLine className="w-3.5 h-3.5 text-zinc-400" />
+                    1. Scan Physical Card with Gun (or enter Card #) *
+                  </Label>
+                  {scannedCardCode && (
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      Type to filter or select below
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Input
                     ref={scanGunInputRef}
@@ -504,19 +562,67 @@ export default function AdminOnSpot() {
                     autoCorrect="off"
                     spellCheck={false}
                     data-lpignore="true"
+                    onFocus={() => setShowSuggestions(true)}
                     onChange={(e) => {
                       setScannedCardCode(e.target.value);
+                      setShowSuggestions(true);
                       handleScanGunLookup(e.target.value);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
+                        setShowSuggestions(false);
                         handleScanGunLookup(scannedCardCode);
                       }
                     }}
                     placeholder="Aim scan gun here & pull trigger (e.g. OS-1001 or 1001)..."
                     className="h-12 bg-[#0C0C0E] border-2 border-white/30 focus:border-white text-white placeholder:text-zinc-500 rounded-2xl text-sm font-mono tracking-wider pl-4 shadow-inner"
                   />
+
+                  {/* Interactive Live Card Autocomplete Dropdown */}
+                  {showSuggestions && cardSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#121319] border border-white/15 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-60 overflow-y-auto backdrop-blur-2xl">
+                      <div className="px-3 py-1.5 text-[10px] font-mono text-zinc-400 border-b border-white/5 uppercase tracking-wider flex items-center justify-between">
+                        <span>Matching Generated Cards ({cardSuggestions.length})</span>
+                        <span>Click to Select &amp; Fill</span>
+                      </div>
+                      <div className="p-1 space-y-0.5">
+                        {cardSuggestions.map((card) => {
+                          const isLinked = card.isOnSpotLinked && card.name !== "Unassigned Pass";
+                          return (
+                            <button
+                              key={card.id}
+                              type="button"
+                              onClick={() => selectCardForActivation(card)}
+                              className="w-full px-3 py-2 text-left rounded-xl hover:bg-white/10 flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer group"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-white group-hover:text-amber-300">
+                                  {card.registrationNumber}
+                                </span>
+                                {card.delegateType && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 capitalize">
+                                    {card.delegateType.replace("_", " ")}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {isLinked ? (
+                                  <span className="text-[11px] text-emerald-400 font-medium">
+                                    {card.name} (Valid)
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-semibold">
+                                    Pending • Click to Enter Details
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -733,9 +839,18 @@ export default function AdminOnSpot() {
                 ))
               ) : filteredCards.length > 0 ? (
                 filteredCards.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#1A1A1F]/70 transition-colors">
-                    <td className="px-5 py-3.5 font-mono font-bold text-white whitespace-nowrap">
-                      {item.registrationNumber}
+                  <tr
+                    key={item.id}
+                    onClick={() => selectCardForActivation(item)}
+                    className="hover:bg-white/[0.06] transition-colors cursor-pointer group"
+                  >
+                    <td className="px-5 py-3.5 font-mono font-bold text-white whitespace-nowrap group-hover:text-amber-300">
+                      <div className="flex items-center gap-1.5">
+                        <span>{item.registrationNumber}</span>
+                        <span className="text-[10px] text-zinc-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          (Click to select)
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap">
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#202028] text-zinc-200 border border-[#2E2E38] inline-flex items-center gap-1">
@@ -756,8 +871,8 @@ export default function AdminOnSpot() {
                           <Check className="w-3 h-3" /> Valid &amp; Active
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-zinc-800/80 text-zinc-400 border border-zinc-700/60 inline-flex items-center gap-1">
-                          <AlertCircle className="w-3 h-3 text-zinc-500" /> Not Valid (Pending Scan)
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-300 border border-amber-500/20 inline-flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-amber-400" /> Pending • Ready to Activate
                         </span>
                       )}
                     </td>
@@ -765,7 +880,7 @@ export default function AdminOnSpot() {
                       {item.isOnSpotLinked ? (
                         <span className="font-bold text-white text-sm">{item.name}</span>
                       ) : (
-                        <span className="text-zinc-500 italic">Unassigned Card</span>
+                        <span className="text-amber-300/80 italic font-medium">Click to Assign Attendee</span>
                       )}
                     </td>
                     <td className="px-4 py-3.5 whitespace-nowrap font-mono text-zinc-300">
@@ -781,17 +896,29 @@ export default function AdminOnSpot() {
                     <td className="px-5 py-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            selectCardForActivation(item);
+                          }}
+                          className="h-8 px-3 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs shadow-sm cursor-pointer border-none flex items-center gap-1"
+                        >
+                          <span>{item.isOnSpotLinked ? "Edit Details" : "⚡ Enter Details"}</span>
+                        </Button>
+
+                        <Button
                           variant="ghost"
                           size="sm"
                           title="View 3D QR Card"
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setQrParticipant({
                               id: item.id,
                               name: item.isOnSpotLinked ? item.name : "Unassigned Card",
                               registrationNumber: item.registrationNumber,
-                            })
-                          }
-                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white"
+                            });
+                          }}
+                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white cursor-pointer"
                         >
                           <QrCode className="w-3.5 h-3.5" />
                         </Button>
@@ -800,8 +927,11 @@ export default function AdminOnSpot() {
                           variant="ghost"
                           size="sm"
                           title="Print ID Card (ID + QR only)"
-                          onClick={() => setPrintCard(item)}
-                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPrintCard(item);
+                          }}
+                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </Button>
