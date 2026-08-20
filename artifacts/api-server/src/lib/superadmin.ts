@@ -160,6 +160,38 @@ export async function ensureSuperAdmin() {
         )`,
         `CREATE INDEX IF NOT EXISTS chat_logs_session_idx ON chat_logs(session_id)`,
         `CREATE INDEX IF NOT EXISTS chat_logs_created_at_idx ON chat_logs(created_at)`,
+        `CREATE TABLE IF NOT EXISTS unresolved_queries (
+          id serial PRIMARY KEY,
+          ticket_number text NOT NULL UNIQUE,
+          user_identifier text DEFAULT 'Anonymous Delegate',
+          user_email text NOT NULL,
+          user_phone text,
+          user_message text NOT NULL,
+          bot_draft_response text,
+          status text NOT NULL DEFAULT 'pending',
+          admin_reply text,
+          resolved_by text,
+          resolved_at timestamp with time zone,
+          added_to_knowledge_base boolean DEFAULT false,
+          created_at timestamp with time zone DEFAULT now(),
+          updated_at timestamp with time zone DEFAULT now()
+        )`,
+        `CREATE INDEX IF NOT EXISTS unresolved_queries_status_idx ON unresolved_queries(status)`,
+        `CREATE INDEX IF NOT EXISTS unresolved_queries_ticket_idx ON unresolved_queries(ticket_number)`,
+        `CREATE TABLE IF NOT EXISTS ai_knowledge_base (
+          id serial PRIMARY KEY,
+          topic text NOT NULL DEFAULT 'General',
+          question_keywords text NOT NULL,
+          question_text text NOT NULL,
+          verified_answer text NOT NULL,
+          source text NOT NULL DEFAULT 'admin_resolution',
+          added_by text DEFAULT 'Super Admin',
+          is_active boolean NOT NULL DEFAULT true,
+          usage_count integer NOT NULL DEFAULT 0,
+          created_at timestamp with time zone DEFAULT now(),
+          updated_at timestamp with time zone DEFAULT now()
+        )`,
+        `CREATE INDEX IF NOT EXISTS ai_knowledge_base_active_idx ON ai_knowledge_base(is_active)`,
       ];
 
       for (const statement of ddlStatements) {

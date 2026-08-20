@@ -1101,3 +1101,187 @@ export async function sendRegistrationConfirmationEmail(params: {
   return res.success;
 }
 
+/** Send notification alert to Super Admins when an inquiry is escalated / unanswerable */
+export async function sendUnresolvedQueryAdminAlertEmail(params: {
+  ticketNumber: string;
+  userIdentifier: string;
+  userEmail: string;
+  userPhone?: string | null;
+  userMessage: string;
+  adminDashboardUrl: string;
+}): Promise<boolean> {
+  const { ticketNumber, userIdentifier, userEmail, userPhone, userMessage, adminDashboardUrl } = params;
+  const adminEmail = process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER || "events@sankaraeye.com";
+  const subject = `⚠️ [Drishti AI Escalation] New Inquiry Ticket #${ticketNumber} requires Super Admin response`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#09090B;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;background:#09090B;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141417;border-radius:24px;border:1px solid #2B2B32;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.6);">
+        <!-- Header -->
+        <tr>
+          <td style="background:#18181C;padding:28px 32px;border-bottom:1px solid #27272D;">
+            <div style="display:inline-block;padding:4px 12px;background:#EF444420;border-radius:20px;border:1px solid #EF444440;margin-bottom:10px;">
+              <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#F87171;text-transform:uppercase;">AI Support Ticket</span>
+            </div>
+            <h1 style="color:#ffffff;margin:0 0 4px;font-size:20px;font-weight:800;letter-spacing:-0.3px;">Unanswered Query Escalation</h1>
+            <p style="color:#A1A1AA;margin:0;font-size:13px;font-weight:500;">Ticket ID: <span style="color:#F59E0B;font-family:monospace;font-weight:700;">#${ticketNumber}</span></p>
+          </td>
+        </tr>
+
+        <!-- Content -->
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#D4D4D8;line-height:1.6;">
+              A delegate asked a question on the Sankara Events Portal that <strong>Drishti AI</strong> could not confidently resolve or that requested direct secretariat follow-up.
+            </p>
+
+            <!-- User Question Block -->
+            <div style="background:#1F1F24;border-left:4px solid #F59E0B;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:700;color:#F59E0B;text-transform:uppercase;letter-spacing:0.5px;">Delegate Inquiry:</p>
+              <p style="margin:0;font-size:15px;color:#FFFFFF;font-weight:600;line-height:1.5;">"${userMessage}"</p>
+            </div>
+
+            <!-- Delegate Info -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#0F0F12;border:1px solid #27272D;border-radius:14px;padding:16px 20px;margin-bottom:28px;">
+              <tr>
+                <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;width:35%;">👤 Delegate:</td>
+                <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#FFFFFF;">${userIdentifier || "Anonymous Delegate"}</td>
+              </tr>
+              <tr>
+                <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">📧 Email:</td>
+                <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#60A5FA;">
+                  <a href="mailto:${userEmail}" style="color:#60A5FA;text-decoration:none;">${userEmail}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:#A1A1AA;">📱 Phone:</td>
+                <td style="font-size:13px;font-weight:600;color:#34D399;">${userPhone || "Not provided"}</td>
+              </tr>
+            </table>
+
+            <!-- Action Button -->
+            <div style="text-align:center;margin-bottom:16px;">
+              <a href="${adminDashboardUrl}" target="_blank" style="display:inline-block;padding:14px 28px;background:#6366F1;color:#FFFFFF;font-size:14px;font-weight:700;text-decoration:none;border-radius:12px;box-shadow:0 4px 14px rgba(99,102,241,0.4);">
+                ✍️ Reply & Train Drishti AI in Command Center
+              </a>
+            </div>
+            <p style="margin:0;font-size:12px;color:#71717A;text-align:center;">
+              Your reply will be emailed directly to the delegate and saved into the AI Knowledge Base for future automated answers.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#121215;border-top:1px solid #222228;padding:18px 32px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#71717A;">Sankara Events Intelligence System • Developed by Team IS - MHQ</p>
+            <p style="margin:0;font-size:11px;color:#52525B;">© ${new Date().getFullYear()} Sankara Eye Foundation India</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const res = await sendEmail(adminEmail, subject, html, false);
+  return res.success;
+}
+
+/** Send verified Super Admin answer email to the asking delegate */
+export async function sendResolvedQueryUserEmail(params: {
+  ticketNumber: string;
+  userIdentifier: string;
+  userEmail: string;
+  userQuestion: string;
+  adminReply: string;
+  resolvedByName: string;
+}): Promise<boolean> {
+  const { ticketNumber, userIdentifier, userEmail, userQuestion, adminReply, resolvedByName } = params;
+  const subject = `Response to your Sankara Events inquiry [#${ticketNumber}]`;
+
+  const formattedReply = adminReply
+    .replace(/\n\n/g, "</p><p style='margin:0 0 12px;font-size:14px;color:#E4E4E7;line-height:1.6;'>")
+    .replace(/\n/g, "<br/>");
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#09090B;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;background:#09090B;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#141417;border-radius:24px;border:1px solid #2B2B32;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.6);">
+        <!-- Header -->
+        <tr>
+          <td style="background:#18181C;padding:28px 32px;border-bottom:1px solid #27272D;">
+            <div style="display:inline-block;padding:4px 12px;background:#10B98120;border-radius:20px;border:1px solid #10B98140;margin-bottom:10px;">
+              <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#34D399;text-transform:uppercase;">Inquiry Resolved</span>
+            </div>
+            <h1 style="color:#ffffff;margin:0 0 4px;font-size:20px;font-weight:800;letter-spacing:-0.3px;">Response from Event Secretariat</h1>
+            <p style="color:#A1A1AA;margin:0;font-size:13px;font-weight:500;">Sankara Eye Foundation India • Ticket <span style="color:#60A5FA;font-family:monospace;font-weight:700;">#${ticketNumber}</span></p>
+          </td>
+        </tr>
+
+        <!-- Content -->
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 12px;font-size:15px;color:#E4E4E7;">
+              Hello <strong>${userIdentifier || "Delegate"}</strong>,
+            </p>
+            <p style="margin:0 0 20px;font-size:14px;color:#A1A1AA;line-height:1.6;">
+              Thank you for reaching out to Sankara Eye Foundation India. Our Event Operations & Secretariat Team has reviewed your inquiry and prepared this official response:
+            </p>
+
+            <!-- Question Recall -->
+            <div style="background:#1F1F24;border-left:4px solid #6366F1;border-radius:12px;padding:14px 18px;margin-bottom:24px;">
+              <p style="margin:0 0 4px;font-size:11px;font-weight:700;color:#818CF8;text-transform:uppercase;">Your Question:</p>
+              <p style="margin:0;font-size:14px;color:#D4D4D8;font-style:italic;">"${userQuestion}"</p>
+            </div>
+
+            <!-- Official Reply Block -->
+            <div style="background:#0F172A;border:1px solid #1E293B;border-radius:16px;padding:24px;margin-bottom:28px;">
+              <p style="margin:0 0 10px;font-size:11px;font-weight:800;color:#38BDF8;text-transform:uppercase;letter-spacing:1px;">Official Response:</p>
+              <p style="margin:0 0 12px;font-size:14px;color:#E4E4E7;line-height:1.6;">
+                ${formattedReply}
+              </p>
+              <div style="margin-top:16px;padding-top:14px;border-top:1px solid #334155;font-size:12px;color:#94A3B8;">
+                Verified by: <strong style="color:#F8FAFC;">${resolvedByName}</strong> • Sankara Eye Foundation India Secretariat
+              </div>
+            </div>
+
+            <!-- Helpful Links -->
+            <div style="text-align:center;padding:12px 0 16px;">
+              <a href="https://sankaraeye.com" target="_blank" style="display:inline-block;padding:10px 20px;margin:0 4px 8px;background:#27272D;color:#ffffff;border:1px solid #3E3E48;font-size:12px;font-weight:700;text-decoration:none;border-radius:10px;">
+                🌐 Visit Sankara Eye Foundation
+              </a>
+            </div>
+
+            <p style="margin:0;font-size:12px;color:#71717A;text-align:center;">
+              If you have any further questions, feel free to reply directly to this email or speak with our team at <strong style="color:#E4E4E7;">events@sankaraeye.com</strong>.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#121215;border-top:1px solid #222228;padding:18px 32px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#71717A;">Developed by Team IS - MHQ</p>
+            <p style="margin:0;font-size:11px;color:#52525B;">© ${new Date().getFullYear()} Sankara Eye Foundation India</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const res = await sendEmail(userEmail, subject, html, false);
+  return res.success;
+}
+

@@ -1,7 +1,8 @@
 import { Router } from "express";
-import { db, eventsTable, chatLogsTable } from "@workspace/db";
+import { db, eventsTable, chatLogsTable, unresolvedQueriesTable, aiKnowledgeBaseTable } from "@workspace/db";
 import { desc, eq, sql, like, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
+import { sendUnresolvedQueryAdminAlertEmail, sendResolvedQueryUserEmail } from "../lib/mailer";
 
 const router = Router();
 
@@ -617,6 +618,62 @@ ${parsedAgenda ? `- Detailed Schedule & Sessions:\n${parsedAgenda}` : ""}
 `;
     }
 
+    // Fetch verified Q&As from Dynamic AI Knowledge Base
+    let dynamicKnowledgeContext = "";
+    try {
+      const kbEntries = await db
+        .select()
+        .from(aiKnowledgeBaseTable)
+        .where(eq(aiKnowledgeBaseTable.isActive, true));
+
+      const normalizedMsg = message.toLowerCase().trim();
+
+      // Check for direct match in verified knowledge base
+      for (const kb of kbEntries) {
+        const keywords = kb.questionKeywords.split(",").map((k) => k.trim().toLowerCase()).filter(Boolean);
+        const matchesKeyword = keywords.length > 0 && keywords.every((kw) => normalizedMsg.includes(kw));
+        const matchesQuestion = normalizedMsg.includes(kb.questionText.toLowerCase().trim()) || kb.questionText.toLowerCase().trim().includes(normalizedMsg);
+
+        if (matchesKeyword || matchesQuestion) {
+          // Increment usage count asynchronously
+          db.update(aiKnowledgeBaseTable)
+            .set({ usageCount: sql`${aiKnowledgeBaseTable.usageCount} + 1` })
+            .where(eq(aiKnowledgeBaseTable.id, kb.id))
+            .catch(() => {});
+
+          const kbAnswer = cleanAiMarkdown(kb.verifiedAnswer);
+          const latencyMs = Date.now() - startTime;
+
+          // Save chat log
+          try {
+            await db.insert(chatLogsTable).values({
+              sessionId,
+              userIdentifier: userIdentifier || "Anonymous Delegate",
+              userMessage: message.trim(),
+              botResponse: kbAnswer,
+              modelUsed: "Sankara-Verified-KnowledgeBase",
+              latencyMs,
+            });
+          } catch {}
+
+          return res.json({
+            response: kbAnswer,
+            sessionId,
+            modelUsed: "Sankara-Verified-KnowledgeBase",
+            latencyMs,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+      if (kbEntries.length > 0) {
+        dynamicKnowledgeContext = `\n=== VERIFIED INSTITUTIONAL KNOWLEDGE BASE (OFFICIAL ADMIN RESOLUTIONS) ===\n` +
+          kbEntries.map((k, idx) => `[Verified Q&A #${idx + 1}] Question: "${k.questionText}" | Answer: "${k.verifiedAnswer}"`).join("\n") + "\n";
+      }
+    } catch (kbErr: any) {
+      logger.warn({ err: kbErr.message }, "Notice: Knowledge base check skipped");
+    }
+
     // Format all events with clear upcoming vs concluded categorization
     const todayStr = new Date().toISOString().split("T")[0]; // "2026-08-20"
     const upcomingList = allEvents.filter((ev) => (ev.endDate || ev.startDate) >= todayStr && ev.registrationOpen);
@@ -675,6 +732,8 @@ CRITICAL TIME AWARENESS & EVENT STATUS:
 - When asked for upcoming conferences or registration pricing, ONLY recommend active upcoming events. DO NOT list past/concluded events as if they are in the future!
 
 ${SANKARA_HOSPITAL_KNOWLEDGE}
+
+${dynamicKnowledgeContext}
 
 ${browserContextSection}
 
@@ -761,7 +820,275 @@ ${eventsContext}
   }
 });
 
-// ── 2. GET /api/admin/chat-logs — Admin Telemetry & Audit List ─────────────────
+// ── 2. POST /api/chat/escalate — Escalate Unresolved Query to Human Secretariat ──
+router.post("/chat/escalate", async (req, res): Promise<void> => {
+  try {
+    const { userEmail, userPhone, userMessage, userIdentifier, botDraftResponse } = req.body;
+
+    if (!userEmail || !userMessage) {
+      res.status(400).json({ error: "userEmail and userMessage are required to log an escalation ticket." });
+      return;
+    }
+
+    const ticketNumber = `SNK-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const [ticket] = await db
+      .insert(unresolvedQueriesTable)
+      .values({
+        ticketNumber,
+        userIdentifier: userIdentifier || "Anonymous Delegate",
+        userEmail: userEmail.trim().toLowerCase(),
+        userPhone: userPhone ? userPhone.trim() : null,
+        userMessage: userMessage.trim(),
+        botDraftResponse: botDraftResponse ? String(botDraftResponse).trim() : null,
+        status: "pending",
+      })
+      .returning();
+
+    // Trigger instant email alert to Super Admins via Zoho SMTP
+    const host = req.get("host") || "localhost:3000";
+    const protocol = req.protocol || "http";
+    const adminDashboardUrl = `${protocol}://${host}/admin/unresolved-queries?ticket=${ticketNumber}`;
+
+    sendUnresolvedQueryAdminAlertEmail({
+      ticketNumber,
+      userIdentifier: userIdentifier || "Anonymous Delegate",
+      userEmail: userEmail.trim(),
+      userPhone: userPhone || null,
+      userMessage: userMessage.trim(),
+      adminDashboardUrl,
+    }).catch((mailErr: any) => {
+      logger.error({ err: mailErr.message }, "Failed to dispatch admin escalation email alert");
+    });
+
+    res.json({
+      success: true,
+      ticketNumber,
+      message: `Inquiry ticket #${ticketNumber} successfully logged. Our secretariat has been notified via email and will reply to ${userEmail} directly.`,
+      ticket,
+    });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error creating escalation ticket");
+    res.status(500).json({ error: "Failed to log escalation ticket", details: err.message });
+  }
+});
+
+// ── 3. GET /api/admin/unresolved-queries — Super Admin Tickets List ───────────
+router.get("/admin/unresolved-queries", async (req, res): Promise<void> => {
+  try {
+    const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt((req.query.limit as string) || "50", 10)));
+    const offset = (page - 1) * limit;
+    const statusFilter = (req.query.status as string || "all").toLowerCase();
+    const search = (req.query.search as string || "").trim();
+
+    let query = db.select().from(unresolvedQueriesTable);
+
+    const conditions: any[] = [];
+    if (statusFilter !== "all") {
+      conditions.push(eq(unresolvedQueriesTable.status, statusFilter));
+    }
+    if (search) {
+      conditions.push(
+        or(
+          like(sql`LOWER(${unresolvedQueriesTable.ticketNumber})`, `%${search.toLowerCase()}%`),
+          like(sql`LOWER(${unresolvedQueriesTable.userEmail})`, `%${search.toLowerCase()}%`),
+          like(sql`LOWER(${unresolvedQueriesTable.userMessage})`, `%${search.toLowerCase()}%`),
+          like(sql`LOWER(${unresolvedQueriesTable.userIdentifier})`, `%${search.toLowerCase()}%`)
+        )
+      );
+    }
+
+    const whereClause = conditions.length > 1 ? sql.join(conditions, sql` AND `) : conditions[0];
+
+    const tickets = whereClause
+      ? await db
+          .select()
+          .from(unresolvedQueriesTable)
+          .where(whereClause)
+          .orderBy(desc(unresolvedQueriesTable.createdAt))
+          .limit(limit)
+          .offset(offset)
+      : await db
+          .select()
+          .from(unresolvedQueriesTable)
+          .orderBy(desc(unresolvedQueriesTable.createdAt))
+          .limit(limit)
+          .offset(offset);
+
+    // Stats
+    const statsResult: any = await db.execute(sql`
+      SELECT 
+        COUNT(*)::int as total_tickets,
+        COUNT(*) FILTER (WHERE status = 'pending')::int as pending_count,
+        COUNT(*) FILTER (WHERE status = 'resolved')::int as resolved_count
+      FROM unresolved_queries
+    `);
+
+    const statsRow = statsResult?.rows?.[0] || statsResult?.[0] || {};
+
+    res.json({
+      tickets,
+      pagination: { page, limit },
+      stats: {
+        totalTickets: Number(statsRow.total_tickets || 0),
+        pendingCount: Number(statsRow.pending_count || 0),
+        resolvedCount: Number(statsRow.resolved_count || 0),
+      },
+    });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error fetching unresolved queries");
+    res.status(500).json({ error: "Failed to fetch unresolved queries", details: err.message });
+  }
+});
+
+// ── 4. POST /api/admin/resolve-query — Send Reply & Train AI Knowledge Base ────
+router.post("/admin/resolve-query", async (req, res): Promise<void> => {
+  try {
+    const {
+      ticketId,
+      adminReply,
+      resolvedByName = "Super Admin (Sankara HQ)",
+      addToKnowledgeBase = true,
+      topic = "General",
+      questionKeywords,
+    } = req.body;
+
+    if (!ticketId || !adminReply) {
+      res.status(400).json({ error: "ticketId and adminReply are required." });
+      return;
+    }
+
+    const [ticket] = await db
+      .select()
+      .from(unresolvedQueriesTable)
+      .where(eq(unresolvedQueriesTable.id, parseInt(ticketId, 10)))
+      .limit(1);
+
+    if (!ticket) {
+      res.status(404).json({ error: "Ticket not found." });
+      return;
+    }
+
+    // 1. Update Ticket in Database
+    await db
+      .update(unresolvedQueriesTable)
+      .set({
+        status: "resolved",
+        adminReply: adminReply.trim(),
+        resolvedBy: resolvedByName,
+        resolvedAt: new Date(),
+        addedToKnowledgeBase: Boolean(addToKnowledgeBase),
+        updatedAt: new Date(),
+      })
+      .where(eq(unresolvedQueriesTable.id, ticket.id));
+
+    // 2. Dispatch verified answer email to the delegate via Zoho SMTP
+    await sendResolvedQueryUserEmail({
+      ticketNumber: ticket.ticketNumber,
+      userIdentifier: ticket.userIdentifier,
+      userEmail: ticket.userEmail,
+      userQuestion: ticket.userMessage,
+      adminReply: adminReply.trim(),
+      resolvedByName,
+    });
+
+    // 3. Add to AI Dynamic Knowledge Base if requested
+    let kbEntry: any = null;
+    if (addToKnowledgeBase) {
+      // Derive keywords if not provided
+      const keywordsToUse = questionKeywords || ticket.userMessage
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .split(/\s+/)
+        .filter((w: string) => w.length > 3 && !["what", "when", "where", "which", "about", "could", "would", "should", "from", "sankara", "hospital"].includes(w))
+        .slice(0, 8)
+        .join(", ");
+
+      const [newKb] = await db
+        .insert(aiKnowledgeBaseTable)
+        .values({
+          topic: topic || "General",
+          questionKeywords: keywordsToUse || ticket.userMessage,
+          questionText: ticket.userMessage.trim(),
+          verifiedAnswer: adminReply.trim(),
+          source: "admin_resolution",
+          addedBy: resolvedByName,
+          isActive: true,
+        })
+        .returning();
+      kbEntry = newKb;
+    }
+
+    res.json({
+      success: true,
+      message: `Verified reply sent to ${ticket.userEmail} and added to Drishti AI Knowledge Base!`,
+      kbEntry,
+    });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error resolving query");
+    res.status(500).json({ error: "Failed to resolve query", details: err.message });
+  }
+});
+
+// ── 5. GET /api/admin/knowledge-base — View AI Learned Knowledge Base ─────────
+router.get("/admin/knowledge-base", async (req, res): Promise<void> => {
+  try {
+    const entries = await db
+      .select()
+      .from(aiKnowledgeBaseTable)
+      .orderBy(desc(aiKnowledgeBaseTable.createdAt));
+
+    res.json({ entries, total: entries.length });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error fetching knowledge base");
+    res.status(500).json({ error: "Failed to fetch knowledge base", details: err.message });
+  }
+});
+
+// ── 6. POST /api/admin/knowledge-base — Add / Edit Knowledge Item ──────────────
+router.post("/admin/knowledge-base", async (req, res): Promise<void> => {
+  try {
+    const { topic = "General", questionKeywords, questionText, verifiedAnswer, addedBy = "Super Admin" } = req.body;
+
+    if (!questionText || !verifiedAnswer) {
+      res.status(400).json({ error: "questionText and verifiedAnswer are required." });
+      return;
+    }
+
+    const [entry] = await db
+      .insert(aiKnowledgeBaseTable)
+      .values({
+        topic,
+        questionKeywords: questionKeywords || questionText,
+        questionText: questionText.trim(),
+        verifiedAnswer: verifiedAnswer.trim(),
+        source: "institutional",
+        addedBy,
+        isActive: true,
+      })
+      .returning();
+
+    res.json({ success: true, entry });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error saving knowledge base entry");
+    res.status(500).json({ error: "Failed to save knowledge base entry", details: err.message });
+  }
+});
+
+// ── 7. DELETE /api/admin/knowledge-base/:id — Delete Knowledge Item ───────────
+router.delete("/admin/knowledge-base/:id", async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    await db.delete(aiKnowledgeBaseTable).where(eq(aiKnowledgeBaseTable.id, id));
+    res.json({ success: true, message: "Knowledge base entry removed." });
+  } catch (err: any) {
+    logger.error({ err: err.message }, "Error deleting knowledge base entry");
+    res.status(500).json({ error: "Failed to delete knowledge base entry", details: err.message });
+  }
+});
+
+// ── 8. GET /api/admin/chat-logs — Admin Telemetry & Audit List ─────────────────
 router.get("/admin/chat-logs", async (req, res): Promise<void> => {
   try {
     const page = Math.max(1, parseInt((req.query.page as string) || "1", 10));
@@ -824,7 +1151,7 @@ router.get("/admin/chat-logs", async (req, res): Promise<void> => {
   }
 });
 
-// ── 3. GET /api/admin/chat-logs/export-csv — Download Complete Chat History CSV ──
+// ── 9. GET /api/admin/chat-logs/export-csv — Download Complete Chat History CSV ──
 router.get("/admin/chat-logs/export-csv", async (req, res): Promise<void> => {
   try {
     const logs = await db
@@ -884,3 +1211,4 @@ router.get("/admin/chat-logs/export-csv", async (req, res): Promise<void> => {
 });
 
 export default router;
+

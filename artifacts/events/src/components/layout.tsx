@@ -8,7 +8,7 @@ import {
   ClipboardList, Database, CalendarDays, Activity, ChevronDown, User2, Settings, Shield,
   ShieldAlert, ShieldCheck,
   Menu, X, BarChart2, RefreshCw, Layers, Sparkles, Building2,
-  ArrowLeft, Check, Radio, MessageSquare, Tag, Bot,
+  ArrowLeft, Check, Radio, MessageSquare, Tag, Bot, HelpCircle,
 } from "lucide-react";
 import { UserProfileDialog } from "./user-profile-dialog";
 
@@ -81,6 +81,7 @@ export function AppLayout({ children }: LayoutProps) {
           items.push(
             { label: "Agenda & PDF Editor", href: `/admin/event-sessions?eventId=${eid}`, icon: CalendarDays },
             { label: "WhatsApp Broadcast", href: `/admin/whatsapp?eventId=${eid}`, icon: MessageSquare },
+            { label: "AI Escalations & KB", href: `/admin/unresolved-queries`, icon: HelpCircle },
             { label: "AI Chatbot Logs", href: `/admin/chat-logs`, icon: Bot }
           );
 
@@ -94,6 +95,7 @@ export function AppLayout({ children }: LayoutProps) {
           { label: "Staff Active Sessions", href: "/admin/sessions", icon: Shield },
           { label: "Session Sync Engine", href: "/admin/sync-sessions", icon: RefreshCw },
           { label: "Traffic Telemetry", href: "/admin/traffic", icon: BarChart2 },
+          { label: "AI Escalations & KB", href: "/admin/unresolved-queries", icon: HelpCircle },
           { label: "AI Chatbot Logs", href: "/admin/chat-logs", icon: MessageSquare },
           { label: "Audit & System Logs", href: "/admin/logs", icon: ClipboardList },
           { label: "Global Settings", href: "/admin/settings", icon: Settings },

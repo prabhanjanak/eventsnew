@@ -16,3 +16,4 @@ export * from "./coupons";
 export * from "./google-wallet";
 export * from "./id-card-designs";
 export * from "./chat-logs";
+export * from "./knowledge-base";

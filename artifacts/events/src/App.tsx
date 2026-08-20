@@ -31,6 +31,7 @@ import ParticipantDashboard from "@/pages/participant/dashboard";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminParticipants from "@/pages/admin/participants";
 import AdminChatLogs from "@/pages/admin/chat-logs";
+import AdminUnresolvedQueries from "@/pages/admin/unresolved-queries";
 import AdminCrewVendors from "@/pages/admin/crew-vendors";
 import { SankaraAIChatbot } from "@/components/chat/sankara-ai-chatbot";
 import AdminOnSpot from "@/pages/admin/on-spot";
@@ -167,6 +168,9 @@ function Router() {
       </Route>
       <Route path="/admin/chat-logs">
         <AppLayout><AdminChatLogs /></AppLayout>
+      </Route>
+      <Route path="/admin/unresolved-queries">
+        <AppLayout><AdminUnresolvedQueries /></AppLayout>
       </Route>
 
       {/* Track Coordinator — both paths work */}
