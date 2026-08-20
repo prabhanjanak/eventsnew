@@ -13,7 +13,7 @@ export function Sankara3DEmblem({
   className = "",
   size = "lg",
   showTagline = true,
-  sphereColor = "#38BDF8", // Sankara Medical Cyan / Blue
+  sphereColor = "#ffffff", // Pure white particles
 }: Sankara3DEmblemProps) {
   const sizeMap = {
     sm: { container: "w-44 h-44", logo: "w-16 h-16", sphereScale: 6 },
@@ -49,17 +49,17 @@ export function Sankara3DEmblem({
         <motion.div
           animate={{
             scale: [1, 1.15, 1],
-            opacity: [0.35, 0.18, 0.35],
+            opacity: [0.3, 0.15, 0.3],
           }}
           transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          className="absolute w-36 h-36 rounded-full bg-cyan-500/25 blur-2xl pointer-events-none z-10"
+          className="absolute w-36 h-36 rounded-full bg-white/20 blur-2xl pointer-events-none z-10"
         />
 
         {/* Center Sankara Eye Logo */}
         <motion.div
           animate={{ y: [0, -3, 0] }}
           transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-          className="relative z-20 flex items-center justify-center pointer-events-none p-3 rounded-full bg-black/40 backdrop-blur-sm border border-cyan-400/20 shadow-[0_0_30px_rgba(6,182,212,0.35)]"
+          className="relative z-20 flex items-center justify-center pointer-events-none p-3 rounded-full bg-black/40 backdrop-blur-sm border border-white/20 shadow-[0_0_30px_rgba(255,255,255,0.25)]"
         >
           <img
             src="/sankara-eye-logo.png"

@@ -208,7 +208,7 @@ function App() {
           </WouterRouter>
           <Toaster />
           {/* Originkit Dynamic Click / Mouse Effects Overlay */}
-          <MouseEffects interactionMode="sniper" color="#38BDF8" effectSize={80} />
+          <MouseEffects interactionMode="sniper" color="#ffffff" effectSize={80} />
         </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
