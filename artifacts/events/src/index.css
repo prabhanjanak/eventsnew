@@ -75,13 +75,24 @@
   --radius: 0.75rem;
 }
 
+html {
+  font-size: 18.5px; /* Proportional global scale for 100% browser zoom */
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (min-width: 1280px) {
+  html {
+    font-size: 19px;
+  }
+}
+
 body {
   background-color: #09090B;
   color: #F4F4F5;
   font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  letter-spacing: -0.012em;
+  font-size: 1rem;
+  line-height: 1.68;
+  letter-spacing: -0.014em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
@@ -92,6 +103,7 @@ body {
 h1, h2, h3, .font-heading {
   font-family: "Outfit", "Plus Jakarta Sans", sans-serif;
   letter-spacing: -0.025em;
+  font-weight: 800;
 }
 
 /* ── Top Blue & Bottom Purple Atmospheric Ambient Gradient ── */
