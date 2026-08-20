@@ -272,7 +272,7 @@ export function SankaraAIChatbot() {
                       <span className="text-sm text-cyan-400 font-serif font-bold">(दृष्टि)</span>
                     </h3>
                     <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-black uppercase font-mono">
-                      Meta Llama 3.3
+                      Google Gemini 2.0
                     </span>
                   </div>
                   <p className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium pt-0.5">

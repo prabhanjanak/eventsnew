@@ -5,9 +5,10 @@ import { logger } from "../lib/logger";
 
 const router = Router();
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || "";
 const HF_API_TOKEN = process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN || "";
-const DEFAULT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
-const FALLBACK_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
+const DEFAULT_MODEL = "gemini-2.0-flash";
+const FALLBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 
 // System Knowledge Base — Institutional Pillars & Hospital Locations
 const SANKARA_HOSPITAL_KNOWLEDGE = `
@@ -46,11 +47,57 @@ const SANKARA_HOSPITAL_KNOWLEDGE = `
 15. Patna, Bihar (Upcoming Super-Specialty): Patna, Bihar | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Patna
 `;
 
-// Helper to call Hugging Face Router with Meta Llama 3.3 / 3.1
+// Helper: Query Google Gemini API (2.0 Flash / 1.5 Flash)
+async function queryGemini(systemInstruction: string, messages: Array<{ role: string; content: string }>): Promise<string> {
+  if (!GEMINI_API_KEY) {
+    throw new Error("No GEMINI_API_KEY provided in environment.");
+  }
+
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+  const models = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"];
+
+  for (const model of models) {
+    try {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: systemInstruction }],
+          },
+          contents,
+          generationConfig: {
+            temperature: 0.25,
+            maxOutputTokens: 850,
+          },
+        }),
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+          return data.candidates[0].content.parts.map((p: any) => p.text).join("").trim();
+        }
+      }
+    } catch (e: any) {
+      logger.warn({ error: e.message, model }, "Gemini API call failed");
+    }
+  }
+
+  throw new Error("Gemini API models unavailable.");
+}
+
+// Helper: Query Hugging Face Router with Meta Llama 3.3 / 3.1
 async function queryLlama(messages: Array<{ role: string; content: string }>): Promise<string> {
   const modelsToTry = [
-    DEFAULT_MODEL,
-    FALLBACK_MODEL,
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "meta-llama/Llama-3.1-8B-Instruct",
     "Qwen/Qwen2.5-72B-Instruct",
   ];
 
@@ -88,6 +135,130 @@ async function queryLlama(messages: Array<{ role: string; content: string }>): P
   throw new Error("All AI inference models exhausted or rate-limited.");
 }
 
+// Hospital Branch Location Profiles
+const SANKARA_BRANCHES = [
+  {
+    name: "Sankara Eye Hospital, Ludhiana (Punjab)",
+    keywords: ["ludhiana", "punjab"],
+    address: "Village VIP Road, Ludhiana, Punjab - 141102",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Ludhiana",
+    specialties: "Comprehensive Cataract (Phacoemulsification), Cornea & Refractive Services, Glaucoma Clinic, Vitreo-Retina, Pediatric Ophthalmology, 24/7 Eye Trauma Care",
+    description: "Serving North India with high-quality super-specialty ophthalmic care, dedicated paying & subsidized community outreach wings.",
+  },
+  {
+    name: "Sankara Eye Hospital, Coimbatore (Headquarters & Tertiary Institute)",
+    keywords: ["coimbatore", "saravanampatti", "sivanandapuram", "tamil nadu"],
+    address: "Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore",
+    specialties: "Tertiary Eye Institute, High-Volume Micro-incision Cataract, LASIK/Contoura Vision, Corneal Transplants (PK/DMEK), Vitreo-Retinal Surgeries, Ocular Oncology",
+    description: "The founding flagship tertiary eye hospital of Sri Kanchi Kamakoti Medical Trust, established in 1977.",
+  },
+  {
+    name: "Sankara Eye Hospital, Bengaluru (Kundalahalli Gate)",
+    keywords: ["kundalahalli", "varthur", "whitefield", "bangalore kundalahalli", "bengaluru kundalahalli"],
+    address: "Varthur Main Road, Kundalahalli Gate, Bengaluru, Karnataka - 560037",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Kundalahalli+Bangalore",
+    specialties: "SMILE, Contoura Vision & Blade-Free LASIK, Micro-incision Cataract with Premium IOLs, Glaucoma, Cornea, Oculoplasty, Vitreo-Retina",
+    description: "State-of-the-art super-specialty eye institute catering to IT corridor delegates and community outreach across Karnataka.",
+  },
+  {
+    name: "Sankara Eye Hospital, Bengaluru (Jayanagar)",
+    keywords: ["jayanagar", "bangalore jayanagar", "bengaluru jayanagar"],
+    address: "8th Block, Jayanagar, Bengaluru, Karnataka",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Bangalore",
+    specialties: "Specialist OPD Consultations, Glaucoma Diagnostics, Retina Lasers, Daycare Cataract Evaluation",
+    description: "Central South Bengaluru branch offering comprehensive eye examinations and clinical specialist consultations.",
+  },
+  {
+    name: "Sankara Eye Hospital, Chennai (Pammal)",
+    keywords: ["pammal", "chennai"],
+    address: "No. 1, Sankara Eye Hospital Road, Pammal, Chennai, Tamil Nadu - 600075",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Pammal+Chennai",
+    specialties: "High-Volume Cataract Surgeries, Community Ophthalmology, Cornea, Retina Diagnostics, Glaucoma Care",
+    description: "Prominent eye care landmark in Chennai with NABH accreditation and community blindness-eradication programs.",
+  },
+  {
+    name: "Sankara Eye Hospital, Guntur (Andhra Pradesh)",
+    keywords: ["guntur", "andhra", "pedakakani", "vijayawada"],
+    address: "Vijayawada-Guntur Expressway, Pedakakani, Guntur, Andhra Pradesh - 522509",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Guntur",
+    specialties: "NABH Accredited Super-Specialty, High-Volume Free & Subsidized Cataract Surgeries, Glaucoma, Diabetic Retinopathy Clinics",
+    description: "Premier ophthalmic referral centre on the Vijayawada-Guntur Highway serving coastal Andhra Pradesh.",
+  },
+  {
+    name: "Sankara Eye Hospital, Shimoga (Shivamogga, Karnataka)",
+    keywords: ["shimoga", "shivamogga"],
+    address: "Harakere, Honnali Road, Shivamogga, Karnataka - 577202",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Shimoga",
+    specialties: "Comprehensive Cataract (Phaco), Glaucoma Screening, Diabetic Retinopathy, Rural Community Eye Camps",
+    description: "Serving the Malnad region of Karnataka with world-class eye care services and community outreach.",
+  },
+  {
+    name: "Sankara Eye Hospital, Anand (Mogar, Gujarat)",
+    keywords: ["anand", "gujarat", "mogar"],
+    address: "NH 48, Mogar, Anand, Gujarat - 388340",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Anand+Gujarat",
+    specialties: "Super-Specialty Tertiary Eye Hospital, Advanced Phaco, Glaucoma Management, Cornea, Vitreo-Retina",
+    description: "NABH Accredited super-specialty hospital on NH 48 serving central Gujarat.",
+  },
+  {
+    name: "Sankara Eye Hospital, Kanpur (Uttar Pradesh)",
+    keywords: ["kanpur", "panki", "uttar pradesh"],
+    address: "Panki Industrial Area, Kanpur, Uttar Pradesh - 208020",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Kanpur",
+    specialties: "Comprehensive Phacoemulsification, Glaucoma, Cornea, Retina, Rural Outreach Programs",
+    description: "Leading eye care institution in Central UP providing subsidized and world-class private eye care.",
+  },
+  {
+    name: "Sankara Eye Hospital, Jaipur (Rajasthan)",
+    keywords: ["jaipur", "rajasthan", "kukas"],
+    address: "Delhi-Jaipur Express Highway, Kukas, Jaipur, Rajasthan - 302028",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Jaipur",
+    specialties: "State-of-the-Art Ophthalmic Hospital, Free & Paid Wings, Cataract, Lasik, Retina",
+    description: "Serving Rajasthan and North-Western India with NABH-accredited ophthalmic infrastructure.",
+  },
+  {
+    name: "Sankara Eye Hospital, Indore (Madhya Pradesh)",
+    keywords: ["indore", "madhya pradesh", "mp", "vijay nagar"],
+    address: "Scheme No. 78, Part II, Vijay Nagar, Indore, Madhya Pradesh - 452010",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Indore",
+    specialties: "NABH Accredited Super-Specialty, Micro-incision Cataract, Glaucoma, Pediatric Ophthalmology & Retina",
+    description: "Modern eye hospital in Vijay Nagar, Indore catering to Central India.",
+  },
+  {
+    name: "Sankara Eye Hospital, Hyderabad (Telangana)",
+    keywords: ["hyderabad", "telangana", "gachibowli"],
+    address: "Financial District / Gachibowli, Hyderabad, Telangana",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Hyderabad",
+    specialties: "Super-Specialty Laser Vision Correction, Advanced Cataract & Retinal Consultations",
+    description: "Serving Telangana and Hyderabad with precision ophthalmic care.",
+  },
+  {
+    name: "Sankara Eye Hospital, Panvel (Navi Mumbai, Maharashtra)",
+    keywords: ["panvel", "mumbai", "navi mumbai", "maharashtra"],
+    address: "Plot 1, Sector 5A, New Panvel East, Navi Mumbai, Maharashtra - 410206",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Panvel+Mumbai",
+    specialties: "Tertiary Multi-Specialty Eye Care, Laser Vision, Cataract, Cornea Transplants, Vitreo-Retina",
+    description: "State-of-the-art tertiary eye institute catering to Mumbai, Navi Mumbai, and the Konkan belt.",
+  },
+  {
+    name: "Sankara Eye Hospital, Krishnankoil (Tamil Nadu)",
+    keywords: ["krishnankoil", "srivilliputhur"],
+    address: "Srivilliputhur Taluk, Krishnankoil, Tamil Nadu - 626126",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Krishnankoil",
+    specialties: "High-Volume Rural Cataract Surgeries, Community Outreach Base, Pediatric Vision Screening",
+    description: "Dedicated community surgical base serving Southern Tamil Nadu.",
+  },
+  {
+    name: "Sankara Eye Hospital, Patna (Bihar - Upcoming Super-Specialty)",
+    keywords: ["patna", "bihar"],
+    address: "Patna, Bihar",
+    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Patna",
+    specialties: "Upcoming Super-Specialty Eye Institute with high-volume surgical suites, Cornea, Retina, and Glaucoma clinics",
+    description: "The 15th Sankara Eye Hospital bringing world-class ophthalmic care to Bihar and Eastern India.",
+  },
+];
+
 // Local Grounded Search Fallback & Browser-Aware Reasoning Engine
 function generateLocalGroundedAnswer(
   userQuery: string,
@@ -123,12 +294,21 @@ function generateLocalGroundedAnswer(
     return `📸 **Sankara Event Photographs & AI Media Gallery**\n\nYou can view, search using AI facial recognition, and download high-resolution event photographs directly on **Samaro.ai**:\n\n👉 **[Access Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)**\n\nAll delegates can search by their selfie or browse by conference hall and session dates!`;
   }
 
-  // 2. Hospital Network & Institutional Facts
-  if (q.includes("hospital") || q.includes("network") || q.includes("surgery") || q.includes("surgeries") || q.includes("about") || q.includes("patna") || q.includes("bihar") || q.includes("trust") || q.includes("nabh") || q.includes("founder") || q.includes("ramani")) {
+  // 2. Specific Hospital Branch Matcher (e.g. Ludhiana, Coimbatore, Bangalore, Guntur, etc.)
+  const matchedBranch = SANKARA_BRANCHES.find((b) =>
+    b.keywords.some((k) => q.includes(k))
+  );
+
+  if (matchedBranch) {
+    return `🏥 **${matchedBranch.name}**\n\n- 📍 **Address**: ${matchedBranch.address}\n- 🗺️ **Google Maps Navigation**: [Click to Open Google Maps](${matchedBranch.maps})\n- 🔬 **Clinical Super-Specialties**: ${matchedBranch.specialties}\n- ℹ️ **About Branch**: ${matchedBranch.description}\n- 🥗 **Hospital Ethos**: **100% Pure Vegetarian** dietary service & 80:20 community cross-subsidization model.\n- 🌐 **Official Website**: [sankaraeye.com](https://sankaraeye.com)\n\n👉 **[Explore Upcoming Conferences & CMEs](/events)** | **[Academic Calendar](/calendar)**`;
+  }
+
+  // 3. Hospital Network & Institutional Facts Overview
+  if (q.includes("hospital") || q.includes("network") || q.includes("surgery") || q.includes("surgeries") || q.includes("about") || q.includes("trust") || q.includes("nabh") || q.includes("founder") || q.includes("ramani")) {
     return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **14 Hospitals** across India (+ 1 Upcoming Super-Specialty Hospital in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
   }
 
-  // 3. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across all events
+  // 4. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across all events
   if (
     q.includes("student") ||
     q.includes("pg") ||
@@ -444,20 +624,30 @@ ${eventsContext}
     ];
 
     let aiResponse = "";
-    let modelUsed = DEFAULT_MODEL;
+    let modelUsed = "Google Gemini 2.0 Flash";
 
     try {
-      aiResponse = await queryLlama(conversationMessages);
-      modelUsed = DEFAULT_MODEL;
-    } catch (hfErr: any) {
-      logger.warn({ error: hfErr.message }, "Falling back to local grounded engine");
-      aiResponse = generateLocalGroundedAnswer(
-        message.trim(),
-        allEvents,
-        focusedEvent,
-        { currentPath, currentUrl, pageTitle, visiblePageContext }
-      );
-      modelUsed = "Sankara-Grounded-Engine (Browser-Aware)";
+      if (GEMINI_API_KEY) {
+        aiResponse = await queryGemini(systemPrompt, conversationMessages);
+        modelUsed = "Google Gemini 2.0 Flash";
+      } else {
+        aiResponse = await queryLlama(conversationMessages);
+        modelUsed = "Meta Llama 3.3 70B";
+      }
+    } catch (llmErr: any) {
+      try {
+        aiResponse = await queryLlama(conversationMessages);
+        modelUsed = "Meta Llama 3.3 70B (HF Router)";
+      } catch (hfErr: any) {
+        logger.warn({ error: hfErr.message }, "Falling back to local grounded engine");
+        aiResponse = generateLocalGroundedAnswer(
+          message.trim(),
+          allEvents,
+          focusedEvent,
+          { currentPath, currentUrl, pageTitle, visiblePageContext }
+        );
+        modelUsed = "Sankara-Grounded-Engine (Browser-Aware)";
+      }
     }
 
     const latencyMs = Date.now() - startTime;
