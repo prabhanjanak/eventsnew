@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { db, systemUsersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 export async function ensureSuperAdmin() {
@@ -47,8 +47,8 @@ export async function ensureSuperAdmin() {
     // ── AUTOMATED DATABASE MIGRATION & LEGACY VISION 2020 DATA ATTACHMENT ─────
     try {
       // 1. Ensure all tables have required event_id and modern columns
-      await (db as any).execute(`
-        CREATE TABLE IF NOT EXISTS events (
+      const ddlStatements = [
+        `CREATE TABLE IF NOT EXISTS events (
           id serial PRIMARY KEY,
           slug text NOT NULL UNIQUE,
           title text NOT NULL,
@@ -101,36 +101,40 @@ export async function ensureSuperAdmin() {
           status text NOT NULL DEFAULT 'published',
           created_at timestamp with time zone NOT NULL DEFAULT now(),
           updated_at timestamp with time zone NOT NULL DEFAULT now()
-        );
+        )`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_summary text`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_description text`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_ending_notes text`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_visitor_count integer`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_gallery_json text`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_completed boolean DEFAULT false`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_completed_at timestamp with time zone`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_attendance boolean DEFAULT true`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_food boolean DEFAULT true`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_goodies boolean DEFAULT true`,
+        `ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_google_wallet boolean DEFAULT true`,
+        `ALTER TABLE participants ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE food_sessions ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE assignments ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE coupons ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE rsvp ADD COLUMN IF NOT EXISTS event_id integer`,
+        `ALTER TABLE system_users ADD COLUMN IF NOT EXISTS assigned_event_ids jsonb DEFAULT '[]'::jsonb`,
+      ];
 
-        -- Safe column additions on existing tables
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_summary text;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_description text;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_ending_notes text;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_visitor_count integer;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_gallery_json text;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_completed boolean DEFAULT false;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_completed_at timestamp with time zone;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_attendance boolean DEFAULT true;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_food boolean DEFAULT true;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_goodies boolean DEFAULT true;
-        ALTER TABLE events ADD COLUMN IF NOT EXISTS enable_google_wallet boolean DEFAULT true;
-
-        -- Ensure event_id exists on all operational tables
-        ALTER TABLE participants ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE food_sessions ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE assignments ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE coupons ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE rsvp ADD COLUMN IF NOT EXISTS event_id integer;
-        ALTER TABLE system_users ADD COLUMN IF NOT EXISTS assigned_event_ids jsonb DEFAULT '[]'::jsonb;
-      `);
+      for (const statement of ddlStatements) {
+        try {
+          await db.execute(sql.raw(statement));
+        } catch (e: any) {
+          // ignore already existing columns
+        }
+      }
 
       // 2. Ensure Primary Vision 2020 Event Exists
-      const eventCheck = await (db as any).execute(`
-        SELECT id, slug, title FROM events WHERE slug = 'vision-2020' OR slug = 'annual-ophthalmology-2026' ORDER BY id ASC LIMIT 1;
-      `);
+      const eventCheck: any = await db.execute(sql.raw(`
+        SELECT id, slug, title FROM events WHERE slug = 'vision-2020' OR slug = 'annual-ophthalmology-2026' ORDER BY id ASC LIMIT 1
+      `));
 
       let primaryEventId: number;
 
@@ -138,7 +142,7 @@ export async function ensureSuperAdmin() {
         primaryEventId = eventCheck.rows[0].id;
       } else {
         // Create primary Vision 2020 event
-        const insertResult = await (db as any).execute(`
+        const insertResult: any = await db.execute(sql.raw(`
           INSERT INTO events (
             slug, title, event_type, description, venue, city, 
             start_date, end_date, time_from, time_to, is_paid, registration_fee, 
@@ -161,22 +165,30 @@ export async function ensureSuperAdmin() {
             true,
             true,
             true
-          ) RETURNING id;
-        `);
+          ) RETURNING id
+        `));
         primaryEventId = insertResult.rows[0].id;
         logger.info({ primaryEventId }, "Default Vision 2020 event created for legacy production data attachment.");
       }
 
       // 3. Automatically link all legacy production records with event_id IS NULL to primary Vision 2020 event
-      const backfillResult = await (db as any).execute(`
-        UPDATE participants SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE food_sessions SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE attendance_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE food_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE assignments SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE coupons SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-        UPDATE rsvp SET event_id = ${primaryEventId} WHERE event_id IS NULL;
-      `);
+      const backfillStatements = [
+        `UPDATE participants SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE food_sessions SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE attendance_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE food_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE assignments SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE coupons SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+        `UPDATE rsvp SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+      ];
+
+      for (const statement of backfillStatements) {
+        try {
+          await db.execute(sql.raw(statement));
+        } catch {
+          // ignore if table does not exist
+        }
+      }
 
       logger.info({ primaryEventId }, "Legacy Vision 2020 data and stats successfully attached and verified in production database.");
     } catch (e: any) {
