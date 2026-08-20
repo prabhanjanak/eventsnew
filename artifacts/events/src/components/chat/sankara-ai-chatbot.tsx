@@ -99,6 +99,24 @@ export function SankaraAIChatbot() {
     setIsLoading(true);
 
     try {
+      // ── Capture Live Browser Screen Context ────────────────────────────────
+      let visiblePageText = "";
+      let activeEventSlug = "";
+      try {
+        const path = window.location.pathname;
+        const slugMatch = path.match(/\/events\/([^/?#]+)/);
+        if (slugMatch && slugMatch[1] && slugMatch[1] !== "calendar") {
+          activeEventSlug = slugMatch[1];
+        }
+
+        const mainEl = document.querySelector("main") || document.body;
+        const textElements = Array.from(mainEl.querySelectorAll("h1, h2, h3, h4, [data-event-title], p, .event-highlight"))
+          .slice(0, 20)
+          .map((el) => el.textContent?.trim())
+          .filter((t) => t && t.length > 2 && !t.includes("Sankara AI"));
+        visiblePageText = textElements.join(" | ").slice(0, 1500);
+      } catch {}
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,6 +125,11 @@ export function SankaraAIChatbot() {
           sessionId,
           userIdentifier: user ? `${user.name} (${user.email || user.mobile || user.userType})` : "Anonymous Delegate",
           history: messages.slice(-6),
+          currentPath: window.location.pathname,
+          currentUrl: window.location.href,
+          pageTitle: document.title,
+          activeEventSlug,
+          visiblePageContext: visiblePageText,
         }),
       });
 
