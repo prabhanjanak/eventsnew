@@ -61,7 +61,13 @@ export default function ForgotPassword() {
         }),
       });
 
-      const data = await resp.json();
+      let data: any = {};
+      try {
+        const text = await resp.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
       if (resp.ok) {
         setSubmitted(true);
         toast({ title: "Reset Request Sent Successfully ✓" });
