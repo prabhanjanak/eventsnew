@@ -1,18 +1,88 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Mail,
   ShieldCheck,
   Building2,
+  Copy,
+  Check,
+  Send,
+  Loader2,
   ExternalLink,
   User,
+  Phone,
+  CheckCircle2,
 } from "lucide-react";
 import GlitterWrap from "@/components/originkit/ui/glitter-wrap";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+const ADMIN_EMAIL = "prabhanjan@sankaraeye.com";
 
 export default function ForgotPassword() {
+  const [identifier, setIdentifier] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const { toast } = useToast();
+
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText(ADMIN_EMAIL);
+    setCopied(true);
+    toast({ title: "Email Copied to Clipboard!", description: ADMIN_EMAIL });
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleSendAdminRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!identifier.trim() && !email.trim()) {
+      toast({ title: "Please enter your Employee ID or Email", variant: "destructive" });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const resp = await fetch(`${BASE_URL}/api/auth/request-admin-reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identifier: identifier.trim(),
+          name: name.trim(),
+          email: email.trim(),
+          mobile: mobile.trim(),
+        }),
+      });
+
+      const data = await resp.json();
+      if (resp.ok) {
+        setSubmitted(true);
+        toast({ title: "Reset Request Sent Successfully ✓" });
+      } else {
+        toast({
+          title: "Request Failed",
+          description: data.error || "Could not log reset ticket.",
+          variant: "destructive",
+        });
+      }
+    } catch {
+      toast({ title: "Network error", description: "Please use the direct email button below.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mailtoUrl = `mailto:${ADMIN_EMAIL}?subject=Staff%20Password%20Reset%20Request&body=Hello%20Prabhanjan,%0D%0A%0D%0APlease%20assist%20with%20resetting%20my%20Sankara%20Events%20password.%0D%0A%0D%0AEmployee%20ID:%20${encodeURIComponent(identifier)}%0D%0AName:%20${encodeURIComponent(name)}%0D%0AMobile:%20${encodeURIComponent(mobile)}`;
+  const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${ADMIN_EMAIL}&su=Staff+Password+Reset+Request&body=Hello+Prabhanjan,%0A%0APlease+assist+with+resetting+my+Sankara+Events+password.%0A%0AEmployee+ID:+${encodeURIComponent(identifier)}%0AName:+${encodeURIComponent(name)}`;
+  const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${ADMIN_EMAIL}&subject=Staff%20Password%20Reset%20Request&body=Hello%20Prabhanjan,%0D%0A%0D%0APlease%20assist%20with%20resetting%20my%20Sankara%20Events%20password.%0D%0A%0D%0AEmployee%20ID:%20${encodeURIComponent(identifier)}%0D%0AName:%20${encodeURIComponent(name)}`;
+
   return (
     <div className="relative min-h-screen bg-[#09090C] text-zinc-100 flex flex-col font-sans overflow-x-hidden selection:bg-white/20 selection:text-white">
       {/* ── GlitterWrap Ambient Background ──────────────────────────────────── */}
@@ -43,7 +113,7 @@ export default function ForgotPassword() {
             className="inline-flex items-center gap-2 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer group"
           >
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span>Back to Login</span>
+            <span>Back to Staff Login</span>
           </Link>
 
           <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10">
@@ -56,7 +126,7 @@ export default function ForgotPassword() {
       </header>
 
       {/* ── Centered Main Content ────────────────────────────────────────────── */}
-      <main className="relative z-10 max-w-lg mx-auto px-4 py-10 sm:py-16 w-full flex-1 flex flex-col justify-center items-center">
+      <main className="relative z-10 max-w-lg mx-auto px-4 py-8 sm:py-12 w-full flex-1 flex flex-col justify-center items-center">
         
         {/* ── Dual Emblem Header ── */}
         <div className="text-center space-y-3 flex flex-col items-center mb-6">
@@ -90,70 +160,168 @@ export default function ForgotPassword() {
           </div>
         </div>
 
-        {/* ── Administrator Contact Card ── */}
+        {/* ── Administrator Contact & Request Card ── */}
         <div className="w-full rounded-2xl bg-[#121319]/90 border border-white/10 backdrop-blur-2xl p-6 sm:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.7)] space-y-6">
           
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Contact System Administrator</span>
+          {/* Administrator Profile Card */}
+          <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-indigo-400" />
+                  <span className="text-sm font-bold text-white">Prabhanjan</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <Building2 className="w-3.5 h-3.5 text-zinc-500" />
+                  <span>MHQ IS Department</span>
+                </div>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono">
+                System Administrator
+              </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-indigo-400" />
-                    <span className="text-sm font-bold text-white">Prabhanjan</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-zinc-400">
-                    <Building2 className="w-3.5 h-3.5 text-zinc-500" />
-                    <span>MHQ IS Department</span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono">
-                  Primary Admin
-                </span>
+            <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
+                <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                <span>{ADMIN_EMAIL}</span>
               </div>
-
-              <div className="pt-2 border-t border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-mono text-zinc-300">
-                  <Mail className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>prabhanjan@sankaraeye.com</span>
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={handleCopyEmail}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-mono text-zinc-300 hover:text-white transition-all cursor-pointer"
+              >
+                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-zinc-400" />}
+                <span>{copied ? "Copied" : "Copy"}</span>
+              </button>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-2.5 pt-2">
-            <Button
-              asChild
-              className="w-full h-11 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 border-none cursor-pointer"
-            >
-              <a href="mailto:prabhanjan@sankaraeye.com?subject=Staff%20Password%20Reset%20Request&body=Hello%20Prabhanjan,%0D%0A%0D%0APlease%20assist%20with%20resetting%20my%20Sankara%20Events%20account%20password.%0D%0A%0D%0AEmployee%20ID:%20%0D%0AName:%20%0D%0ADepartment:%20">
-                <Mail className="w-4 h-4 text-zinc-950" />
-                <span>Email Administrator for Reset</span>
-                <ExternalLink className="w-3.5 h-3.5 text-zinc-600" />
-              </a>
-            </Button>
+          {/* Form or Submitted State */}
+          {submitted ? (
+            <div className="p-5 rounded-xl bg-emerald-950/30 border border-emerald-500/30 text-center space-y-3">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-emerald-200">Reset Request Dispatched</h3>
+                <p className="text-xs text-zinc-300 max-w-xs mx-auto leading-relaxed">
+                  Your request has been logged and sent to <strong>Prabhanjan (prabhanjan@sankaraeye.com)</strong>. You will be notified once reset.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSubmitted(false)}
+                className="text-xs border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
+              >
+                Submit another request
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleSendAdminRequest} className="space-y-3.5">
+              <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <Send className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Submit Instant Reset Ticket</span>
+              </div>
 
-            <Button
-              asChild
-              variant="outline"
-              className="w-full h-11 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border-white/10 font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Link href="/login">
-                <ArrowLeft className="w-4 h-4 text-zinc-400" />
-                <span>Return to Staff Login</span>
-              </Link>
-            </Button>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-zinc-300 font-medium">Employee ID / Username *</Label>
+                <Input
+                  required
+                  placeholder="e.g. 010177"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className="h-10 bg-black/40 border-white/10 text-white text-xs font-mono rounded-xl focus:border-white/40"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-zinc-300 font-medium">Full Name</Label>
+                  <Input
+                    placeholder="Your Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-10 bg-black/40 border-white/10 text-white text-xs rounded-xl focus:border-white/40"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-zinc-300 font-medium">Contact Mobile / Email</Label>
+                  <Input
+                    placeholder="Mobile or email"
+                    value={mobile || email}
+                    onChange={(e) => {
+                      setMobile(e.target.value);
+                      setEmail(e.target.value);
+                    }}
+                    className="h-10 bg-black/40 border-white/10 text-white text-xs rounded-xl focus:border-white/40"
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs sm:text-sm shadow-md transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-99"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                    <span>Submitting to Administrator...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 text-zinc-950" />
+                    <span>Send Reset Request to Administrator</span>
+                  </>
+                )}
+              </Button>
+            </form>
+          )}
+
+          {/* Direct Email Client Launcher Buttons */}
+          <div className="space-y-2 pt-2 border-t border-white/5">
+            <div className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider text-center">
+              Or compose via your preferred email client:
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2">
+              <a
+                href={mailtoUrl}
+                className="h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <Mail className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Default App</span>
+              </a>
+
+              <a
+                href={gmailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <ExternalLink className="w-3 h-3 text-red-400" />
+                <span>Gmail</span>
+              </a>
+
+              <a
+                href={outlookUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-center"
+              >
+                <ExternalLink className="w-3 h-3 text-blue-400" />
+                <span>Outlook</span>
+              </a>
+            </div>
           </div>
 
           {/* Card Micro Footer */}
-          <div className="pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
-            <span>Security Protected Access</span>
-            <span>Sankara Multi-Event Platform</span>
+          <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
+            <span className="flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Verified Security Desk</span>
+            </span>
+            <span>Sankara Events</span>
           </div>
         </div>
 

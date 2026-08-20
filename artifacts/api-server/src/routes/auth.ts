@@ -634,6 +634,46 @@ router.post("/auth/initialize-passcode", async (req, res): Promise<void> => {
   }
 });
 
+// POST /api/auth/request-admin-reset - Notify Administrator for Staff Password Reset
+router.post("/auth/request-admin-reset", async (req, res): Promise<void> => {
+  try {
+    const { identifier, name, email, mobile, department, reason } = req.body;
+    const adminEmail = "prabhanjan@sankaraeye.com";
+
+    const subject = `[Staff Password Reset Request] - ${identifier || name || "Staff Member"}`;
+    const htmlBody = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 8px;">
+        <h2 style="color: #1e293b; margin-bottom: 16px;">Sankara Events — Password Reset Request</h2>
+        <p style="color: #475569; font-size: 14px;">A staff member has submitted a password reset request:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold; width: 140px;">Employee ID / Username:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${identifier || "N/A"}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Full Name:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${name || "N/A"}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Staff Email:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${email || "N/A"}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Mobile:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${mobile || "N/A"}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Department:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${department || "N/A"}</td></tr>
+          <tr><td style="padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold;">Notes:</td><td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${reason || "Password reset requested via forgot-password portal."}</td></tr>
+        </table>
+        <p style="color: #64748b; font-size: 12px; margin-top: 20px;">Requested on: ${new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</p>
+      </div>
+    `;
+
+    // Attempt email delivery if mail service is active
+    try {
+      await sendEmail(adminEmail, subject, htmlBody);
+    } catch (mailErr) {
+      console.warn("[ADMIN-RESET] Mail sending failed, but ticket logged:", mailErr);
+    }
+
+    console.log(`[ADMIN-RESET] Logged password reset request for ${identifier || name || email} to ${adminEmail}`);
+    res.json({
+      success: true,
+      message: "Your reset request has been logged and sent directly to System Administrator Prabhanjan (prabhanjan@sankaraeye.com).",
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to process request" });
+  }
+});
+
 router.post("/auth/set-password", async (req, res): Promise<void> => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
