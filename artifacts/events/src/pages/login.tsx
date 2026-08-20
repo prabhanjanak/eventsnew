@@ -14,7 +14,7 @@ import {
   Loader2,
   ShieldCheck,
 } from "lucide-react";
-import { ThreeAmbientScene } from "@/components/3d/three-ambient-scene";
+import GlitterWrap from "@/components/originkit/ui/glitter-wrap";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -70,13 +70,26 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#09090C] text-zinc-100 flex flex-col font-sans overflow-x-hidden selection:bg-white/20 selection:text-white">
-      {/* ── 3D Ambient Mesh Particle Scene (Subtle, Deep Darkness) ──────────── */}
-      <ThreeAmbientScene particleCount={60} className="fixed inset-0 pointer-events-none z-0 opacity-40" />
+    <div className="relative min-h-screen bg-[#07070A] text-zinc-100 flex flex-col font-sans overflow-x-hidden selection:bg-white/20 selection:text-white">
+      {/* ── Originkit GlitterWrap Background Tunnel ─────────────────────────── */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <GlitterWrap
+          particleCount={450}
+          color1="#ffffff"
+          color2="#38BDF8"
+          color3="#818CF8"
+          speed={4.5}
+          density={80}
+          starSize={16}
+          focalDepth={12}
+          glitterIntensity={2.5}
+          trailAmount={90}
+          brightness={90}
+        />
+      </div>
 
-      {/* ── Soft Deep Atmospheric Lighting (Subtle Indigo/Slate, Zero Muddy Orange) ── */}
-      <div className="fixed top-[-10%] left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-indigo-950/20 blur-[130px] rounded-full pointer-events-none z-0" />
-      <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[350px] bg-slate-900/30 blur-[120px] rounded-full pointer-events-none z-0" />
+      {/* ── Subtle Atmospheric Backdrop Shadow (for Card Contrast) ──────────── */}
+      <div className="fixed inset-0 bg-black/40 pointer-events-none z-0" />
 
       {/* ── Top Navigation Bar ──────────────────────────────────────────────── */}
       <header className="border-b border-white/5 bg-[#0C0D12]/80 backdrop-blur-xl sticky top-0 z-40">
