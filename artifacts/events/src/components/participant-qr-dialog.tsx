@@ -7,16 +7,24 @@ import { Download, CheckSquare, Gift, Utensils, CalendarDays, User, Printer } fr
 
 interface ParticipantQRDialogProps {
   open: boolean;
-  onClose: () => void;
-  participantId: number;
-  participantName: string;
-  registrationNumber: string;
+  onClose?: () => void;
+  onOpenChange?: (open: boolean) => void;
+  participantId?: number;
+  participantName?: string;
+  registrationNumber?: string;
+  participant?: { id?: number; name?: string; registrationNumber?: string } | null;
   isFaculty?: boolean;
 }
 
-export function ParticipantQRDialog({
-  open, onClose, participantId, participantName, registrationNumber
-}: ParticipantQRDialogProps) {
+export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
+  const open = props.open;
+  const onClose = () => {
+    if (props.onClose) props.onClose();
+    if (props.onOpenChange) props.onOpenChange(false);
+  };
+  const participantId = props.participantId ?? props.participant?.id ?? 0;
+  const participantName = props.participantName ?? props.participant?.name ?? "";
+  const registrationNumber = props.registrationNumber ?? props.participant?.registrationNumber ?? "";
   const { data: qrcodes, isLoading: isQRLoading } = useGetParticipantQR(participantId, {
     query: {
       enabled: open && !!participantId,

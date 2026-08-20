@@ -60,8 +60,8 @@ export default function EventRegisterPage() {
       if (user.name && user.name !== "Delegate" && !name) {
         setName(user.name);
       }
-      if (user.email && !email) {
-        setEmail(user.email);
+      if ((user as any).email && !email) {
+        setEmail((user as any).email);
       }
       if (user.mobile && !mobile) {
         setMobile(user.mobile);

@@ -41,7 +41,7 @@ export function AppLayout({ children }: LayoutProps) {
 
   if (!user) return <>{children}</>;
 
-  const isStaff = user.userType === "super_admin" || user.userType === "admin" || user.userType === "event_coordinator";
+  const isStaff = (user.userType as string) === "super_admin" || (user.userType as string) === "admin" || (user.userType as string) === "event_coordinator";
   const isGlobalRoute = location === "/admin/events" || location === "/admin/system-users" || location === "/admin/traffic" || location === "/admin/logs" || location === "/admin/settings" || location === "/admin/sessions";
 
   // Determine if we should show Event-specific Workspace navigation or Global Event Directory navigation

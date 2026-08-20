@@ -76,14 +76,14 @@ type SystemUser = {
   id: number;
   empId: string;
   name: string;
-  email: string | null;
-  mobile: string | null;
+  email?: string | null;
+  mobile?: string | null;
   userType: string;
-  assignedTrack: string | null;
+  assignedTrack?: string | null;
   assignedEventIds?: number[];
-  mustChangePassword: boolean;
-  permissions: string[];
-  createdAt: string;
+  mustChangePassword?: boolean;
+  permissions?: string[];
+  createdAt?: string;
 };
 
 type FormData = {
@@ -142,7 +142,7 @@ export default function EventStaffPage() {
   // Filter users belonging to this specific event (or super_admin / global admin)
   const eventUsers = useMemo(() => {
     if (!currentEvent) return [];
-    return allUsers.filter((u) => {
+    return allUsers.filter((u: any) => {
       if (u.userType === "super_admin") return true;
       if (u.assignedEventIds && u.assignedEventIds.includes(currentEvent.id)) return true;
       return false;
@@ -535,21 +535,21 @@ export default function EventStaffPage() {
                       <td className="px-4 py-4">
                         {isAdmin ? (
                           <span className="text-[11px] font-bold text-amber-300">All Operations</span>
-                        ) : (user.permissions ?? []).length === 0 ? (
+                        ) : ((user as any).permissions ?? []).length === 0 ? (
                           <span className="text-[11px] text-zinc-600 italic">None</span>
                         ) : (
                           <div className="flex flex-wrap gap-1">
-                            {(user.permissions ?? []).includes("attendance") && enableAttendance && (
+                            {((user as any).permissions ?? []).includes("attendance") && enableAttendance && (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-950/70 text-emerald-300 border border-emerald-800/40 flex items-center gap-1">
                                 <CheckSquare className="w-2.5 h-2.5" /> Attendance
                               </span>
                             )}
-                            {(user.permissions ?? []).includes("food") && enableFood && (
+                            {((user as any).permissions ?? []).includes("food") && enableFood && (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-amber-950/70 text-amber-300 border border-amber-800/40 flex items-center gap-1">
                                 <Utensils className="w-2.5 h-2.5" /> Food
                               </span>
                             )}
-                            {(user.permissions ?? []).includes("goodies") && enableGoodies && (
+                            {((user as any).permissions ?? []).includes("goodies") && enableGoodies && (
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-purple-950/70 text-purple-300 border border-purple-800/40 flex items-center gap-1">
                                 <Gift className="w-2.5 h-2.5" /> Goodies
                               </span>

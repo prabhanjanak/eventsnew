@@ -17,36 +17,39 @@ import {
 import { Button } from "@/components/ui/button";
 
 interface HolographicPassCardProps {
-  registrationNumber: string;
-  eventName: string;
-  delegateName: string;
+  registrationNumber?: string;
+  eventName?: string;
+  eventTitle?: string;
+  eventSubtitle?: string;
+  delegateName?: string;
   delegateType?: string;
   institution?: string | null;
-  startDate: string;
+  startDate?: string;
   endDate?: string;
-  venue: string;
-  city: string;
+  venue?: string;
+  city?: string;
   isPaid?: boolean;
   approvalStatus?: string;
   onViewDetails?: () => void;
   className?: string;
+  participant?: any;
 }
 
-export function HolographicPassCard({
-  registrationNumber,
-  eventName,
-  delegateName,
-  delegateType = "DELEGATE PASS",
-  institution,
-  startDate,
-  endDate,
-  venue,
-  city,
-  isPaid = true,
-  approvalStatus = "approved",
-  onViewDetails,
-  className = "",
-}: HolographicPassCardProps) {
+export function HolographicPassCard(props: HolographicPassCardProps) {
+  const p = props.participant;
+  const registrationNumber = props.registrationNumber || p?.registrationNumber || "REG-00000";
+  const eventName = props.eventName || props.eventTitle || p?.event?.title || "Sankara Medical Conference";
+  const delegateName = props.delegateName || p?.name || "Delegate";
+  const delegateType = props.delegateType || p?.delegateType || "DELEGATE PASS";
+  const institution = props.institution ?? p?.institution;
+  const startDate = props.startDate || p?.event?.startDate || "2026-07-10";
+  const endDate = props.endDate || p?.event?.endDate;
+  const venue = props.venue || p?.event?.venue || "Sankara Hospital";
+  const city = props.city || p?.event?.city || "Bangalore";
+  const isPaid = props.isPaid ?? p?.isPaid ?? true;
+  const onViewDetails = props.onViewDetails;
+  const className = props.className || "";
+
   const [isFlipped, setIsFlipped] = useState(false);
   const qrValue = `https://events.sankaraeye.in/q/${registrationNumber}`;
 

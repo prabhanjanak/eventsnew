@@ -27,7 +27,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckSquare, Gift, Utensils, CalendarDays, User,
-  ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle, RefreshCw, Shield, Mail, Phone,
+  ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle, RefreshCw, Shield, Mail, Phone, Check,
 } from "lucide-react";
 import { getCache, setCache } from "@/lib/indexeddb-cache";
 import { OtpInput } from "@/components/ui/otp-input";

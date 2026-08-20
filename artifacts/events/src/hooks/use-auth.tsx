@@ -6,11 +6,17 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
+export type ExtendedUser = (CurrentUser & {
+  userType?: string;
+  email?: string;
+  sessionTimeoutMinutes?: number;
+}) | null;
+
 interface AuthContextType {
-  user: CurrentUser | null;
+  user: ExtendedUser;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, user: CurrentUser, mustChangePassword?: boolean) => void;
+  login: (token: string, user: any, mustChangePassword?: boolean) => void;
   loginAttendee: (token: string, user: any) => void;
   logout: () => void;
 }
@@ -100,7 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (!token || user?.userType === "attendee" || user?.userType === "participant") {
+    if (!token || (user?.userType as string) === "attendee" || (user?.userType as string) === "participant") {
       // Clear timer for attendees (never logout until explicit logout)
       if (inactivityTimer.current) {
         clearTimeout(inactivityTimer.current);
@@ -142,12 +148,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [token, user]);
 
-  const login = (newToken: string, newUser: CurrentUser, mustChangePassword?: boolean) => {
+  const login = (newToken: string, newUser: any, mustChangePassword?: boolean) => {
     localStorage.setItem("vision2020_token", newToken);
     setToken(newToken);
     queryClient.setQueryData(["/api/auth/me"], newUser);
 
-    if (mustChangePassword && newUser.userType !== "participant" && newUser.userType !== "attendee") {
+    if (mustChangePassword && (newUser.userType as string) !== "participant" && (newUser.userType as string) !== "attendee") {
       setLocation("/staff/change-password");
       return;
     }

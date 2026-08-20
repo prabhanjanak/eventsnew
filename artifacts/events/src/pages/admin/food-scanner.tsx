@@ -183,6 +183,7 @@ export default function FoodScanner() {
       const t = setTimeout(() => inputRef.current?.focus(), 80);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [mode, isScanning, scanResult, sessionId]);
 
   const doScan = useCallback(

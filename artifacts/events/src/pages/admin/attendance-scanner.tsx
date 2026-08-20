@@ -200,6 +200,7 @@ export default function AttendanceScanner() {
       const t = setTimeout(() => inputRef.current?.focus(), 80);
       return () => clearTimeout(t);
     }
+    return undefined;
   }, [mode, isScanning, scanResult]);
 
   const doScan = useCallback(

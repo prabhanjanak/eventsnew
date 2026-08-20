@@ -217,7 +217,7 @@ export default function MyRegistrationsPage() {
             {user ? (
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono text-zinc-400 hidden sm:inline truncate max-w-[180px]">
-                  {user.email}
+                  {(user as any)?.email || user.name}
                 </span>
                 <Button
                   size="sm"
@@ -401,7 +401,7 @@ export default function MyRegistrationsPage() {
                   Your Event Passes
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-                  Active registrations and admission badges for <span className="text-zinc-200 font-semibold">{user?.email || "Delegate"}</span>
+                  Active registrations and admission badges for <span className="text-zinc-200 font-semibold">{(user as any)?.email || "Delegate"}</span>
                 </p>
               </div>
 
@@ -427,7 +427,7 @@ export default function MyRegistrationsPage() {
                 <div className="space-y-1">
                   <h3 className="text-lg font-bold text-white">No Registrations Found</h3>
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    We couldn't find any event passes registered under <strong className="text-zinc-200">{user?.email || "this account"}</strong>.
+                    We couldn't find any event passes registered under <strong className="text-zinc-200">{(user as any)?.email || "this account"}</strong>.
                   </p>
                 </div>
                 <Button

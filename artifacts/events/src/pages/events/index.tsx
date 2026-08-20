@@ -157,7 +157,7 @@ export default function EventsDirectory() {
     const activeToken = token || localStorage.getItem("vision2020_token");
     if (activeToken) {
       fetchRegistrationsData(activeToken);
-      if (user?.userType === "attendee") {
+      if ((user?.userType as string) === "attendee") {
         checkProfileCompletion();
       }
     }
@@ -400,7 +400,7 @@ export default function EventsDirectory() {
               <span>{mainTab === "discover" ? "My Passes" : "Events"}</span>
             </button>
 
-            {user?.userType === "super_admin" || user?.userType === "admin" || user?.userType === "event_coordinator" ? (
+            {(user?.userType as string) === "super_admin" || (user?.userType as string) === "admin" || (user?.userType as string) === "event_coordinator" ? (
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -432,7 +432,7 @@ export default function EventsDirectory() {
                   <LogOut className="w-3.5 h-3.5" />
                 </Button>
               </div>
-            ) : user?.userType === "attendee" ? (
+            ) : (user?.userType as string) === "attendee" ? (
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
@@ -780,7 +780,7 @@ export default function EventsDirectory() {
                 <div className="space-y-1">
                   <h3 className="text-base font-bold text-white">No Registrations Found</h3>
                   <p className="text-xs text-zinc-400">
-                    You haven't registered for any events yet under <span className="text-white font-mono">{user.email}</span>.
+                    You haven't registered for any events yet under <span className="text-white font-mono">{(user as any)?.email || "this account"}</span>.
                   </p>
                 </div>
                 <Button
