@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
-import CircleCursor from "@/components/originkit/ui/circle-cursor";
+import MouseEffects from "@/components/originkit/ui/mouse-effects";
 
 import EventsDirectory from "@/pages/events";
 import EventsCalendarPage from "@/pages/events/calendar";
@@ -207,10 +207,8 @@ function App() {
             </AuthProvider>
           </WouterRouter>
           <Toaster />
-          {/* Originkit Ambient Circle Cursor Follower */}
-          <div className="hidden lg:block fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-            <CircleCursor />
-          </div>
+          {/* Originkit Dynamic Click / Mouse Effects Overlay */}
+          <MouseEffects interactionMode="sniper" color="#38BDF8" effectSize={80} />
         </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
