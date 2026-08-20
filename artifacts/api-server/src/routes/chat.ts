@@ -6,10 +6,12 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const HF_API_TOKEN = process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN || "";
-const DEFAULT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
-const FALLBACK_MODEL = "Qwen/Qwen2.5-72B-Instruct";
+const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
+const DEFAULT_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct";
+const HF_NEMOTRON_MODEL = "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF";
+const FALLBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 
-// System Knowledge Base — Institutional Pillars
+// System Knowledge Base — Institutional Pillars & Hospital Locations
 const SANKARA_HOSPITAL_KNOWLEDGE = `
 === SANKARA EYE FOUNDATION INDIA INSTITUTIONAL KNOWLEDGE ===
 - Organization: Sankara Eye Foundation India (a unit of Sri Kanchi Kamakoti Medical Trust, established 1977).
@@ -27,11 +29,58 @@ const SANKARA_HOSPITAL_KNOWLEDGE = `
   - Interactive Academic Calendar: /calendar
   - My Registered Passes: /my-registrations
   - Coordinator Login: /login
+
+=== SANKARA EYE HOSPITAL LOCATIONS & GOOGLE MAPS DIRECTORY ===
+1. Coimbatore (HQ): Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore
+2. Bengaluru (Kundalahalli): Varthur Main Road, Kundalahalli Gate, Bengaluru, Karnataka - 560037 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Kundalahalli+Bangalore
+3. Bengaluru (Jayanagar): 8th Block, Jayanagar, Bengaluru, Karnataka | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Bangalore
+4. Chennai (Pammal): No. 1, Sankara Eye Hospital Road, Pammal, Chennai, Tamil Nadu - 600075 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Pammal+Chennai
+5. Guntur: Vijayawada-Guntur Expressway, Pedakakani, Guntur, Andhra Pradesh - 522509 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Guntur
+6. Shimoga: Harakere, Honnali Road, Shivamogga, Karnataka - 577202 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Shimoga
+7. Anand: NH 48, Mogar, Anand, Gujarat - 388340 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Anand+Gujarat
+8. Ludhiana: Village VIP Road, Ludhiana, Punjab - 141102 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Ludhiana
+9. Kanpur: Panki Industrial Area, Kanpur, Uttar Pradesh - 208020 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Kanpur
+10. Jaipur: Delhi-Jaipur Express Highway, Kukas, Jaipur, Rajasthan - 302028 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Jaipur
+11. Indore: Scheme No. 78, Part II, Vijay Nagar, Indore, Madhya Pradesh - 452010 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Indore
+12. Hyderabad: Financial District / Gachibowli, Hyderabad, Telangana | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Hyderabad
+13. Panvel (Mumbai): Plot 1, Sector 5A, New Panvel East, Navi Mumbai, Maharashtra - 410206 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Panvel+Mumbai
+14. Krishnankoil: Srivilliputhur Taluk, Krishnankoil, Tamil Nadu - 626126 | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Krishnankoil
+15. Patna, Bihar (Upcoming Super-Specialty): Patna, Bihar | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Patna
 `;
 
-// Helper to call Hugging Face Router API (OpenAI compatible)
-async function queryHuggingFace(messages: Array<{ role: string; content: string }>, modelName: string = DEFAULT_MODEL): Promise<string> {
-  const modelsToTry = [modelName, FALLBACK_MODEL, "meta-llama/Llama-3.1-8B-Instruct"];
+// Helper to call NVIDIA NIM / Hugging Face Router with NVIDIA Nemotron
+async function queryNemotron(messages: Array<{ role: string; content: string }>): Promise<string> {
+  // 1. Try NVIDIA NIM API if key is available
+  if (NVIDIA_API_KEY) {
+    try {
+      const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${NVIDIA_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "nvidia/llama-3.1-nemotron-70b-instruct",
+          messages,
+          max_tokens: 700,
+          temperature: 0.3,
+          top_p: 0.9,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+          return data.choices[0].message.content.trim();
+        }
+      }
+    } catch (e: any) {
+      logger.warn({ error: e.message }, "NVIDIA NIM endpoint failed, falling back to Hugging Face");
+    }
+  }
+
+  // 2. Try Hugging Face Router with Nemotron / Llama 3.3
+  const modelsToTry = [HF_NEMOTRON_MODEL, DEFAULT_MODEL, FALLBACK_MODEL, "meta-llama/Llama-3.1-8B-Instruct"];
 
   for (const model of modelsToTry) {
     try {
@@ -44,7 +93,7 @@ async function queryHuggingFace(messages: Array<{ role: string; content: string 
         body: JSON.stringify({
           model,
           messages,
-          max_tokens: 600,
+          max_tokens: 650,
           temperature: 0.3,
           top_p: 0.9,
         }),
@@ -60,11 +109,11 @@ async function queryHuggingFace(messages: Array<{ role: string; content: string 
         logger.warn({ status: response.status, err: errText, model }, "HuggingFace API returned error, attempting next fallback model");
       }
     } catch (e: any) {
-      logger.warn({ error: e.message, model }, "Failed to reach HuggingFace router");
+      logger.warn({ error: e.message, model }, "Failed to reach model router");
     }
   }
 
-  throw new Error("All HuggingFace inference models exhausted or rate-limited.");
+  throw new Error("All AI inference models exhausted or rate-limited.");
 }
 
 // Local Grounded Search Fallback & Browser-Aware Reasoning Engine
@@ -334,7 +383,8 @@ ${eventsContext}
     let modelUsed = DEFAULT_MODEL;
 
     try {
-      aiResponse = await queryHuggingFace(conversationMessages, DEFAULT_MODEL);
+      aiResponse = await queryNemotron(conversationMessages);
+      modelUsed = "nvidia/llama-3.1-nemotron-70b-instruct";
     } catch (hfErr: any) {
       logger.warn({ error: hfErr.message }, "Falling back to local grounded engine");
       aiResponse = generateLocalGroundedAnswer(

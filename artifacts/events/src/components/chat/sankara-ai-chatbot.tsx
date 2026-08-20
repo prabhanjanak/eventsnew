@@ -16,6 +16,7 @@ import {
   Ticket,
   Loader2,
   RefreshCw,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -29,6 +30,7 @@ interface ChatMessage {
 }
 
 const QUICK_PROMPTS = [
+  { label: "Hospital Maps", text: "Show me the locations and Google Maps links of Sankara Eye Hospitals across India.", icon: MapPin },
   { label: "Upcoming CMEs", text: "What are the upcoming medical conferences and CMEs?", icon: Calendar },
   { label: "Event Photos", text: "Where can I access and download event photos?", icon: Camera },
   { label: "Sankara Network", text: "Tell me about Sankara Eye Foundation hospitals and impact across India.", icon: Building },
@@ -265,8 +267,8 @@ export function SankaraAIChatbot() {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <h3 className="text-xs font-black text-white tracking-tight">Sankara AI Concierge</h3>
-                    <span className="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[8px] font-black uppercase font-mono">
-                      Llama 3.1
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[8px] font-black uppercase font-mono">
+                      NVIDIA Nemotron 70B
                     </span>
                   </div>
                   <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
