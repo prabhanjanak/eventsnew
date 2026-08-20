@@ -24,6 +24,9 @@ import {
   Check,
   X,
   Award,
+  AlertTriangle,
+  AlertCircle,
+  ShieldAlert,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -76,6 +79,11 @@ export default function EventRegisterPage() {
   const [couponInput, setCouponInput] = useState("");
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+
+  // Pre-payment validation & error state
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [mobileWarning, setMobileWarning] = useState<string | null>(null);
+  const [checkingMobile, setCheckingMobile] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -213,19 +221,59 @@ export default function EventRegisterPage() {
     toast({ title: "Coupon Removed" });
   };
 
+  const checkMobileAvailability = async (mobValue: string) => {
+    const cleanMob = mobValue.replace(/[^0-9]/g, "").slice(-10);
+    if (cleanMob.length !== 10 || !/^[6-9]\d{9}$/.test(cleanMob)) {
+      setMobileWarning("Please enter a valid 10-digit Indian mobile number starting with 6-9.");
+      return;
+    }
+    setCheckingMobile(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/events/${slug}/validate-registration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim() || "Delegate",
+          email: email.trim() || "delegate@example.com",
+          mobile: cleanMob,
+          institution: institution.trim() || "Hospital",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        if (data.field === "mobile") {
+          setMobileWarning(data.error);
+        } else {
+          setValidationError(data.error);
+        }
+      } else {
+        setMobileWarning(null);
+        setValidationError(null);
+      }
+    } catch {
+      // ignore network hiccup on blur
+    } finally {
+      setCheckingMobile(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError(null);
 
     if (!name.trim()) {
+      setValidationError("Full Name is required.");
       toast({ title: "Name is required", variant: "destructive" });
       return;
     }
     if (!mobile.trim()) {
+      setValidationError("Mobile number is required.");
       toast({ title: "Mobile number is required", variant: "destructive" });
       return;
     }
     const cleanMob = mobile.replace(/[^0-9]/g, "").slice(-10);
     if (!/^[6-9]\d{9}$/.test(cleanMob)) {
+      setValidationError("Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).");
       toast({
         title: "Invalid Mobile Number",
         description: "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).",
@@ -234,6 +282,7 @@ export default function EventRegisterPage() {
       return;
     }
     if (!institution.trim()) {
+      setValidationError("Institution / Organization is required.");
       toast({ title: "Institution / Organization is required", variant: "destructive" });
       return;
     }
@@ -241,9 +290,11 @@ export default function EventRegisterPage() {
     if (event.eventType === "internal_staff") {
       const cleanEm = email.trim().toLowerCase();
       if (!cleanEm || (!cleanEm.endsWith("@sankaraeye.com") && !cleanEm.endsWith("@sankaraeye.in"))) {
+        const staffErr = "This internal event is restricted strictly to Sankara staff. Please use your official @sankaraeye.com email.";
+        setValidationError(staffErr);
         toast({
           title: "Internal Event Restricted",
-          description: "This event is strictly for Sankara staff. Please use your @sankaraeye.com email.",
+          description: staffErr,
           variant: "destructive",
         });
         return;
@@ -253,8 +304,39 @@ export default function EventRegisterPage() {
     setSubmitting(true);
 
     try {
+      // ═════════════════════════════════════════════════════════════════════════
+      // CRITICAL PRE-FLIGHT VALIDATION: Check server constraints BEFORE payment!
+      // (Verifies duplicate mobile, capacity, email domain, event status)
+      // ═════════════════════════════════════════════════════════════════════════
+      const valRes = await fetch(`${BASE_URL}/api/events/${slug}/validate-registration`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim() || undefined,
+          mobile: cleanMob,
+          institution: institution.trim(),
+          couponCode: appliedCoupon?.code || couponInput.trim() || undefined,
+          tierId: activeTier?.id,
+          role: activeTier?.role,
+        }),
+      });
+
+      const valData = await valRes.json();
+      if (!valRes.ok || !valData.valid) {
+        const errorMsg = valData.error || "Registration validation failed. Please check your details and try again.";
+        setValidationError(errorMsg);
+        toast({
+          title: "Application Validation Issue",
+          description: errorMsg,
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       if (!isFreeAfterDiscount) {
-        // Paid Event -> Step 1: Create Razorpay Order
+        // Paid Event -> Step 1: Create Razorpay Order (Only AFTER Pre-Validation Passes!)
         const orderRes = await fetch(`${BASE_URL}/api/payments/razorpay/create-order`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -657,10 +739,31 @@ export default function EventRegisterPage() {
                     data-lpignore="true"
                     placeholder="9876543210"
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10))}
-                    className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600 font-mono"
+                    onChange={(e) => {
+                      setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10));
+                      setMobileWarning(null);
+                      setValidationError(null);
+                    }}
+                    onBlur={() => {
+                      if (mobile) checkMobileAvailability(mobile);
+                    }}
+                    className={`pl-9.5 h-11 bg-zinc-950 border text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 font-mono transition-colors ${
+                      mobileWarning
+                        ? "border-rose-500/80 focus-visible:ring-rose-500"
+                        : "border-zinc-800 focus-visible:ring-zinc-600"
+                    }`}
                   />
+                  {checkingMobile && (
+                    <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                  )}
                 </div>
+
+                {mobileWarning && (
+                  <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1 pt-0.5 animate-in fade-in">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{mobileWarning}</span>
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -675,7 +778,10 @@ export default function EventRegisterPage() {
                     data-lpignore="true"
                     placeholder="name@hospital.com"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setValidationError(null);
+                    }}
                     className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
                   />
                 </div>
@@ -694,7 +800,10 @@ export default function EventRegisterPage() {
                   data-lpignore="true"
                   placeholder="e.g. Sankara Eye Hospital / AIIMS"
                   value={institution}
-                  onChange={(e) => setInstitution(e.target.value)}
+                  onChange={(e) => {
+                    setInstitution(e.target.value);
+                    setValidationError(null);
+                  }}
                   className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
                 />
               </div>
@@ -806,6 +915,19 @@ export default function EventRegisterPage() {
                   <span>Total Payable</span>
                   <span>{finalFee === 0 ? "Free (Waived)" : `₹${finalFee.toLocaleString("en-IN")}`}</span>
                 </div>
+              </div>
+            )}
+
+            {/* ── Pre-Payment Validation Error Callout Banner ── */}
+            {validationError && (
+              <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-600/50 shadow-xl shadow-rose-950/40 text-rose-200 text-xs space-y-1.5 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2 font-bold text-rose-300">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>Please Resolve Application Issue Before Payment</span>
+                </div>
+                <p className="text-[11px] text-rose-200/90 leading-relaxed pl-6">
+                  {validationError}
+                </p>
               </div>
             )}
 

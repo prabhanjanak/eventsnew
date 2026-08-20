@@ -54,6 +54,113 @@ async function generateEventRegNumber(eventId?: number, eventSlug?: string): Pro
   }
 }
 
+// POST /events/:slugOrId/validate-registration — Pre-flight registration validation BEFORE payment
+router.post("/events/:slugOrId/validate-registration", async (req, res): Promise<void> => {
+  try {
+    const slugOrId = req.params.slugOrId.trim();
+    const isNumeric = /^\d+$/.test(slugOrId);
+
+    let event;
+    if (isNumeric) {
+      [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, parseInt(slugOrId, 10)));
+    } else {
+      [event] = await db.select().from(eventsTable).where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+    }
+
+    if (!event) {
+      res.status(404).json({ valid: false, error: "Event not found", field: "event" });
+      return;
+    }
+
+    if (!event.registrationOpen) {
+      res.status(400).json({ valid: false, error: "Registration for this event is currently closed.", field: "event" });
+      return;
+    }
+
+    // Check capacity if set
+    if (event.maxCapacity) {
+      const [pCount] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(participantsTable)
+        .where(eq(participantsTable.eventId, event.id));
+      if ((pCount?.count || 0) >= event.maxCapacity) {
+        res.status(400).json({ valid: false, error: "Registration capacity is full for this event.", field: "capacity" });
+        return;
+      }
+    }
+
+    const {
+      name,
+      email,
+      mobile,
+      institution,
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      res.status(400).json({ valid: false, error: "Full Name is required.", field: "name" });
+      return;
+    }
+
+    if (!institution || !institution.trim()) {
+      res.status(400).json({ valid: false, error: "Institution / Organization is required.", field: "institution" });
+      return;
+    }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : null;
+    const cleanMob = mobile ? mobile.replace(/[^0-9]/g, "").slice(-10) : null;
+
+    // Strict 10-digit mobile number validation
+    if (!cleanMob || !/^[6-9]\d{9}$/.test(cleanMob)) {
+      res.status(400).json({
+        valid: false,
+        error: "Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).",
+        field: "mobile",
+      });
+      return;
+    }
+
+    // Internal Staff Event Access Gate (@sankaraeye.com required)
+    if (event.eventType === "internal_staff") {
+      if (!cleanEmail || (!cleanEmail.endsWith("@sankaraeye.com") && !cleanEmail.endsWith("@sankaraeye.in"))) {
+        res.status(403).json({
+          valid: false,
+          error: "This internal event is restricted strictly to Sankara staff. Please use your official @sankaraeye.com email address.",
+          field: "email",
+        });
+        return;
+      }
+    }
+
+    // Strict Unique Mobile check per event
+    const [dup] = await db
+      .select({
+        name: participantsTable.name,
+        registrationNumber: participantsTable.registrationNumber,
+      })
+      .from(participantsTable)
+      .where(and(eq(participantsTable.eventId, event.id), eq(participantsTable.mobile, cleanMob)));
+
+    if (dup) {
+      res.status(400).json({
+        valid: false,
+        error: `Mobile number +91 ${cleanMob} is already registered for this event under "${dup.name}" (${dup.registrationNumber}). Each attendee must use a unique mobile number.`,
+        field: "mobile",
+        registrationNumber: dup.registrationNumber,
+      });
+      return;
+    }
+
+    res.json({
+      valid: true,
+      eventId: event.id,
+      eventTitle: event.title,
+      cleanMobile: cleanMob,
+    });
+  } catch (err: any) {
+    res.status(500).json({ valid: false, error: err.message || "Failed to validate registration" });
+  }
+});
+
 // POST /events/:slugOrId/register — Public event delegate registration
 router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
   try {
