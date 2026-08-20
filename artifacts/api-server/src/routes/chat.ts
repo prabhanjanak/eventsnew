@@ -79,8 +79,13 @@ async function queryNemotron(messages: Array<{ role: string; content: string }>)
     }
   }
 
-  // 2. Try Hugging Face Router with Nemotron / Llama 3.3
-  const modelsToTry = [HF_NEMOTRON_MODEL, DEFAULT_MODEL, FALLBACK_MODEL, "meta-llama/Llama-3.1-8B-Instruct"];
+  // 2. Try Hugging Face Router models with full capability
+  const modelsToTry = [
+    "meta-llama/Llama-3.3-70B-Instruct",
+    "Qwen/Qwen2.5-72B-Instruct",
+    "mistralai/Mistral-Small-24B-Instruct-2501",
+    "meta-llama/Llama-3.1-8B-Instruct",
+  ];
 
   for (const model of modelsToTry) {
     try {
@@ -219,7 +224,24 @@ function generateLocalGroundedAnswer(
     return `🎟️ **Access Your Admission Passes & Digital QR Badges**\n\nYou can access your confirmed registration pass, QR code for scanner entry, food token badges, and 1-click Google Wallet pass here:\n\n👉 **[Open My Registrations & Passes](/my-registrations)**`;
   }
 
-  // 6. Generic Smart Search across All Events
+  // 6. Medical & Ophthalmology Knowledge (Cataract, Glaucoma, Cornea, Retina, Lasik, General Eye Health)
+  if (q.includes("cataract") || q.includes("phaco") || q.includes("iol") || q.includes("lens")) {
+    return `👁️ **About Cataract Care & Surgery at Sankara**\n\n- **What is Cataract?**: Clouding of the natural crystalline eye lens, causing blurred or misty vision.\n- **Treatment**: Micro-incision Phacoemulsification with Foldable Intraocular Lens (IOL) implantation.\n- **Sankara Impact**: Over 1,500+ free cataract surgeries performed daily across rural & base hospitals.\n- **Academic Sessions**: Regularly featured in our [Annual Ophthalmology Conferences](/events).`;
+  }
+
+  if (q.includes("glaucoma") || q.includes("iop") || q.includes("pressure") || q.includes("optic nerve")) {
+    return `👁️ **About Glaucoma Care & Management**\n\n- **The Silent Thief of Sight**: Glaucoma damages the optic nerve often due to elevated intraocular pressure (IOP).\n- **Diagnosis & Care**: Advanced automated perimetry, OCT scans, medical drop therapy, and trabeculectomy / tube shunt surgery.\n- **Academic CMEs**: Check our [Academic Calendar](/calendar) for upcoming sub-specialty glaucoma symposia.`;
+  }
+
+  if (q.includes("cornea") || q.includes("keratoplasty") || q.includes("transplant") || q.includes("keratoconus")) {
+    return `👁️ **Cornea & Refractive Services at Sankara**\n\n- Comprehensive corneal transplantation (DMEK, DSEK, PKP), eye banking, and Keratoconus cross-linking (C3R).\n- **Upcoming Conclave**: [Pediatric Cornea & Refractive Surgery Conclave 2026](/events/pediatric-cornea-cme-2026).\n- Explore registration details in our [Event Directory](/events).`;
+  }
+
+  if (q.includes("retina") || q.includes("diabetic") || q.includes("macular") || q.includes("vitrectomy")) {
+    return `👁️ **Vitreoretinal Services & Research**\n\n- Advanced management of Diabetic Retinopathy, Retinal Detachment, and Age-Related Macular Degeneration (AMD) with anti-VEGF therapy and micro-incision vitrectomy (MIVS).\n- Check our [Scientific Events Directory](/events) for retina symposiums.`;
+  }
+
+  // 7. Generic Smart Search across All Events
   const matches = events.filter((e) =>
     e.title.toLowerCase().includes(q) ||
     (e.description && e.description.toLowerCase().includes(q)) ||
@@ -234,9 +256,15 @@ function generateLocalGroundedAnswer(
     return `Here are the relevant events matching your request:\n\n${list}\n\n👉 **[Browse Full Event Directory](/events)**`;
   }
 
+  // 8. General Greetings / Conversational Questions
+  if (q.includes("who are you") || q.includes("what can you do") || q.includes("help") || q.includes("hello") || q.includes("namaste") || q.includes("hi")) {
+    const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
+    return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India 👁️\n\nYou can ask me **anything** — whether about clinical eye care, our hospital network, or our core focus on:\n- 📅 **Conferences & CME Registrations**: [Event Directory](/events) | [Academic Calendar](/calendar)\n- 🗺️ **Hospital Google Maps Locations**: 14 Hospitals across India (+1 in Patna, Bihar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n\n**Featured Events:**\n${featured}\n\nHow may I help you today?`;
+  }
+
   // Default helpful overview
   const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
-  return `Hello! 👋 I am your **Sankara AI Event & Hospital Concierge** 👁️\n\nI can assist you with:\n- 📅 **Conferences & CME Registration**: [Explore Directory](/events) | [Interactive Calendar](/calendar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n- 🏥 **Hospital Network**: 14 Hospitals across India (+ 1 Upcoming in Patna, Bihar), 1500+ free surgeries/day.\n\n**Featured Events:**\n${featured}\n\nWhat would you like to know?`;
+  return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nI can answer questions on general medical & eye topics, hospital Google Maps locations, or our primary focus on **Sankara Conferences & CMEs**:\n- 📅 **Explore Events**: [Directory](/events) | [Calendar](/calendar)\n- 📸 **Event Photographs**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Delegate Passes**: [My Registrations](/my-registrations)\n\n**Upcoming Conclaves:**\n${featured}\n\nFeel free to ask me anything!`;
 }
 
 // ── 1. POST /api/chat — Public Conversational AI Endpoint ─────────────────────
@@ -349,8 +377,11 @@ ${visiblePageContext ? `- Visible Text on User's Screen: "${visiblePageContext}"
 ${focusedEventDetails}
 `;
 
-    const systemPrompt = `You are the official AI Event & Medical Concierge for Sankara Eye Foundation India (Sri Kanchi Kamakoti Medical Trust).
-Your job is to provide direct, hyper-accurate, helpful, and professional answers tailored specifically to what the user is asking and what they are currently looking at on their browser screen.
+    const systemPrompt = `You are Drishti AI (दृष्टि • "Divine Vision & Insight"), the official AI assistant for Sankara Eye Foundation India (Sri Kanchi Kamakoti Medical Trust).
+
+CAPABILITIES & SCOPE:
+- You have comprehensive intelligence powered by NVIDIA Nemotron 70B and can answer ANY question the user asks — including ophthalmology, medical science, eye health tips, general questions, greetings, or conversational queries.
+- YOUR PRIMARY CORE SPECIALTY is Sankara Events & Institutional Knowledge: Academic conferences, CMEs, workshops, registration passes, fee tiers, scientific agendas, keynote speakers, pure vegetarian catering, Samaro AI photo galleries, and Google Maps hospital locations across India.
 
 ${SANKARA_HOSPITAL_KNOWLEDGE}
 
@@ -360,15 +391,16 @@ ${browserContextSection}
 ${eventsContext}
 
 === INSTRUCTIONS & RULES ===
-1. Directly answer the user's specific request using the live browser context and database details.
-2. If the user is asking about the event currently on their screen, prioritize answering about that event with specific timings, venues, speaker details, and registration instructions.
+1. Directly and thoroughly answer the user's specific request using live browser context, database details, or medical knowledge.
+2. If the user is on an event page or asks about an event, prioritize answering about that event with specific timings, venues, speaker details, pricing tiers, and registration instructions.
 3. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clickable markdown links).
 4. When mentioning an event, always link to its page using format: [Event Title](/events/slug).
 5. If asked about event photographs, always provide the Samaro AI link: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
-6. If asked about academic dates or schedule, link to [/calendar](/calendar).
-7. If asked about passes, tickets, or QR badges, link to [/my-registrations](/my-registrations).
-8. Always state institutional numbers accurately: 14 Hospitals (+1 Upcoming in Patna, Bihar), 1500+ free surgeries/day, 3M+ free surgeries done, NABH accredited.
-9. Keep responses concise, clear, and easy to read.`;
+6. If asked about hospital locations or maps, provide Google Maps links from the institutional directory.
+7. If asked about academic dates or schedule, link to [/calendar](/calendar).
+8. If asked about passes, tickets, or QR badges, link to [/my-registrations](/my-registrations).
+9. Always state institutional numbers accurately: 14 Hospitals (+1 Upcoming in Patna, Bihar), 1500+ free surgeries/day, 3M+ free surgeries done, NABH accredited.
+10. Keep responses warm, respectful, concise, clear, and easy to read.`;
 
     const conversationMessages = [
       { role: "system", content: systemPrompt },

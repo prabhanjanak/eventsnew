@@ -68,9 +68,9 @@ export function SankaraAIChatbot() {
       {
         id: "welcome-1",
         sender: "bot",
-        text: `Hello! 👋 I am your **Sankara AI Event Concierge**.\n\nI can help you explore upcoming conferences, download event photos on **Samaro.ai**, check delegate pricing tiers, or learn about our **14 super-specialty hospitals** across India.\n\nHow can I help you today?`,
+        text: `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nYou can ask me **anything** — whether about our **Conferences & CMEs**, delegate registrations, event agendas, **Hospital Google Maps locations**, **Samaro AI photo galleries**, or general eye care and medical topics.\n\nHow can I help you today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        model: "meta-llama/Llama-3.1-8B-Instruct",
+        model: "nvidia/llama-3.1-nemotron-70b-instruct",
       },
     ]);
   }, []);
@@ -115,7 +115,7 @@ export function SankaraAIChatbot() {
         const textElements = Array.from(mainEl.querySelectorAll("h1, h2, h3, h4, [data-event-title], p, .event-highlight"))
           .slice(0, 20)
           .map((el) => el.textContent?.trim())
-          .filter((t) => t && t.length > 2 && !t.includes("Sankara AI"));
+          .filter((t) => t && t.length > 2 && !t.includes("Drishti AI"));
         visiblePageText = textElements.join(" | ").slice(0, 1500);
       } catch {}
 
@@ -219,23 +219,24 @@ export function SankaraAIChatbot() {
           whileHover={{ scale: 1.06 }}
           whileTap={{ scale: 0.94 }}
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-[#18181F] via-[#22222D] to-[#18181F] border border-cyan-500/40 hover:border-cyan-400 text-white shadow-[0_8px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(6,182,212,0.25)] transition-all cursor-pointer"
+          className="group relative flex items-center gap-2.5 px-4 py-3 rounded-full bg-gradient-to-r from-[#14141A] via-[#1E1E28] to-[#14141A] border border-cyan-500/40 hover:border-cyan-400 text-white shadow-[0_8px_30px_rgba(0,0,0,0.8),0_0_20px_rgba(6,182,212,0.25)] transition-all cursor-pointer"
         >
           {/* Glowing Aura Ring */}
           <div className="w-6 h-6 rounded-full bg-black/60 border border-cyan-400/50 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_10px_rgba(6,182,212,0.6)]">
             <img
               src="/sankara-eye-logo.png"
-              alt="Sankara AI"
+              alt="Drishti AI"
               className="w-4 h-4 object-contain filter drop-shadow"
             />
           </div>
 
           <div className="flex flex-col text-left">
             <span className="text-xs font-black tracking-tight text-white flex items-center gap-1.5">
-              <span>Sankara AI</span>
+              <span>Drishti AI</span>
+              <span className="text-[10px] text-cyan-400 font-serif font-normal">दृष्टि</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             </span>
-            <span className="text-[9px] text-zinc-400 font-medium">Event &amp; CME Concierge</span>
+            <span className="text-[9px] text-zinc-400 font-medium">Sankara Intelligence</span>
           </div>
 
           <div className="pl-1 text-cyan-400 group-hover:rotate-12 transition-transform">
@@ -260,20 +261,23 @@ export function SankaraAIChatbot() {
                 <div className="w-8 h-8 rounded-full bg-black/80 border border-cyan-400/40 flex items-center justify-center shadow-inner">
                   <img
                     src="/sankara-eye-logo.png"
-                    alt="Sankara Logo"
+                    alt="Drishti Logo"
                     className="w-5 h-5 object-contain"
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-black text-white tracking-tight">Sankara AI Concierge</h3>
+                    <h3 className="text-xs font-black text-white tracking-tight flex items-center gap-1">
+                      <span>Drishti AI</span>
+                      <span className="text-[10px] text-cyan-400 font-serif font-normal">(दृष्टि)</span>
+                    </h3>
                     <span className="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[8px] font-black uppercase font-mono">
                       NVIDIA Nemotron 70B
                     </span>
                   </div>
                   <p className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <span>Grounded with Live Events DB</span>
+                    <span>Vision &amp; Event Intelligence • Grounded DB</span>
                   </p>
                 </div>
               </div>
@@ -390,7 +394,7 @@ export function SankaraAIChatbot() {
             >
               <input
                 type="text"
-                placeholder="Ask about conferences, CMEs, photos, passes..."
+                placeholder="Ask Drishti anything (Events, CMEs, Agendas, Eye Care, Maps)..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 disabled={isLoading}
