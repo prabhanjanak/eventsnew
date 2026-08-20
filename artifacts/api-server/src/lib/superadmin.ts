@@ -148,6 +148,18 @@ export async function ensureSuperAdmin() {
         `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS back_placeholders_json text`,
         `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS is_double_sided boolean DEFAULT false`,
         `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS print_side_mode text DEFAULT 'duplex'`,
+        `CREATE TABLE IF NOT EXISTS chat_logs (
+          id serial PRIMARY KEY,
+          session_id text NOT NULL,
+          user_identifier text DEFAULT 'Anonymous Delegate',
+          user_message text NOT NULL,
+          bot_response text NOT NULL,
+          model_used text DEFAULT 'meta-llama/Llama-3.1-8B-Instruct',
+          latency_ms integer DEFAULT 0,
+          created_at timestamp with time zone DEFAULT now()
+        )`,
+        `CREATE INDEX IF NOT EXISTS chat_logs_session_idx ON chat_logs(session_id)`,
+        `CREATE INDEX IF NOT EXISTS chat_logs_created_at_idx ON chat_logs(created_at)`,
       ];
 
       for (const statement of ddlStatements) {

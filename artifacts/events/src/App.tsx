@@ -30,7 +30,9 @@ import LiveDashboard from "@/pages/live-dashboard";
 import ParticipantDashboard from "@/pages/participant/dashboard";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminParticipants from "@/pages/admin/participants";
+import AdminChatLogs from "@/pages/admin/chat-logs";
 import AdminCrewVendors from "@/pages/admin/crew-vendors";
+import { SankaraAIChatbot } from "@/components/chat/sankara-ai-chatbot";
 import AdminOnSpot from "@/pages/admin/on-spot";
 import AdminParticipantDetail from "@/pages/admin/participants/detail";
 import FoodSessions from "@/pages/admin/food-sessions";
@@ -163,6 +165,9 @@ function Router() {
       <Route path="/admin/whatsapp">
         <AppLayout><WhatsAppBroadcast /></AppLayout>
       </Route>
+      <Route path="/admin/chat-logs">
+        <AppLayout><AdminChatLogs /></AppLayout>
+      </Route>
 
       {/* Track Coordinator — both paths work */}
       <Route path="/track/dashboard">
@@ -207,6 +212,8 @@ function App() {
             </AuthProvider>
           </WouterRouter>
           <Toaster />
+          {/* Sankara AI Event & Hospital Concierge */}
+          <SankaraAIChatbot />
           {/* Originkit Dynamic Click / Mouse Effects Overlay */}
           <MouseEffects interactionMode="sniper" color="#ffffff" effectSize={80} />
         </TooltipProvider>

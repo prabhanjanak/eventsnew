@@ -8,7 +8,7 @@ import {
   ClipboardList, Database, CalendarDays, Activity, ChevronDown, User2, Settings, Shield,
   ShieldAlert, ShieldCheck,
   Menu, X, BarChart2, RefreshCw, Layers, Sparkles, Building2,
-  ArrowLeft, Check, Radio, MessageSquare, Tag,
+  ArrowLeft, Check, Radio, MessageSquare, Tag, Bot,
 } from "lucide-react";
 import { UserProfileDialog } from "./user-profile-dialog";
 
@@ -42,7 +42,7 @@ export function AppLayout({ children }: LayoutProps) {
   if (!user) return <>{children}</>;
 
   const isStaff = (user.userType as string) === "super_admin" || (user.userType as string) === "admin" || (user.userType as string) === "event_coordinator";
-  const isGlobalRoute = location === "/admin/events" || location === "/admin/system-users" || location === "/admin/traffic" || location === "/admin/logs" || location === "/admin/settings" || location === "/admin/sessions";
+  const isGlobalRoute = location === "/admin/events" || location === "/admin/system-users" || location === "/admin/traffic" || location === "/admin/logs" || location === "/admin/settings" || location === "/admin/sessions" || location === "/admin/chat-logs";
 
   // Determine if we should show Event-specific Workspace navigation or Global Event Directory navigation
   const inEventWorkspace = isStaff && !!activeEvent && !isGlobalRoute;
@@ -80,7 +80,8 @@ export function AppLayout({ children }: LayoutProps) {
 
           items.push(
             { label: "Agenda & PDF Editor", href: `/admin/event-sessions?eventId=${eid}`, icon: CalendarDays },
-            { label: "WhatsApp Broadcast", href: `/admin/whatsapp?eventId=${eid}`, icon: MessageSquare }
+            { label: "WhatsApp Broadcast", href: `/admin/whatsapp?eventId=${eid}`, icon: MessageSquare },
+            { label: "AI Chatbot Logs", href: `/admin/chat-logs`, icon: Bot }
           );
 
           return items;
@@ -93,6 +94,7 @@ export function AppLayout({ children }: LayoutProps) {
           { label: "Staff Active Sessions", href: "/admin/sessions", icon: Shield },
           { label: "Session Sync Engine", href: "/admin/sync-sessions", icon: RefreshCw },
           { label: "Traffic Telemetry", href: "/admin/traffic", icon: BarChart2 },
+          { label: "AI Chatbot Logs", href: "/admin/chat-logs", icon: MessageSquare },
           { label: "Audit & System Logs", href: "/admin/logs", icon: ClipboardList },
           { label: "Global Settings", href: "/admin/settings", icon: Settings },
         ];
