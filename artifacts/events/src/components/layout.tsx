@@ -151,40 +151,40 @@ export function AppLayout({ children }: LayoutProps) {
 
             {/* Platform Brand */}
             <Link href={isStaff ? "/admin/events" : "/"} className="flex items-center gap-2.5 shrink-0 group cursor-pointer">
-              <div className="w-8 h-8 rounded-xl bg-[#202025] border border-[#2D2D35] flex items-center justify-center p-1 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
+              <div className="w-9 h-9 rounded-xl bg-[#202025] border border-[#2D2D35] flex items-center justify-center p-1 shadow-sm group-hover:scale-105 transition-transform overflow-hidden">
                 <img
                   src="/sankara-eye-logo.png"
                   alt="Sankara Eye Care"
                   className="w-full h-full object-contain filter brightness-110 drop-shadow"
                 />
               </div>
-              <span className="font-black text-sm text-white tracking-tight hidden sm:inline-block">
-                Sankara <span className="text-zinc-500 font-semibold">Events</span>
+              <span className="font-black text-base text-white tracking-tight hidden sm:inline-block">
+                Sankara <span className="text-zinc-400 font-semibold">Events</span>
               </span>
             </Link>
 
             {/* Event Switcher or Breadcrumb for Staff */}
             {isStaff && inEventWorkspace && activeEvent ? (
               <div className="flex items-center gap-2 min-w-0 relative">
-                <span className="text-zinc-700 hidden sm:inline">/</span>
+                <span className="text-zinc-600 hidden sm:inline">/</span>
                 
                 {/* Event Selector Dropdown Pill */}
                 <div className="relative">
                   <button
                     onClick={() => setEventDropdownOpen(!eventDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-1 rounded-xl bg-[#1D1D22] hover:bg-[#26262D] border border-[#2D2D35] text-xs font-bold text-white transition-all shadow-sm max-w-[220px] sm:max-w-[320px] truncate"
+                    className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1D1D22] hover:bg-[#26262D] border border-[#2D2D35] text-sm font-bold text-white transition-all shadow-sm max-w-[220px] sm:max-w-[340px] truncate cursor-pointer"
                   >
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0 animate-pulse" />
                     <span className="truncate">{activeEvent.title}</span>
-                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0 ml-0.5" />
+                    <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 ml-0.5" />
                   </button>
 
                   {eventDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1.5 w-72 bg-[#18181C] border border-[#2B2B32] rounded-2xl shadow-2xl z-50 p-1.5 text-zinc-200 animate-in fade-in-50 zoom-in-95">
-                      <div className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500 border-b border-[#242429]">
+                    <div className="absolute top-full left-0 mt-1.5 w-80 bg-[#18181C] border border-[#2B2B32] rounded-2xl shadow-2xl z-50 p-2 text-zinc-200 animate-in fade-in-50 zoom-in-95">
+                      <div className="px-3 py-2 text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-[#242429]">
                         Switch Hosted Event
                       </div>
-                      <div className="max-h-60 overflow-y-auto py-1 space-y-0.5">
+                      <div className="max-h-64 overflow-y-auto py-1 space-y-1">
                         {events.map((ev) => (
                           <button
                             key={ev.id}
@@ -192,27 +192,27 @@ export function AppLayout({ children }: LayoutProps) {
                               selectEvent(ev);
                               setEventDropdownOpen(false);
                             }}
-                            className={`w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between gap-2 transition-colors ${
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                               ev.id === activeEvent.id
                                 ? "bg-[#25252D] text-white font-bold"
                                 : "text-zinc-300 hover:bg-[#1E1E24] hover:text-white"
                             }`}
                           >
                             <span className="truncate">{ev.title}</span>
-                            {ev.id === activeEvent.id && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                            {ev.id === activeEvent.id && <Check className="w-4 h-4 text-emerald-400 shrink-0" />}
                           </button>
                         ))}
                       </div>
-                      <div className="pt-1 border-t border-[#242429]">
+                      <div className="pt-1.5 border-t border-[#242429]">
                         <Link
                           href="/admin/events"
                           onClick={() => {
                             clearActiveEvent();
                             setEventDropdownOpen(false);
                           }}
-                          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-400 hover:text-white hover:bg-[#1E1E24] transition-colors"
+                          className="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-zinc-300 hover:text-white hover:bg-[#1E1E24] transition-colors"
                         >
-                          <Layers className="w-3.5 h-3.5" />
+                          <Layers className="w-4 h-4" />
                           <span>All Hosted Events</span>
                         </Link>
                       </div>
@@ -222,13 +222,13 @@ export function AppLayout({ children }: LayoutProps) {
               </div>
             ) : null}
 
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-[#1F1F24] text-amber-200/90 border border-[#2D2D35] shrink-0 hidden md:inline-block">
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#1F1F24] text-amber-200 border border-[#2D2D35] shrink-0 hidden md:inline-block">
               {roleLabel}
             </span>
 
             {/* Public Catalog Link */}
-            <Link href="/events" className="hidden xl:inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white font-medium transition-colors ml-2">
-              <Building2 className="w-3.5 h-3.5" /> Public Feed
+            <Link href="/events" className="hidden xl:inline-flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white font-semibold transition-colors ml-2">
+              <Building2 className="w-4 h-4" /> Public Feed
             </Link>
           </div>
           
@@ -239,25 +239,25 @@ export function AppLayout({ children }: LayoutProps) {
                 variant="outline"
                 size="sm"
                 asChild
-                className="h-8 text-xs font-semibold rounded-xl border-[#2D2D35] bg-[#1A1A1E] hover:bg-[#25252C] text-zinc-300 hover:text-white hidden sm:inline-flex items-center gap-1.5"
+                className="h-9 text-xs font-bold rounded-xl border-[#2D2D35] bg-[#1A1A1E] hover:bg-[#25252C] text-zinc-200 hover:text-white hidden sm:inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Link href="/admin/events" onClick={() => clearActiveEvent()}>
-                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <ArrowLeft className="w-4 h-4" />
                   <span>All Events</span>
                 </Link>
               </Button>
             )}
 
             <div className="text-right hidden sm:block shrink-0">
-              <div className="text-xs font-bold text-white truncate max-w-40">{user.name}</div>
-              <div className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">{roleLabel}</div>
+              <div className="text-sm font-bold text-white truncate max-w-44">{user.name}</div>
+              <div className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider">{roleLabel}</div>
             </div>
             
             {/* Mobile Profile Trigger */}
             <div className="md:hidden">
               <button
                 onClick={() => setEditProfileModalOpen(true)}
-                className="w-7 h-7 rounded-full bg-[#2A2A31] border border-[#3A3A45] flex items-center justify-center text-white text-xs font-bold shadow-sm"
+                className="w-8 h-8 rounded-full bg-[#2A2A31] border border-[#3A3A45] flex items-center justify-center text-white text-xs font-bold shadow-sm cursor-pointer"
                 title="My Profile"
               >
                 {initials}
@@ -270,32 +270,32 @@ export function AppLayout({ children }: LayoutProps) {
       <div className="flex flex-1 overflow-hidden relative z-10">
         {/* Lu.ma Dark Sidebar */}
         {navItems.length > 0 && (
-          <aside className="w-64 bg-[#141417] border-r border-[#242429] hidden md:flex flex-col">
+          <aside className="w-68 bg-[#141417] border-r border-[#242429] hidden md:flex flex-col">
             {/* Event Workspace Header Banner (if in active event) */}
             {isStaff && inEventWorkspace && activeEvent && (
-              <div className="p-3 pb-2 border-b border-[#242429] bg-[#16161A]/80">
+              <div className="p-3.5 pb-2.5 border-b border-[#242429] bg-[#16161A]/80">
                 <Link
                   href="/admin/events"
                   onClick={() => clearActiveEvent()}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 hover:text-white transition-colors mb-2 group cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors mb-2.5 group cursor-pointer"
                 >
-                  <ArrowLeft className="w-3 h-3 group-hover:-translate-x-0.5 transition-transform" />
+                  <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
                   <span>All Hosted Events</span>
                 </Link>
-                <div className="p-2.5 rounded-2xl bg-[#1A1A1F] border border-[#2B2B33] space-y-1">
-                  <div className="text-xs font-black text-white truncate">{activeEvent.title}</div>
-                  <div className="flex items-center gap-2 text-[10px] text-zinc-400 font-mono">
-                    <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 uppercase font-bold text-[9px]">
+                <div className="p-3 rounded-2xl bg-[#1A1A1F] border border-[#2B2B33] space-y-1.5">
+                  <div className="text-sm font-black text-white truncate">{activeEvent.title}</div>
+                  <div className="flex items-center gap-2 text-xs text-zinc-400 font-mono">
+                    <span className="px-2 py-0.5 rounded bg-zinc-800 text-zinc-200 uppercase font-bold text-[10px]">
                       {activeEvent.eventType}
                     </span>
-                    <span>{activeEvent.totalParticipants || 0} Regs</span>
+                    <span className="font-semibold text-zinc-300">{activeEvent.totalParticipants || 0} Regs</span>
                   </div>
                 </div>
               </div>
             )}
 
             <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-              <div className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              <div className="px-3.5 pb-2 text-xs font-bold uppercase tracking-wider text-zinc-400">
                 {inEventWorkspace ? "Event Workspace" : "Command Center"}
               </div>
               {navItems.map((item) => {
@@ -307,14 +307,14 @@ export function AppLayout({ children }: LayoutProps) {
                   <Link
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center gap-2.5 px-3.5 py-2 rounded-xl transition-all duration-150 text-xs font-semibold group cursor-pointer ${
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all duration-150 text-sm font-semibold group cursor-pointer ${
                       isActive
                         ? "bg-[#25252D] text-white shadow-sm font-bold border border-[#34343F]"
-                        : "text-zinc-400 hover:bg-[#1C1C22] hover:text-zinc-200"
+                        : "text-zinc-300 hover:bg-[#1C1C22] hover:text-white"
                     }`}
                   >
                     <Icon
-                      className={`w-4 h-4 shrink-0 transition-transform duration-150 ${isActive ? "text-white" : "text-zinc-500 group-hover:text-zinc-300"}`}
+                      className={`w-4.5 h-4.5 shrink-0 transition-transform duration-150 ${isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"}`}
                     />
                     <span className="truncate">{item.label}</span>
                   </Link>
