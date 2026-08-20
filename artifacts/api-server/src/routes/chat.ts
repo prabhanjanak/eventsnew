@@ -6,10 +6,8 @@ import { logger } from "../lib/logger";
 const router = Router();
 
 const HF_API_TOKEN = process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN || "";
-const NVIDIA_API_KEY = process.env.NVIDIA_API_KEY || "";
-const DEFAULT_MODEL = "nvidia/llama-3.1-nemotron-70b-instruct";
-const HF_NEMOTRON_MODEL = "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF";
-const FALLBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
+const DEFAULT_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
+const FALLBACK_MODEL = "meta-llama/Llama-3.1-8B-Instruct";
 
 // System Knowledge Base — Institutional Pillars & Hospital Locations
 const SANKARA_HOSPITAL_KNOWLEDGE = `
@@ -48,43 +46,12 @@ const SANKARA_HOSPITAL_KNOWLEDGE = `
 15. Patna, Bihar (Upcoming Super-Specialty): Patna, Bihar | Maps: https://maps.google.com/?q=Sankara+Eye+Hospital+Patna
 `;
 
-// Helper to call NVIDIA NIM / Hugging Face Router with NVIDIA Nemotron
-async function queryNemotron(messages: Array<{ role: string; content: string }>): Promise<string> {
-  // 1. Try NVIDIA NIM API if key is available
-  if (NVIDIA_API_KEY) {
-    try {
-      const response = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${NVIDIA_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "nvidia/llama-3.1-nemotron-70b-instruct",
-          messages,
-          max_tokens: 700,
-          temperature: 0.3,
-          top_p: 0.9,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.choices && data.choices[0] && data.choices[0].message) {
-          return data.choices[0].message.content.trim();
-        }
-      }
-    } catch (e: any) {
-      logger.warn({ error: e.message }, "NVIDIA NIM endpoint failed, falling back to Hugging Face");
-    }
-  }
-
-  // 2. Try Hugging Face Router models with full capability
+// Helper to call Hugging Face Router with Meta Llama 3.3 / 3.1
+async function queryLlama(messages: Array<{ role: string; content: string }>): Promise<string> {
   const modelsToTry = [
-    "meta-llama/Llama-3.3-70B-Instruct",
+    DEFAULT_MODEL,
+    FALLBACK_MODEL,
     "Qwen/Qwen2.5-72B-Instruct",
-    "mistralai/Mistral-Small-24B-Instruct-2501",
-    "meta-llama/Llama-3.1-8B-Instruct",
   ];
 
   for (const model of modelsToTry) {
@@ -480,8 +447,8 @@ ${eventsContext}
     let modelUsed = DEFAULT_MODEL;
 
     try {
-      aiResponse = await queryNemotron(conversationMessages);
-      modelUsed = "nvidia/llama-3.1-nemotron-70b-instruct";
+      aiResponse = await queryLlama(conversationMessages);
+      modelUsed = DEFAULT_MODEL;
     } catch (hfErr: any) {
       logger.warn({ error: hfErr.message }, "Falling back to local grounded engine");
       aiResponse = generateLocalGroundedAnswer(

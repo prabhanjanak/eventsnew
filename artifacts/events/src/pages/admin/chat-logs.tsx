@@ -79,10 +79,10 @@ export default function AdminChatLogsPage() {
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-black uppercase font-mono tracking-wider">
-              NVIDIA Nemotron 70B Engine
+              Meta Llama 3.3 70B Engine
             </span>
             <span className="text-xs text-zinc-500">•</span>
-            <span className="text-xs text-zinc-400 font-medium">NVIDIA NIM &amp; Hugging Face</span>
+            <span className="text-xs text-zinc-400 font-medium">Hugging Face Inference Router</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
             <MessageSquare className="w-7 h-7 text-cyan-400" />
