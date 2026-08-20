@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   LogOut, LayoutDashboard, Users, Utensils, QrCode,
   ClipboardList, Database, CalendarDays, Activity, ChevronDown, User2, Settings, Shield,
+  ShieldAlert, ShieldCheck,
   Menu, X, BarChart2, RefreshCw, Layers, Sparkles, Building2,
   ArrowLeft, Check, Radio, MessageSquare, Tag,
 } from "lucide-react";
