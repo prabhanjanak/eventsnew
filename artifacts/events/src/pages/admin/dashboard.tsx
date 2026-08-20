@@ -71,6 +71,23 @@ export default function AdminDashboard() {
     refetchInterval: 30000,
   });
 
+  // Query pending wrapup alerts for concluded events
+  const { data: wrapupAlertsData } = useQuery<{
+    hasPendingAlerts: boolean;
+    pendingEvents: any[];
+  }>({
+    queryKey: ["/api/events/alerts/pending-wrapup"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/events/alerts/pending-wrapup`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return { hasPendingAlerts: false, pendingEvents: [] };
+      return res.json();
+    },
+    enabled: !!token,
+    refetchInterval: 10000,
+  });
+
   if (isLoadingEvents || (!currentEvent && statsLoading)) {
     return (
       <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6">
@@ -98,23 +115,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  // Query pending wrapup alerts for concluded events
-  const { data: wrapupAlertsData } = useQuery<{
-    hasPendingAlerts: boolean;
-    pendingEvents: any[];
-  }>({
-    queryKey: ["/api/events/alerts/pending-wrapup"],
-    queryFn: async () => {
-      const res = await fetch(`${BASE_URL}/api/events/alerts/pending-wrapup`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return { hasPendingAlerts: false, pendingEvents: [] };
-      return res.json();
-    },
-    enabled: !!token,
-    refetchInterval: 10000,
-  });
 
   const totalRegs = stats?.totalRegistrations ?? (currentEvent?.totalParticipants || 0);
   const totalAtt = stats?.totalAttendance ?? 0;

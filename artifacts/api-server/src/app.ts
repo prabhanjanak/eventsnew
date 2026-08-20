@@ -95,7 +95,18 @@ if (!fs.existsSync(uploadsDir)) {
 app.use(
   "/api/uploads",
   express.static(uploadsDir, {
-    maxAge: "1d",            // Cache for 24 hours
+    maxAge: "1d",
+    etag: true,
+    lastModified: true,
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    },
+  })
+);
+app.use(
+  "/uploads",
+  express.static(uploadsDir, {
+    maxAge: "1d",
     etag: true,
     lastModified: true,
     setHeaders(res) {

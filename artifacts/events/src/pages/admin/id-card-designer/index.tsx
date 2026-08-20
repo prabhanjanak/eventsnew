@@ -386,15 +386,17 @@ export default function IdCardDesignerPage() {
     },
   });
 
-  // 5. Upload Template PNG (Front or Back)
+  // 5. Upload Template Image (Front or Back)
   const handleUploadPng = async () => {
     if (!selectedFile || !activeEventId) {
-      toast({ title: "Select File", description: "Please select a PNG template file.", variant: "destructive" });
+      toast({ title: "Select File", description: "Please select an image template file.", variant: "destructive" });
       return;
     }
 
-    if (!selectedFile.type.includes("png") && !selectedFile.name.toLowerCase().endsWith(".png")) {
-      toast({ title: "Invalid File", description: "Only PNG format images are allowed.", variant: "destructive" });
+    const validExtensions = [".png", ".jpg", ".jpeg", ".webp"];
+    const hasValidExt = validExtensions.some((ext) => selectedFile.name.toLowerCase().endsWith(ext));
+    if (!selectedFile.type.startsWith("image/") && !hasValidExt) {
+      toast({ title: "Invalid File", description: "Please upload an image file (PNG, JPG, or WEBP).", variant: "destructive" });
       return;
     }
 
@@ -412,7 +414,14 @@ export default function IdCardDesignerPage() {
         }
       );
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = {};
+      }
+
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
       if (currentDesign && setCurrentDesign) {
@@ -432,7 +441,7 @@ export default function IdCardDesignerPage() {
 
       toast({
         title: `${uploadSide === "front" ? "Front" : "Back"} Template Uploaded ✓`,
-        description: "Background PNG template applied to ID card canvas.",
+        description: "Background image template applied to ID card canvas.",
       });
       setUploadModalOpen(false);
       setSelectedFile(null);
@@ -1158,10 +1167,10 @@ export default function IdCardDesignerPage() {
         <DialogContent className="max-w-md bg-[#141418] border border-[#2B2B32] text-zinc-100 rounded-3xl p-6 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black text-white">
-              Upload {uploadSide === "front" ? "Front Side" : "Back Side"} Template PNG
+              Upload {uploadSide === "front" ? "Front Side" : "Back Side"} Template Image
             </DialogTitle>
             <DialogDescription className="text-xs text-zinc-400">
-              Upload the vertical {uploadSide} card image without attendee name. Dynamic placeholders will be overlaid on top.
+              Upload the vertical {uploadSide} card background image (PNG, JPG, or WEBP).
             </DialogDescription>
           </DialogHeader>
 
@@ -1169,16 +1178,16 @@ export default function IdCardDesignerPage() {
             <div className="p-6 border-2 border-dashed border-[#2F2F3D] hover:border-amber-400/60 rounded-2xl bg-[#0D0D10] text-center space-y-3 transition-colors cursor-pointer relative">
               <input
                 type="file"
-                accept="image/png"
+                accept="image/png, image/jpeg, image/jpg, image/webp"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 className="absolute inset-0 opacity-0 cursor-pointer"
               />
               <Upload className="w-8 h-8 text-amber-400 mx-auto" />
               <div>
                 <p className="text-xs font-bold text-white">
-                  {selectedFile ? selectedFile.name : "Click or drag & drop PNG file here"}
+                  {selectedFile ? selectedFile.name : "Click or drag & drop image file here"}
                 </p>
-                <p className="text-[10px] text-zinc-500 mt-1">Recommended: 300 DPI vertical PNG (Max 30MB)</p>
+                <p className="text-[10px] text-zinc-500 mt-1">Supports PNG, JPG, JPEG, WEBP (Up to 50MB)</p>
               </div>
             </div>
           </div>

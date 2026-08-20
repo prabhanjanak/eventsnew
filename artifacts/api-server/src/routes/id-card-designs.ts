@@ -22,12 +22,15 @@ const storage = multer.diskStorage({
 
 const uploadTemplate = multer({
   storage,
-  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB max
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith("image/png") || file.originalname.toLowerCase().endsWith(".png")) {
+    if (
+      file.mimetype.startsWith("image/") ||
+      /\.(png|jpe?g|webp|svg)$/i.test(file.originalname)
+    ) {
       cb(null, true);
     } else {
-      cb(new Error("Only high-resolution PNG images are allowed for ID Card Templates."));
+      cb(new Error("Only image files (PNG, JPG, WEBP) are allowed for ID Card Templates."));
     }
   },
 });
@@ -308,11 +311,11 @@ router.post(
       }
 
       if (!req.file) {
-        res.status(400).json({ error: "No PNG file provided" });
+        res.status(400).json({ error: "No image file provided" });
         return;
       }
 
-      const fileUrl = `/uploads/${req.file.filename}`;
+      const fileUrl = `/api/uploads/${req.file.filename}`;
       const side = (req.query.side as string) || "front";
 
       res.json({
