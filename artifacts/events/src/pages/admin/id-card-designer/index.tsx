@@ -425,23 +425,49 @@ export default function IdCardDesignerPage() {
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
       if (currentDesign && setCurrentDesign) {
+        let updated: IdCardDesignData;
         if (uploadSide === "back") {
-          setCurrentDesign({
+          updated = {
             ...currentDesign,
             backTemplateImageUrl: data.url,
             isDoubleSided: true,
-          });
+          };
         } else {
-          setCurrentDesign({
+          updated = {
             ...currentDesign,
             templateImageUrl: data.url,
-          });
+          };
         }
+        setCurrentDesign(updated);
+
+        // Automatically persist to database
+        await fetch(`${BASE_URL}/api/events/${activeEventId}/id-card-design`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            cardType: updated.cardType,
+            templateImageUrl: updated.templateImageUrl,
+            backTemplateImageUrl: updated.backTemplateImageUrl,
+            widthInches: updated.widthInches,
+            heightInches: updated.heightInches,
+            dpi: updated.dpi,
+            orientation: updated.orientation,
+            isDoubleSided: updated.isDoubleSided,
+            printSideMode: updated.printSideMode,
+            placeholders: updated.placeholders,
+            backPlaceholders: updated.backPlaceholders,
+            sheetConfig: updated.sheetConfig,
+            status: updated.status,
+          }),
+        }).catch(console.error);
+
+        refetchPreReg();
+        refetchOnSpot();
       }
 
       toast({
-        title: `${uploadSide === "front" ? "Front" : "Back"} Template Uploaded ✓`,
-        description: "Background image template applied to ID card canvas.",
+        title: `${uploadSide === "front" ? "Front" : "Back"} Template Uploaded & Saved ✓`,
+        description: "Background image template applied and saved to card design.",
       });
       setUploadModalOpen(false);
       setSelectedFile(null);
