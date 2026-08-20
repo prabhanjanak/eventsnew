@@ -45,14 +45,15 @@ export function IdCardCanvas({
   const [zoom, setZoom] = useState<number>(100);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
 
-  const widthInches = parseFloat(design.widthInches) || 3.46;
-  const heightInches = parseFloat(design.heightInches) || 5.51;
+  const widthInches = parseFloat(design.widthInches) || 3.34;
+  const heightInches = parseFloat(design.heightInches) || 5.12;
   const { widthPx, heightPx, aspectRatio } = getCardPixelDimensions(widthInches, heightInches, design.dpi || 300);
 
   const isPortrait = heightInches >= widthInches;
   // Dynamic Canvas Display Box
   const canvasDisplayWidth = isPortrait ? 420 : 680;
-  const canvasDisplayHeight = isPortrait ? 420 / aspectRatio : 680 / aspectRatio;
+  const canvasDisplayHeight = Math.round(canvasDisplayWidth / aspectRatio);
+  const ptToScreenPxScale = canvasDisplayWidth / (widthInches * 72);
 
   const currentPlaceholders = activeSide === "back" ? (design.backPlaceholders || []) : (design.placeholders || []);
   const currentTemplateImg = activeSide === "back" ? design.backTemplateImageUrl : design.templateImageUrl;
@@ -529,7 +530,7 @@ export function IdCardCanvas({
                     <div
                       style={{
                         fontFamily: ph.fontFamily || "Inter, sans-serif",
-                        fontSize: `${(ph.fontSizePt || 16) * (canvasDisplayWidth / 350) * 0.75}px`,
+                        fontSize: `${Math.round((ph.fontSizePt || 16) * ptToScreenPxScale)}px`,
                         fontWeight: ph.fontWeight === "bold" ? 700 : ph.fontWeight === "black" ? 900 : ph.fontWeight === "semibold" ? 600 : 500,
                         color: ph.color || (currentTemplateImg ? "#000000" : "#FFFFFF"),
                         letterSpacing: `${ph.letterSpacing || 0}px`,

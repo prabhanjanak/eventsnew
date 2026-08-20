@@ -421,6 +421,19 @@ export function PropertiesPanel({
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
+                onClick={() => applyPreset("3.34", "5.12", "portrait")}
+                className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                  design.widthInches === "3.34" && design.heightInches === "5.12"
+                    ? "bg-amber-400/10 border-amber-400 text-white ring-1 ring-amber-400"
+                    : "bg-[#18181F] border-[#2A2A35] text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="font-bold text-xs text-amber-300">Printed Conference Badge</div>
+                <div className="text-[10px] font-mono text-zinc-400">3.34 × 5.12 in (85×130mm)</div>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => applyPreset("3.46", "5.51", "portrait")}
                 className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
                   design.widthInches === "3.46" && design.heightInches === "5.51"
