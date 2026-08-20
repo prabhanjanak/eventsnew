@@ -678,14 +678,47 @@ export default function EventsDirectory() {
                                   </div>
                                 )}
 
-                                {event.maxCapacity && (
-                                  <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                                    <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                    <span>
-                                      {event.seatsLeft !== undefined ? `${event.seatsLeft} seats left` : `${event.maxCapacity} capacity`}
-                                    </span>
-                                  </div>
-                                )}
+                                {(() => {
+                                  const todayStr = new Date().toISOString().split("T")[0];
+                                  const isPast =
+                                    activeTimeline === "past" ||
+                                    event.status === "completed" ||
+                                    event.status === "archived" ||
+                                    (event.endDate ? event.endDate < todayStr : event.startDate < todayStr);
+                                  const footfall =
+                                    event.postEventVisitorCount ||
+                                    event.totalParticipants ||
+                                    (event as any).attendanceCount ||
+                                    0;
+
+                                  if (isPast) {
+                                    return (
+                                      <div className="flex items-center gap-1.5 text-amber-400 font-semibold">
+                                        <Users className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                        <span>
+                                          {footfall > 0
+                                            ? `${footfall.toLocaleString()} Footfall`
+                                            : "Event Concluded"}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (event.maxCapacity) {
+                                    return (
+                                      <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                                        <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                        <span>
+                                          {event.seatsLeft !== undefined
+                                            ? `${event.seatsLeft} seats left`
+                                            : `${event.maxCapacity} capacity`}
+                                        </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  return null;
+                                })()}
                               </div>
                             </div>
 

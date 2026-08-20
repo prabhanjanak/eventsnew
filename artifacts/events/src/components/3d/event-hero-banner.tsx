@@ -6,6 +6,7 @@ interface EventHeroBannerProps {
   event: any;
   seatsLeft?: number;
   isPaid?: boolean;
+  isConcluded?: boolean;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ export function EventHeroBanner({
   event,
   seatsLeft = 500,
   isPaid = false,
+  isConcluded = false,
   className = "",
 }: EventHeroBannerProps) {
   const cardRef = useRef<HTMLDivElement>(null);
@@ -127,11 +129,22 @@ export function EventHeroBanner({
               <span>{event.eventType ? event.eventType.toUpperCase() : "MEDICAL EVENT"}</span>
             </span>
 
-            {/* Seats Telemetry Pill */}
-            <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-500/20 backdrop-blur-md text-blue-300 border border-blue-400/30 shadow-sm flex items-center gap-1.5">
-              <Users className="w-3 h-3 text-blue-400" />
-              <span>{seatsLeft} Seats Left</span>
-            </span>
+            {/* Telemetry Pill: Footfall (if Concluded) or Seats Left */}
+            {isConcluded ? (
+              <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/20 backdrop-blur-md text-amber-300 border border-amber-400/30 shadow-sm flex items-center gap-1.5">
+                <Users className="w-3 h-3 text-amber-400" />
+                <span>
+                  {(event.postEventVisitorCount || event.totalParticipants || (event as any).attendanceCount || 0) > 0
+                    ? `${(event.postEventVisitorCount || event.totalParticipants || (event as any).attendanceCount).toLocaleString()} Footfall`
+                    : "Event Concluded"}
+                </span>
+              </span>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-blue-500/20 backdrop-blur-md text-blue-300 border border-blue-400/30 shadow-sm flex items-center gap-1.5">
+                <Users className="w-3 h-3 text-blue-400" />
+                <span>{seatsLeft} Seats Left</span>
+              </span>
+            )}
 
             {/* Accreditation Badge */}
             <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 backdrop-blur-md text-emerald-300 border border-emerald-500/30 items-center gap-1">

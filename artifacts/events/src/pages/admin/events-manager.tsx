@@ -956,11 +956,23 @@ export default function EventsManager() {
                         <span className="text-2xl font-black text-white">{ev.totalParticipants || 0}</span>
                         <span className="text-xs text-zinc-500 font-medium">Registered</span>
                       </div>
-                      {ev.maxCapacity ? (
-                        <div className="text-[10px] text-zinc-500">
-                          {ev.seatsLeft ?? Math.max(0, ev.maxCapacity - (ev.totalParticipants || 0))} seats left of {ev.maxCapacity}
-                        </div>
-                      ) : null}
+                      {(() => {
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        const isPast = (ev.endDate ? ev.endDate < todayStr : ev.startDate < todayStr) || ev.status === "completed" || ev.status === "archived";
+                        const footfall = ev.postEventVisitorCount || ev.totalParticipants || (ev as any).attendanceCount || 0;
+                        if (isPast) {
+                          return (
+                            <div className="text-[10px] text-amber-400 font-semibold">
+                              Footfall: {footfall > 0 ? `${footfall.toLocaleString()} Attendees` : "Concluded"}
+                            </div>
+                          );
+                        }
+                        return ev.maxCapacity ? (
+                          <div className="text-[10px] text-zinc-500">
+                            {ev.seatsLeft ?? Math.max(0, ev.maxCapacity - (ev.totalParticipants || 0))} seats left of {ev.maxCapacity}
+                          </div>
+                        ) : null;
+                      })()}
                     </div>
 
                     {/* Action Buttons */}

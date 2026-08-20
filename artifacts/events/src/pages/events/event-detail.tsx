@@ -853,7 +853,7 @@ export default function EventDetailPage() {
             {/* ─── LEFT MAIN CONTENT COLUMN (7 cols) ─── */}
             <div className="lg:col-span-7 xl:col-span-7 space-y-6">
               {/* Cover Banner / Graphic (3D Futuristic Hologram Hero Banner) */}
-              <EventHeroBanner event={event} seatsLeft={seatsLeft} isPaid={isPaid} />
+              <EventHeroBanner event={event} seatsLeft={seatsLeft} isPaid={isPaid} isConcluded={isConcluded} />
 
               {/* Event Title & Narrative */}
               <div className="space-y-2">
@@ -1195,63 +1195,101 @@ export default function EventDetailPage() {
                   )}
                 </div>
 
-                {/* Capacity and Seats Left Telemetry Box */}
-                <div className="bg-[#141417] border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-inner">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-zinc-200 flex items-center gap-1.5">
-                      <Users className="w-4 h-4 text-blue-400" />
-                      Seats Availability
-                    </span>
-                    <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        seatsLeft === 0
-                          ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                          : seatsLeft <= 25
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
-                          : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                      }`}
-                    >
-                      {seatsLeft === 0 ? "Sold Out" : seatsLeft <= 25 ? "Filling Fast 🔥" : "Available"}
-                    </span>
-                  </div>
-
-                  <div className="flex items-baseline justify-between text-xs pt-1">
-                    <div className="space-y-0.5">
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                        Seats Remaining
+                {/* Capacity and Seats Left Telemetry Box / Footfall Telemetry */}
+                {isConcluded ? (
+                  <div className="bg-[#141417] border border-amber-500/30 rounded-2xl p-4 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-amber-400" />
+                        Official Event Footfall
                       </span>
-                      <span className="text-xl font-black text-white font-mono">
-                        {seatsLeft} <span className="text-xs text-zinc-400 font-normal">left</span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        Event Concluded
                       </span>
                     </div>
-                    <div className="text-right space-y-0.5">
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                        Total Capacity
-                      </span>
-                      <span className="text-sm font-black text-zinc-300 font-mono">
-                        {maxCapacity} Max
-                      </span>
+
+                    <div className="flex items-baseline justify-between text-xs pt-1">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                          Total Attendance &amp; Footfall
+                        </span>
+                        <span className="text-2xl font-black text-white font-mono">
+                          {(event.postEventVisitorCount || event.totalParticipants || (event as any).attendanceCount || 0).toLocaleString()}{" "}
+                          <span className="text-xs text-zinc-400 font-normal">Attendees</span>
+                        </span>
+                      </div>
+                      <div className="text-right space-y-0.5">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                          Max Capacity
+                        </span>
+                        <span className="text-sm font-black text-zinc-300 font-mono">
+                          {maxCapacity} Max
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
+                      This event has concluded. Registrations are closed.
                     </div>
                   </div>
-
-                  {/* Visual Progress Bar */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="w-full h-2.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800 p-0.5">
-                      <div
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          percentBooked >= 90
-                            ? "bg-gradient-to-r from-amber-500 to-rose-500"
-                            : "bg-gradient-to-r from-blue-500 to-emerald-400"
+                ) : (
+                  <div className="bg-[#141417] border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-inner">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-zinc-200 flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-blue-400" />
+                        Seats Availability
+                      </span>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          seatsLeft === 0
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                            : seatsLeft <= 25
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+                            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                         }`}
-                        style={{ width: `${percentBooked}%` }}
-                      />
+                      >
+                        {seatsLeft === 0 ? "Sold Out" : seatsLeft <= 25 ? "Filling Fast 🔥" : "Available"}
+                      </span>
                     </div>
-                    <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium">
-                      <span>{totalRegistered} Registered ({percentBooked}% filled)</span>
-                      <span>{seatsLeft} Available</span>
+
+                    <div className="flex items-baseline justify-between text-xs pt-1">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                          Seats Remaining
+                        </span>
+                        <span className="text-xl font-black text-white font-mono">
+                          {seatsLeft} <span className="text-xs text-zinc-400 font-normal">left</span>
+                        </span>
+                      </div>
+                      <div className="text-right space-y-0.5">
+                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                          Total Capacity
+                        </span>
+                        <span className="text-sm font-black text-zinc-300 font-mono">
+                          {maxCapacity} Max
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Visual Progress Bar */}
+                    <div className="space-y-1.5 pt-1">
+                      <div className="w-full h-2.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800 p-0.5">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            percentBooked >= 90
+                              ? "bg-gradient-to-r from-amber-500 to-rose-500"
+                              : "bg-gradient-to-r from-blue-500 to-emerald-400"
+                          }`}
+                          style={{ width: `${percentBooked}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium">
+                        <span>{totalRegistered} Registered ({percentBooked}% filled)</span>
+                        <span>{seatsLeft} Available</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Primary CTA */}
                 <Button
