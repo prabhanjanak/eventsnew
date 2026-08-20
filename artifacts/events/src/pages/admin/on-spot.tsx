@@ -367,24 +367,95 @@ export default function AdminOnSpot() {
         </div>
       </div>
 
-      {/* ── METRICS ROW (PURE MONOCHROME) ───────────────────────────────────── */}
+      {/* ── INTERACTIVE METRICS STAT CARDS ROW ─────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-5 rounded-3xl bg-[#151518] border border-[#26262B] shadow-sm">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Total Card Numbers</span>
-          <div className="text-3xl font-black text-white mt-1">{totalCards}</div>
-          <span className="text-[11px] text-zinc-500 mt-0.5 block">Physical numbered cards generated</span>
+        {/* Total Cards Metric */}
+        <div
+          onClick={() => setStatusFilter("all")}
+          className={`p-5 rounded-3xl bg-[#14151B]/90 border backdrop-blur-xl transition-all cursor-pointer select-none group ${
+            statusFilter === "all"
+              ? "border-white/40 shadow-[0_0_25px_rgba(255,255,255,0.08)] ring-1 ring-white/20"
+              : "border-white/10 hover:border-white/20 hover:bg-[#181922]"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono font-semibold text-zinc-400 uppercase tracking-wider">
+              Total Cards Pool
+            </span>
+            <span className="p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 group-hover:text-white">
+              <Hash className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="text-3xl font-black text-white mt-2 tracking-tight">{totalCards}</div>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-400">
+            <span>Physical stock generated</span>
+            <span className="font-mono text-zinc-500">100%</span>
+          </div>
         </div>
 
-        <div className="p-5 rounded-3xl bg-[#151518] border border-[#26262B] shadow-sm">
-          <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Valid &amp; Active Passes</span>
-          <div className="text-3xl font-black text-white mt-1">{validCards}</div>
-          <span className="text-[11px] text-zinc-500 mt-0.5 block">Scanned &amp; assigned to attendee</span>
+        {/* Valid & Active Passes Metric */}
+        <div
+          onClick={() => setStatusFilter("valid")}
+          className={`p-5 rounded-3xl bg-[#14151B]/90 border backdrop-blur-xl transition-all cursor-pointer select-none group ${
+            statusFilter === "valid"
+              ? "border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.15)] ring-1 ring-emerald-500/30"
+              : "border-white/10 hover:border-emerald-500/30 hover:bg-[#181922]"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Valid &amp; Active Passes
+            </span>
+            <span className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <CheckCircle2 className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="text-3xl font-black text-emerald-300 mt-2 tracking-tight">{validCards}</div>
+          <div className="mt-3 space-y-1">
+            <div className="w-full bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalCards > 0 ? (validCards / totalCards) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+              <span>Activated &amp; Assigned</span>
+              <span>{totalCards > 0 ? Math.round((validCards / totalCards) * 100) : 0}%</span>
+            </div>
+          </div>
         </div>
 
-        <div className="p-5 rounded-3xl bg-[#151518] border border-[#26262B] shadow-sm">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Not Valid (Pending Scan)</span>
-          <div className="text-3xl font-black text-zinc-400 mt-1">{pendingCards}</div>
-          <span className="text-[11px] text-zinc-500 mt-0.5 block">Requires phone + name at desk</span>
+        {/* Pending Scan Metric */}
+        <div
+          onClick={() => setStatusFilter("pending")}
+          className={`p-5 rounded-3xl bg-[#14151B]/90 border backdrop-blur-xl transition-all cursor-pointer select-none group ${
+            statusFilter === "pending"
+              ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.15)] ring-1 ring-amber-500/30"
+              : "border-white/10 hover:border-amber-500/30 hover:bg-[#181922]"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-mono font-semibold text-amber-300 uppercase tracking-wider">
+              Pending Scan / Unassigned
+            </span>
+            <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+              <Clock className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="text-3xl font-black text-amber-200 mt-2 tracking-tight">{pendingCards}</div>
+          <div className="mt-3 space-y-1">
+            <div className="w-full bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalCards > 0 ? (pendingCards / totalCards) * 100 : 0}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+              <span>Awaiting Desk Scan</span>
+              <span>{totalCards > 0 ? Math.round((pendingCards / totalCards) * 100) : 0}%</span>
+            </div>
+          </div>
         </div>
       </div>
 
