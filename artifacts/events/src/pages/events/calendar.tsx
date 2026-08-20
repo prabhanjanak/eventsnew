@@ -16,7 +16,7 @@ import { LumaCalendar, type LumaEvent } from "@/components/events/luma-calendar"
 
 export default function EventsCalendarPage() {
   useEffect(() => {
-    document.title = "Events Schedule & Academic Calendar | Sankara Eye Care Institutions";
+    document.title = "Events Schedule & Academic Calendar | Sankara Eye Foundation India";
   }, []);
 
   const { data: eventsData, isLoading } = useQuery<{ events: LumaEvent[] }>({

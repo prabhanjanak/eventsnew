@@ -961,7 +961,7 @@ export default function EventRegisterPage() {
       <footer className="border-t border-zinc-800/80 bg-[#09090B] py-6 text-xs text-zinc-500 mt-auto">
         <div className="max-w-xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-zinc-500 font-normal">
-            © {new Date().getFullYear()} Sankara Eye Care Institutions
+            © {new Date().getFullYear()} Sankara Eye Foundation India
           </p>
 
           <div className="flex items-center gap-4">
