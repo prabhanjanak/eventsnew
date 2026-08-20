@@ -69,18 +69,15 @@ export function Sankara3DEmblem({
         </motion.div>
       </div>
 
-      {/* Tagline */}
+      {/* Tagline with clean margin below particle sphere */}
       {showTagline && (
         <motion.div
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.4 }}
-          className="text-center space-y-0.5 z-10 relative -mt-4"
+          className="text-center z-10 relative mt-2 pt-1"
         >
-          <p className="text-[11px] sm:text-xs font-bold text-zinc-300 tracking-wider uppercase">
-            Sankara Eye Care Institutions
-          </p>
-          <p className="text-[9px] sm:text-[10px] text-zinc-500 font-semibold tracking-widest uppercase">
+          <p className="text-[10px] sm:text-[11px] text-zinc-400 font-semibold tracking-widest uppercase">
             Sri Kanchi Kamakoti Medical Trust
           </p>
         </motion.div>
