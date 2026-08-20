@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/layout";
 import CircleCursor from "@/components/originkit/ui/circle-cursor";
 
 import EventsDirectory from "@/pages/events";
+import EventsCalendarPage from "@/pages/events/calendar";
 import EventDetailPage from "@/pages/events/event-detail";
 import EventRegisterPage from "@/pages/events/register";
 import MyRegistrationsPage from "@/pages/events/my-registrations";
@@ -76,6 +77,7 @@ function Router() {
     <Switch>
       <Route path="/" component={EventsDirectory} />
       <Route path="/events" component={EventsDirectory} />
+      <Route path="/calendar" component={EventsCalendarPage} />
       <Route path="/events/:slug/register" component={EventRegisterPage} />
       <Route path="/events/:slug" component={EventDetailPage} />
       <Route path="/my-registrations" component={EventsDirectory} />

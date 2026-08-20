@@ -31,7 +31,9 @@ import {
   ShieldCheck,
   LogOut,
   CheckCircle2,
+  Grid,
 } from "lucide-react";
+import { LumaCalendar } from "@/components/events/luma-calendar";
 import { useAuth } from "@/hooks/use-auth";
 import { GoogleWalletButton } from "@/components/google-wallet-button";
 import { ThreeAmbientScene } from "@/components/3d/three-ambient-scene";
@@ -99,6 +101,7 @@ export default function EventsDirectory() {
   const [mainTab, setMainTab] = useState<"discover" | "registrations">(getInitialTab);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [activeTimeline, setActiveTimeline] = useState<"upcoming" | "past">("upcoming");
+  const [viewLayout, setViewLayout] = useState<"grid" | "calendar">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const { user, token, logout, loginAttendee } = useAuth();
   const { toast } = useToast();
@@ -542,8 +545,8 @@ export default function EventsDirectory() {
               </div>
             </div>
 
-            {/* Timeline Filter Switcher (Upcoming / Past) */}
-            <div className="flex items-center justify-between border-b border-[#242428] pb-4">
+            {/* Timeline Filter Switcher (Upcoming / Past) + View Mode Switcher (Grid / Calendar) */}
+            <div className="flex items-center justify-between border-b border-[#242428] pb-4 flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setActiveTimeline("upcoming")}
@@ -568,13 +571,44 @@ export default function EventsDirectory() {
                 </button>
               </div>
 
-              <span className="text-xs text-zinc-500 font-medium hidden sm:inline-block">
-                Showing {displayedEvents.length} {displayedEvents.length === 1 ? "Event" : "Events"}
-              </span>
+              {/* View Layout Switcher (Cards vs Luma Calendar) */}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-zinc-500 font-medium hidden md:inline-block">
+                  Showing {displayedEvents.length} {displayedEvents.length === 1 ? "Event" : "Events"}
+                </span>
+
+                <div className="flex items-center bg-[#18181D] border border-[#2A2A33] rounded-2xl p-1 shadow-inner">
+                  <button
+                    onClick={() => setViewLayout("grid")}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      viewLayout === "grid"
+                        ? "bg-white text-zinc-950 shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5" />
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    onClick={() => setViewLayout("calendar")}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      viewLayout === "calendar"
+                        ? "bg-white text-zinc-950 shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Calendar</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* Events Grid (2-Column Responsive Matrix on Desktop) */}
-            {isLoading ? (
+            {/* View Mode 1: Luma AI Interactive Calendar */}
+            {viewLayout === "calendar" ? (
+              <LumaCalendar events={events || []} isLoading={isLoading} />
+            ) : isLoading ? (
+              /* View Mode 2: 2-Column Obsidian Cards Matrix */
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                 {[1, 2, 3, 4].map((n) => (
                   <div key={n} className="h-36 rounded-3xl bg-[#141417] border border-[#242428] animate-pulse p-6" />
