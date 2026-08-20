@@ -36,7 +36,13 @@ const QUICK_PROMPTS = [
 ];
 
 export function SankaraAIChatbot() {
-  const { user } = useAuth();
+  let user: any = null;
+  try {
+    const auth = useAuth();
+    user = auth?.user;
+  } catch {
+    user = null;
+  }
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);

@@ -208,12 +208,12 @@ function App() {
             <AuthProvider>
               <EventProvider>
                 <Router />
+                {/* Sankara AI Event & Hospital Concierge */}
+                <SankaraAIChatbot />
               </EventProvider>
             </AuthProvider>
           </WouterRouter>
           <Toaster />
-          {/* Sankara AI Event & Hospital Concierge */}
-          <SankaraAIChatbot />
           {/* Originkit Dynamic Click / Mouse Effects Overlay */}
           <MouseEffects interactionMode="sniper" color="#ffffff" effectSize={80} />
         </TooltipProvider>
