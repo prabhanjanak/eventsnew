@@ -259,6 +259,21 @@ const SANKARA_BRANCHES = [
   },
 ];
 
+// Sanitize and clean AI / Markdown Output
+function cleanAiMarkdown(text: string): string {
+  if (!text) return "";
+  let cleaned = text
+    // Replace hardcoded localhost / local network IP URLs with clean relative paths
+    .replace(/https?:\/\/(?:localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):[0-9]+(\/[a-zA-Z0-9_\-\/]*)/g, "$1")
+    // Fix broken double bold lists e.g. **• [Title]...** -> • **[Title]...**
+    .replace(/\*\*\s*•\s*/g, "• **")
+    // Fix malformed consecutive bullets
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return cleaned;
+}
+
 // Local Grounded Search Fallback & Browser-Aware Reasoning Engine
 function generateLocalGroundedAnswer(
   userQuery: string,
@@ -267,6 +282,12 @@ function generateLocalGroundedAnswer(
   browserContext?: { currentPath?: string; currentUrl?: string; pageTitle?: string; visiblePageContext?: string }
 ): string {
   const q = userQuery.toLowerCase().trim();
+  const todayStr = new Date().toISOString().split("T")[0]; // e.g. "2026-08-20"
+
+  // Separate upcoming active events from concluded/past events
+  const upcomingEvents = events.filter((e) => (e.endDate || e.startDate) >= todayStr && e.registrationOpen);
+  const pastEvents = events.filter((e) => (e.endDate || e.startDate) < todayStr || !e.registrationOpen);
+  const displayUpcoming = upcomingEvents.length > 0 ? upcomingEvents : events;
 
   // 0. Strict Guardrail against Internal Techstack / Software Infrastructure / Off-Topic queries
   if (
@@ -308,7 +329,7 @@ function generateLocalGroundedAnswer(
     return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **14 Hospitals** across India (+ 1 Upcoming Super-Specialty Hospital in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
   }
 
-  // 4. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across all events
+  // 4. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across UPCOMING events only
   if (
     q.includes("student") ||
     q.includes("pg") ||
@@ -323,8 +344,7 @@ function generateLocalGroundedAnswer(
     (q.includes("price") && !focusedEvent)
   ) {
     const isStudentQuery = q.includes("student") || q.includes("pg") || q.includes("resident") || q.includes("fellow");
-    const activeEventsList = events.slice(0, 5);
-    const eventCards = activeEventsList.map((e) => {
+    const eventCards = displayUpcoming.map((e) => {
       let tierSummary = "";
       if (e.pricingTiersJson) {
         try {
@@ -338,13 +358,25 @@ function generateLocalGroundedAnswer(
     }).join("\n\n");
 
     const header = isStudentQuery
-      ? `🎓 **Sankara Conferences & Student / PG Delegate Pricing**\n\nHere are the upcoming academic medical conclaves and their delegate/student pricing categories:`
-      : `🎟️ **Upcoming Sankara Events & Registration Pricing**\n\nHere is the fee schedule for our upcoming academic conferences:`;
+      ? `🎓 **Upcoming Sankara Conferences & Student / PG Delegate Pricing**\n\nHere are the currently active upcoming medical conclaves and their delegate/student pricing categories:`
+      : `🎟️ **Upcoming Sankara Events & Registration Pricing**\n\nHere is the fee schedule for our active upcoming academic conferences:`;
 
     return `${header}\n\n${eventCards}\n\n👉 **[Open Interactive Calendar](/calendar)** | **[All Events Directory](/events)**`;
   }
 
-  // 4. Current Event on User's Screen (Browser Context)
+  // 5. Past Events / Concluded Archives
+  if (q.includes("past") || q.includes("previous") || q.includes("concluded") || q.includes("archive") || q.includes("history")) {
+    if (pastEvents.length === 0) {
+      return `All currently listed conferences are active and upcoming! You can explore them in our [Events Directory](/events).`;
+    }
+    const pastCards = pastEvents.map((e) =>
+      `• **[${e.title}](/events/${e.slug})** *(🔴 Concluded)*\n  🗓️ **Conducted on**: ${e.startDate} to ${e.endDate} | 📍 ${e.venue}, ${e.city}\n  📸 **Event Gallery**: [View Photos on Samaro AI](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)`
+    ).join("\n\n");
+
+    return `🏛️ **Past & Concluded Sankara Academic Conferences**\n\n${pastCards}\n\n👉 **[Browse Upcoming Events](/events)** | **[Academic Calendar](/calendar)**`;
+  }
+
+  // 6. Current Event on User's Screen (Browser Context)
   const targetEvent = focusedEvent || events.find((e) =>
     q.includes(e.title.toLowerCase()) ||
     q.includes(e.slug.toLowerCase()) ||
@@ -353,14 +385,17 @@ function generateLocalGroundedAnswer(
 
   // If asking about the active event or specific event attributes
   if (targetEvent) {
+    const isEventPast = (targetEvent.endDate || targetEvent.startDate) < todayStr || !targetEvent.registrationOpen;
+    const statusLabel = isEventPast ? "🔴 Concluded / Registrations Closed" : "🟢 Open for Registration";
+
     // A. Dates & Timings of this event
     if (q.includes("when") || q.includes("date") || q.includes("time") || q.includes("timing") || q.includes("schedule") || q.includes("start") || q.includes("end")) {
-      return `🗓️ **Event Schedule for ${targetEvent.title}**\n\n- **Dates**: **${targetEvent.startDate}** to **${targetEvent.endDate}**\n- **Timings**: **${targetEvent.timeFrom || "09:00 AM"}** - **${targetEvent.timeTo || "05:00 PM"}**\n- **Venue**: ${targetEvent.venue}, ${targetEvent.city}\n- **Registration Status**: ${targetEvent.registrationOpen ? "🟢 Open" : "🔴 Concluded / Closed"}\n\n👉 **[View Full Details & Register](/events/${targetEvent.slug})** | **[Academic Calendar](/calendar)**`;
+      return `🗓️ **Event Schedule for ${targetEvent.title}**\n\n- **Dates**: **${targetEvent.startDate}** to **${targetEvent.endDate}**\n- **Timings**: **${targetEvent.timeFrom || "09:00 AM"}** - **${targetEvent.timeTo || "05:00 PM"}**\n- **Venue**: ${targetEvent.venue}, ${targetEvent.city}\n- **Status**: ${statusLabel}\n\n👉 **[View Full Details & Register](/events/${targetEvent.slug})** | **[Academic Calendar](/calendar)**`;
     }
 
     // B. Venue & Location
     if (q.includes("where") || q.includes("venue") || q.includes("location") || q.includes("city") || q.includes("place") || q.includes("address")) {
-      return `📍 **Venue & Location for ${targetEvent.title}**\n\n- **Venue**: **${targetEvent.venue}**\n- **City**: **${targetEvent.city || "Coimbatore, Tamil Nadu"}**\n- **Conducted by**: ${targetEvent.organizerName || "Sankara Eye Foundation India"}\n\n👉 **[Open Event Page](/events/${targetEvent.slug})**`;
+      return `📍 **Venue & Location for ${targetEvent.title}**\n\n- **Venue**: **${targetEvent.venue}**\n- **City**: **${targetEvent.city || "Coimbatore, Tamil Nadu"}**\n- **Status**: ${statusLabel}\n- **Conducted by**: ${targetEvent.organizerName || "Sankara Eye Foundation India"}\n\n👉 **[Open Event Page](/events/${targetEvent.slug})**`;
     }
 
     // C. Pricing, Fee, Passes, Tiers, How to register
@@ -388,7 +423,7 @@ function generateLocalGroundedAnswer(
         } catch {}
       }
 
-      return `🎟️ **Registration & Fee Details for ${targetEvent.title}**\n\n- **Base Fee**: ${targetEvent.isPaid ? `**₹${targetEvent.registrationFee.toLocaleString("en-IN")}**` : "**Complimentary / Free Pass**"}\n- **Status**: ${targetEvent.registrationOpen ? "🟢 Registrations Currently Open" : "Closed"}${tiersText}\n\n👉 **[Click Here to Register Online](/events/${targetEvent.slug}/register)**`;
+      return `🎟️ **Registration & Fee Details for ${targetEvent.title}**\n\n- **Base Fee**: ${targetEvent.isPaid ? `**₹${targetEvent.registrationFee.toLocaleString("en-IN")}**` : "**Complimentary / Free Pass**"}\n- **Status**: ${statusLabel}${tiersText}\n\n👉 **[Click Here to Register Online](/events/${targetEvent.slug}/register)**`;
     }
 
     // D. Agenda & Scientific Sessions
@@ -414,21 +449,21 @@ function generateLocalGroundedAnswer(
     }
   }
 
-  // 4. Academic Calendar & Schedule
+  // 7. Academic Calendar & Schedule
   if (q.includes("calendar") || q.includes("all events") || q.includes("schedule") || q.includes("dates") || q.includes("upcoming")) {
-    const list = events.slice(0, 4).map((e) =>
+    const list = displayUpcoming.map((e) =>
       `• **[${e.title}](/events/${e.slug})**\n  🗓️ ${e.startDate} to ${e.endDate} | 📍 ${e.venue}, ${e.city} | ${e.isPaid ? `₹${e.registrationFee}` : "Free"}`
     ).join("\n\n");
 
     return `📅 **Upcoming Sankara Academic Events & Conferences**\n\n${list}\n\n👉 **[Open Interactive Lu.ma Calendar](/calendar)** | **[All Events Directory](/events)**`;
   }
 
-  // 5. Personal Digital Passes & QR Codes
+  // 8. Personal Digital Passes & QR Codes
   if (q.includes("my pass") || q.includes("my registration") || q.includes("my ticket") || q.includes("qr code") || q.includes("my qr") || q.includes("wallet") || q.includes("download pass") || q.includes("find my pass")) {
     return `🎟️ **Access Your Admission Passes & Digital QR Badges**\n\nYou can access your confirmed registration pass, QR code for scanner entry, food token badges, and 1-click Google Wallet pass here:\n\n👉 **[Open My Registrations & Passes](/my-registrations)**`;
   }
 
-  // 6. Medical & Ophthalmology Knowledge (Cataract, Glaucoma, Cornea, Retina, Lasik, General Eye Health)
+  // 9. Medical & Ophthalmology Knowledge (Cataract, Glaucoma, Cornea, Retina, Lasik, General Eye Health)
   if (q.includes("cataract") || q.includes("phaco") || q.includes("iol") || q.includes("lens")) {
     return `👁️ **About Cataract Care & Surgery at Sankara**\n\n- **What is Cataract?**: Clouding of the natural crystalline eye lens, causing blurred or misty vision.\n- **Treatment**: Micro-incision Phacoemulsification with Foldable Intraocular Lens (IOL) implantation.\n- **Sankara Impact**: Over 1,500+ free cataract surgeries performed daily across rural & base hospitals.\n- **Academic Sessions**: Regularly featured in our [Annual Ophthalmology Conferences](/events).`;
   }
@@ -445,8 +480,8 @@ function generateLocalGroundedAnswer(
     return `👁️ **Vitreoretinal Services & Research**\n\n- Advanced management of Diabetic Retinopathy, Retinal Detachment, and Age-Related Macular Degeneration (AMD) with anti-VEGF therapy and micro-incision vitrectomy (MIVS).\n- Check our [Scientific Events Directory](/events) for retina symposiums.`;
   }
 
-  // 7. Generic Smart Search across All Events
-  const matches = events.filter((e) =>
+  // 10. Generic Smart Search across Upcoming Events
+  const matches = displayUpcoming.filter((e) =>
     e.title.toLowerCase().includes(q) ||
     (e.description && e.description.toLowerCase().includes(q)) ||
     (e.venue && e.venue.toLowerCase().includes(q)) ||
@@ -457,18 +492,18 @@ function generateLocalGroundedAnswer(
     const list = matches.map((e) =>
       `• **[${e.title}](/events/${e.slug})**\n  🗓️ ${e.startDate} | 📍 ${e.venue}, ${e.city} | ${e.isPaid ? `₹${e.registrationFee}` : "Free Pass"}`
     ).join("\n\n");
-    return `Here are the relevant events matching your request:\n\n${list}\n\n👉 **[Browse Full Event Directory](/events)**`;
+    return `Here are the upcoming events matching your request:\n\n${list}\n\n👉 **[Browse Full Event Directory](/events)**`;
   }
 
-  // 8. General Greetings / Conversational Questions
+  // 11. General Greetings / Conversational Questions
   if (q.includes("who are you") || q.includes("what can you do") || q.includes("help") || q.includes("hello") || q.includes("namaste") || q.includes("hi")) {
-    const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
-    return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India 👁️\n\nI can assist you with:\n- 📅 **Conferences & CME Registrations**: [Event Directory](/events) | [Academic Calendar](/calendar)\n- 🗺️ **Hospital Google Maps Locations**: 14 Hospitals across India (+1 in Patna, Bihar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n\n**Featured Events:**\n${featured}\n\nHow may I help you today?`;
+    const featured = displayUpcoming.map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
+    return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India 👁️\n\nI can assist you with:\n- 📅 **Conferences & CME Registrations**: [Event Directory](/events) | [Academic Calendar](/calendar)\n- 🗺️ **Hospital Google Maps Locations**: 14 Hospitals across India (+1 in Patna, Bihar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n\n**Upcoming Conclaves:**\n${featured}\n\nHow may I help you today?`;
   }
 
   // Default helpful overview
-  const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
-  return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the official AI assistant for Sankara Eye Foundation India.\n\nI specialize strictly in **Sankara Eye Foundation India**, our medical conferences, CME registrations, delegate passes, scientific agendas, hospital network, Google Maps locations, and clinical eye care.\n\n**Upcoming Conclaves:**\n${featured}\n\nHow may I assist you with Sankara events today?`;
+  const featured = displayUpcoming.map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
+  return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the official AI assistant for Sankara Eye Foundation India.\n\nI specialize strictly in **Sankara Eye Foundation India**, our medical conferences, CME registrations, delegate passes, scientific agendas, hospital network, Google Maps locations, and clinical eye care.\n\n**Upcoming Active Conclaves:**\n${featured}\n\nHow may I assist you with Sankara events today?`;
 }
 
 // ── 1. POST /api/chat — Public Conversational AI Endpoint ─────────────────────
@@ -557,20 +592,35 @@ ${parsedAgenda ? `- Detailed Schedule & Sessions:\n${parsedAgenda}` : ""}
 `;
     }
 
-    // Format all events for general directory search
-    const eventsContext = allEvents.map((ev, i) => {
+    // Format all events with clear upcoming vs concluded categorization
+    const todayStr = new Date().toISOString().split("T")[0]; // "2026-08-20"
+    const upcomingList = allEvents.filter((ev) => (ev.endDate || ev.startDate) >= todayStr && ev.registrationOpen);
+    const pastList = allEvents.filter((ev) => (ev.endDate || ev.startDate) < todayStr || !ev.registrationOpen);
+
+    const upcomingContext = upcomingList.map((ev, i) => {
       let tiersInfo = "";
       if (ev.pricingTiersJson) {
         try {
           const tiers = JSON.parse(ev.pricingTiersJson);
           if (Array.isArray(tiers)) {
-            tiersInfo = ` | Pricing: ` + tiers.map((t: any) => `${t.name}: ₹${t.price}`).join(", ");
+            tiersInfo = ` | Pricing Tiers: ` + tiers.map((t: any) => `${t.name}: ₹${t.price}`).join(", ");
           }
         } catch {}
       }
-
-      return `[Event #${i + 1}] Title: "${ev.title}" (Slug: ${ev.slug}) | Dates: ${ev.startDate} to ${ev.endDate} | Venue: ${ev.venue}, ${ev.city} | Status: ${ev.registrationOpen ? "Open" : "Concluded"} | Fee: ${ev.isPaid ? `₹${ev.registrationFee}` : "Free"}${tiersInfo} | Link: /events/${ev.slug}`;
+      return `[Upcoming Event #${i + 1}] Title: "${ev.title}" (Slug: ${ev.slug}) | Dates: ${ev.startDate} to ${ev.endDate} | Venue: ${ev.venue}, ${ev.city} | Status: 🟢 Open for Registration | Fee: ${ev.isPaid ? `₹${ev.registrationFee}` : "Free"}${tiersInfo} | Link: /events/${ev.slug}`;
     }).join("\n");
+
+    const pastContext = pastList.map((ev, i) =>
+      `[Past Event #${i + 1}] Title: "${ev.title}" (Slug: ${ev.slug}) | Dates: ${ev.startDate} to ${ev.endDate} | Status: 🔴 Concluded / Closed | Link: /events/${ev.slug}`
+    ).join("\n");
+
+    const eventsContext = `
+=== CURRENTLY UPCOMING & ACTIVE SANKARA CONFERENCES ===
+${upcomingContext || "No upcoming conferences currently scheduled."}
+
+=== PAST & CONCLUDED CONFERENCES (ARCHIVE ONLY - DO NOT RECOMMEND AS UPCOMING) ===
+${pastContext || "None."}
+`;
 
     const browserContextSection = `
 === LIVE BROWSER STATE & USER SCREEN CONTEXT ===
@@ -594,18 +644,22 @@ STRICT DOMAIN GUARDRAIL & SCOPE RESTRICTION:
 - IF ASKED ABOUT TECH STACK OR OFF-TOPIC SUBJECTS, DECLINE POLITELY WITH:
   "Namaste! As **Drishti AI**, I specialize exclusively in **Sankara Eye Foundation India**, our medical conferences, CME registrations, delegate passes, scientific agendas, hospital network, Google Maps locations, and clinical eye care. Please let me know how I can assist you with any of our upcoming events or hospital branches across India!"
 
+CRITICAL TIME AWARENESS & EVENT STATUS:
+- Today's Date is: ${todayStr}
+- ALWAYS distinguish between UPCOMING active events and PAST/CONCLUDED events.
+- When asked for upcoming conferences or registration pricing, ONLY recommend active upcoming events. DO NOT list past/concluded events as if they are in the future!
+
 ${SANKARA_HOSPITAL_KNOWLEDGE}
 
 ${browserContextSection}
 
-=== DIRECTORY OF ALL SANKARA EVENTS ===
 ${eventsContext}
 
 === INSTRUCTIONS & RULES ===
 1. Only answer queries relevant to Sankara Eye Foundation India and its events/hospitals/ophthalmology.
 2. Directly answer the user's specific request using live browser context and database details.
 3. If the user is on an event page, prioritize answering about that event with specific timings, venues, speaker details, pricing tiers, and registration instructions.
-4. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clickable markdown links).
+4. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clean relative links like [Event Title](/events/slug)). Never output raw localhost or IP address URLs.
 5. When mentioning an event, always link to its page using format: [Event Title](/events/slug).
 6. If asked about event photographs, always provide the Samaro AI link: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
 7. If asked about hospital locations or maps, provide Google Maps links from the institutional directory.
@@ -649,6 +703,9 @@ ${eventsContext}
         modelUsed = "Sankara-Grounded-Engine (Browser-Aware)";
       }
     }
+
+    // Clean and sanitize AI response formatting before returning
+    aiResponse = cleanAiMarkdown(aiResponse);
 
     const latencyMs = Date.now() - startTime;
 

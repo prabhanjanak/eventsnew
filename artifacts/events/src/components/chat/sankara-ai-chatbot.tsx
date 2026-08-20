@@ -70,7 +70,7 @@ export function SankaraAIChatbot() {
         sender: "bot",
         text: `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nYou can ask me **anything** — whether about our **Conferences & CMEs**, delegate registrations, event agendas, **Hospital Google Maps locations**, **Samaro AI photo galleries**, or general eye care and medical topics.\n\nHow can I help you today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        model: "nvidia/llama-3.1-nemotron-70b-instruct",
+        model: "Google Gemini 2.0 Flash",
       },
     ]);
   }, []);
@@ -171,7 +171,9 @@ export function SankaraAIChatbot() {
     return parts.map((part, idx) => {
       const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
       if (linkMatch) {
-        const [, label, href] = linkMatch;
+        const [, label, rawHref] = linkMatch;
+        // Clean out any raw internal network IPs
+        const href = rawHref.replace(/^https?:\/\/(?:localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+):[0-9]+/, "");
         const isExternal = href.startsWith("http");
         if (isExternal) {
           return (
@@ -192,7 +194,7 @@ export function SankaraAIChatbot() {
             key={idx}
             href={href}
             onClick={() => setIsOpen(false)}
-            className="inline-flex items-center gap-1 font-bold text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+            className="inline-flex items-center gap-1 font-bold text-cyan-400 hover:text-cyan-300 underline underline-offset-2 cursor-pointer"
           >
             <span>{label}</span>
           </Link>
