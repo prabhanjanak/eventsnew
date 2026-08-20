@@ -1,0 +1,33 @@
+# Git & IDE
+.git
+.gitignore
+.agents
+.cache
+.gemini
+.vscode
+.idea
+
+# Dependencies & Build artifacts
+node_modules
+dist
+.pnpm-store
+
+# Environment files
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# Temp & Large assets
+uploads/*
+!uploads/.gitkeep
+scratch/
+*.zip
+*.xlsx
+*.pdf
+test.html

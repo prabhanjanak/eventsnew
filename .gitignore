@@ -1,0 +1,107 @@
+# See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
+
+# compiled output
+dist
+**/dist
+dist/
+**/dist/
+tmp
+out-tsc
+*.tsbuildinfo
+.expo
+.expo-shared
+.vite
+**/.vite
+**/.vite/
+
+# dependencies
+node_modules
+**/node_modules
+node_modules/
+**/node_modules/
+
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
+/.sass-cache
+/connect.lock
+/coverage
+/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+# Replit
+.cache/
+.local/
+
+# local env files
+.env
+.env.local
+.env.production
+.env.development
+.env.staging
+.env.*
+
+# Custom ignores
+*.db
+*.xlsx
+*.pdf
+*.cjs
+scratch/
+artifacts/api-server/uploads/
+artifacts/api-server/scratch/
+artifacts/api-server/scripts/
+artifacts/api-server/check-users.*
+artifacts/api-server/inspect_db.*
+artifacts/api-server/inspect_pg.*
+artifacts/api-server/refactor.*
+artifacts/api-server/reset-pwd.*
+artifacts/api-server/reset.*
+artifacts/api-server/seed_master.*
+scripts/src/sync-paid-list.ts
+lib/db/insert.cjs
+lib/db/seed_master.cjs
+
+# Large archives / backups
+*.zip
+*.tar
+*.tar.gz
+
+# Database dumps / exports
+*.sql
+*.dump
+
+# Logs
+*.log
+logs/
+
+# Generated / temporary files
+*.tmp
+*.temp
+*.bak
+
+# OS / sync metadata
+.OneDrive/

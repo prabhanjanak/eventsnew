@@ -1,0 +1,2028 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Sankara Eye Hospital Vision 2020 Conference 2026 API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication
+  - name: participants
+    description: Participant management
+  - name: assignments
+    description: Role assignments
+  - name: files
+    description: File uploads
+  - name: qr
+    description: QR code generation
+  - name: food
+    description: Food management
+  - name: attendance
+    description: Attendance tracking
+  - name: dashboard
+    description: Dashboard statistics
+  - name: tracks
+    description: Track coordinator panel
+  - name: scientific
+    description: Scientific committee panel
+  - name: settings
+    description: Submission settings
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with mobile number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/set-password-otp:
+    post:
+      operationId: setPasswordOtp
+      tags: [auth]
+      summary: Send OTP for first-time login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPasswordOtpInput"
+      responses:
+        "200":
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /auth/set-password:
+    post:
+      operationId: setPassword
+      tags: [auth]
+      summary: Set password for first-time login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPasswordInput"
+      responses:
+        "200":
+          description: Password set successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request password reset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordInput"
+      responses:
+        "200":
+          description: Reset token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Reset password with token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordInput"
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user info
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          description: Unauthorized
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+
+  # PARTICIPANTS
+  /participants:
+    get:
+      operationId: listParticipants
+      tags: [participants]
+      summary: List all participants
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: track
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of participants
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantListResponse"
+    post:
+      operationId: createParticipant
+      tags: [participants]
+      summary: Create a participant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+
+  /participants/import:
+    post:
+      operationId: importParticipants
+      tags: [participants]
+      summary: Import participants from Excel (multipart/form-data, field name "file")
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+
+  /participants/{id}:
+    get:
+      operationId: getParticipant
+      tags: [participants]
+      summary: Get a participant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantDetail"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateParticipant
+      tags: [participants]
+      summary: Update a participant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Participant"
+    delete:
+      operationId: deleteParticipant
+      tags: [participants]
+      summary: Delete a participant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /participants/by-mobile/{mobile}:
+    get:
+      operationId: getParticipantByMobile
+      tags: [participants]
+      summary: Get participant by mobile number
+      parameters:
+        - name: mobile
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantDetail"
+        "404":
+          description: Not found
+
+  /participants/{id}/qr:
+    get:
+      operationId: getParticipantQR
+      tags: [participants]
+      summary: Get all QR codes for a participant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: QR codes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantQRCodes"
+
+  # ASSIGNMENTS
+  /participants/{participantId}/assignments:
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: List assignments for a participant
+      parameters:
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+    post:
+      operationId: createAssignment
+      tags: [assignments]
+      summary: Add an assignment to a participant
+      parameters:
+        - name: participantId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+
+  /assignments/{id}:
+    patch:
+      operationId: updateAssignment
+      tags: [assignments]
+      summary: Update an assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+    delete:
+      operationId: deleteAssignment
+      tags: [assignments]
+      summary: Delete an assignment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # FILES
+  /assignments/{assignmentId}/file:
+    post:
+      operationId: uploadFile
+      tags: [files]
+      summary: Upload or replace a file for an assignment (multipart/form-data, field name "file")
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadedFile"
+    get:
+      operationId: getFile
+      tags: [files]
+      summary: Get file info for an assignment
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadedFile"
+        "404":
+          description: No file uploaded
+
+  /files/{fileId}/download:
+    get:
+      operationId: downloadFile
+      tags: [files]
+      summary: Download a file
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  # PERSONAL AGENDA (public)
+  /agenda/{registrationNumber}:
+    get:
+      operationId: getPersonalAgenda
+      tags: [participants]
+      summary: Get personal agenda by registration number (public)
+      parameters:
+        - name: registrationNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Personal agenda
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PersonalAgenda"
+        "404":
+          description: Not found
+
+  # FOOD SESSIONS
+  /food-sessions:
+    get:
+      operationId: listFoodSessions
+      tags: [food]
+      summary: List food sessions
+      responses:
+        "200":
+          description: Food sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FoodSession"
+    post:
+      operationId: createFoodSession
+      tags: [food]
+      summary: Create a food session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoodSessionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodSession"
+
+  /food-sessions/{id}:
+    patch:
+      operationId: updateFoodSession
+      tags: [food]
+      summary: Update a food session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoodSessionUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodSession"
+    delete:
+      operationId: deleteFoodSession
+      tags: [food]
+      summary: Delete a food session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /food-sessions/{id}/toggle:
+    post:
+      operationId: toggleFoodSession
+      tags: [food]
+      summary: Enable or disable a food session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ToggleFoodSessionInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodSession"
+
+  # FOOD SCANNING
+  /food/scan:
+    post:
+      operationId: scanFoodQR
+      tags: [food]
+      summary: Scan QR for food collection
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FoodScanInput"
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FoodScanResult"
+
+  /food/logs:
+    get:
+      operationId: listFoodLogs
+      tags: [food]
+      summary: List food collection logs
+      parameters:
+        - name: foodSessionId
+          in: query
+          schema:
+            type: integer
+        - name: date
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Food logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FoodLog"
+
+  # ATTENDANCE
+  /attendance/scan:
+    post:
+      operationId: scanAttendance
+      tags: [attendance]
+      summary: Scan QR for attendance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceScanInput"
+      responses:
+        "200":
+          description: Scan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceScanResult"
+
+  /attendance/logs:
+    get:
+      operationId: listAttendanceLogs
+      tags: [attendance]
+      summary: List attendance logs
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Attendance logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AttendanceLog"
+
+  # DASHBOARD
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get real-time dashboard statistics
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  # TRACK COORDINATOR
+  /tracks:
+    get:
+      operationId: listTracks
+      tags: [tracks]
+      summary: List all distinct tracks
+      responses:
+        "200":
+          description: Tracks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrackSummary"
+
+  /track-participants:
+    get:
+      operationId: listTrackParticipants
+      tags: [tracks]
+      summary: Get participants for a track
+      parameters:
+        - name: trackName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: session
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Track participants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrackParticipant"
+
+  # SCIENTIFIC COMMITTEE
+  /scientific/submissions:
+    get:
+      operationId: listSubmissions
+      tags: [scientific]
+      summary: List all file submissions
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: track
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+        - name: fileType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Submission"
+
+  # SUBMISSION SETTINGS
+  /settings/submissions:
+    get:
+      operationId: getSubmissionSettings
+      tags: [settings]
+      summary: Get submission open/closed state
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionSettings"
+    patch:
+      operationId: updateSubmissionSettings
+      tags: [settings]
+      summary: Open or close submissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmissionSettingsUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubmissionSettings"
+
+  /settings/submissions/sync-mobile-file:
+    post:
+      operationId: syncMobileFile
+      tags: [settings]
+      summary: Sync participant mobile numbers and emails from an uploaded CSV/Excel file (multipart/form-data, field name "file")
+      responses:
+        "200":
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SyncResult"
+
+  /settings/trigger-event-reminders:
+    post:
+      operationId: triggerEventReminders
+      tags: [settings]
+      summary: Manually trigger pre-event reminders for all pending participants (Admin/Super Admin only)
+      responses:
+        "200":
+          description: Manual trigger successful
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+  /submissions/lookup:
+    get:
+      operationId: lookupParticipantSubmissions
+      tags: [files]
+      summary: Lookup a participant by name for secure file submission
+      parameters:
+        - name: name
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching participants list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ParticipantLookupItem"
+
+  /submissions/send-otp:
+    post:
+      operationId: sendSubmissionOTP
+      tags: [files]
+      summary: Request identity verification OTP for file submission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendOTPInput"
+      responses:
+        "200":
+          description: OTP request successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleMessageResponse"
+
+  /submissions/verify-otp:
+    post:
+      operationId: verifySubmissionOTP
+      tags: [files]
+      summary: Verify identity OTP and obtain auth token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOTPInput"
+      responses:
+        "200":
+          description: OTP verification successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  # SYSTEM USERS (admin only)
+  /system-users:
+    get:
+      operationId: listSystemUsers
+      tags: [auth]
+      summary: List system users (admin, coordinators, committee)
+      responses:
+        "200":
+          description: System users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SystemUser"
+    post:
+      operationId: createSystemUser
+      tags: [auth]
+      summary: Create a system user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemUserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemUser"
+
+  /system-users/{id}:
+    patch:
+      operationId: updateSystemUser
+      tags: [auth]
+      summary: Update a system user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SystemUserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemUser"
+    delete:
+      operationId: deleteSystemUser
+      tags: [auth]
+      summary: Delete a system user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /whatsapp/broadcast:
+    post:
+      operationId: whatsappBroadcast
+      tags: [settings]
+      summary: Send a WhatsApp broadcast message/document to attendees/faculty
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhatsappBroadcastInput"
+      responses:
+        "200":
+          description: Broadcast sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, sentCount]
+                properties:
+                  success:
+                    type: boolean
+                  sentCount:
+                    type: integer
+
+  /whatsapp/upload:
+    post:
+      operationId: whatsappUpload
+      tags: [settings]
+      summary: Upload a document/file for WhatsApp attachments
+      responses:
+        "200":
+          description: Uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fileUrl, filename]
+                properties:
+                  fileUrl:
+                    type: string
+                  filename:
+                    type: string
+
+  /whatsapp/test:
+    post:
+      operationId: whatsappTest
+      tags: [settings]
+      summary: Send a test WhatsApp message to single or multiple numbers (Admin/Super Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WhatsappTestInput"
+      responses:
+        "200":
+          description: Test sent
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required: [status]
+
+    WhatsappBroadcastInput:
+      type: object
+      required: [target, message]
+      properties:
+        target:
+          type: string
+          enum: [all, faculty, attendees, selected]
+        participantIds:
+          type: array
+          items:
+            type: integer
+        message:
+          type: string
+        fileUrl:
+          type: string
+        filename:
+          type: string
+
+    WhatsappTestInput:
+      type: object
+      required: [numbers, message]
+      properties:
+        numbers:
+          type: string
+        message:
+          type: string
+
+    # AUTH SCHEMAS
+    LoginInput:
+      type: object
+      required: [mobile, password]
+      properties:
+        mobile:
+          type: string
+        password:
+          type: string
+        userType:
+          type: string
+          enum: [participant, admin, super_admin, track_coordinator, food_coordinator, scientific_committee, pr_member, coordinator_view_only]
+
+    SetPasswordOtpInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+
+    SetPasswordInput:
+      type: object
+      required:
+        - email
+        - otp
+        - password
+      properties:
+        email:
+          type: string
+        otp:
+          type: string
+        password:
+          type: string
+
+    ForgotPasswordInput:
+      type: object
+      required: [mobile]
+      properties:
+        mobile:
+          type: string
+
+    PasswordResetResponse:
+      type: object
+      required: [message, resetToken]
+      properties:
+        message:
+          type: string
+        resetToken:
+          type: string
+
+    ResetPasswordInput:
+      type: object
+      required: [resetToken, newPassword]
+      properties:
+        resetToken:
+          type: string
+        newPassword:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/CurrentUser"
+
+    CurrentUser:
+      type: object
+      required: [id, name, mobile, userType]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        mobile:
+          type: string
+        userType:
+          type: string
+          enum: [participant, admin, super_admin, track_coordinator, food_coordinator, scientific_committee, pr_member, coordinator_view_only]
+        assignedTrack:
+          type: ["string", "null"]
+        participantId:
+          type: ["integer", "null"]
+        sessionTimeoutMinutes:
+          type: integer
+        permissions:
+          type: array
+          items:
+            type: string
+
+    # PARTICIPANT SCHEMAS
+    Participant:
+      type: object
+      required: [id, registrationNumber, name, email, mobile, institution, createdAt, isPaid, isActive, isSponsored, delegateType]
+      properties:
+        id:
+          type: integer
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        institution:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        hasPassword:
+          type: boolean
+        isPaid:
+          type: boolean
+        utrNumber:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        isSponsored:
+          type: boolean
+        sponsorType:
+          type: string
+          nullable: true
+        delegateType:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+
+    ParticipantDetail:
+      type: object
+      required: [id, registrationNumber, name, email, mobile, institution, createdAt, assignments, attendanceMarked, goodiesCollected, foodCoupons, isPaid, delegateType]
+      properties:
+        id:
+          type: integer
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        institution:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        hasPassword:
+          type: boolean
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Assignment"
+        attendanceMarked:
+          type: boolean
+        attendanceScannedAt:
+          type: string
+          format: date-time
+          nullable: true
+        goodiesCollected:
+          type: boolean
+        goodiesCollectedAt:
+          type: string
+          format: date-time
+          nullable: true
+        foodCoupons:
+          type: array
+          items:
+            type: object
+            required: [foodSessionId, name, date, collected]
+            properties:
+              foodSessionId:
+                type: integer
+              name:
+                type: string
+              date:
+                type: string
+              collected:
+                type: boolean
+              collectedAt:
+                type: ["string", "null"]
+                format: date-time
+        isPaid:
+          type: boolean
+        utrNumber:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        isSponsored:
+          type: boolean
+        sponsorType:
+          type: string
+          nullable: true
+        delegateType:
+          type: string
+
+    ParticipantListResponse:
+      type: object
+      required: [participants, total, page, limit]
+      properties:
+        participants:
+          type: array
+          items:
+            $ref: "#/components/schemas/Participant"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    ParticipantInput:
+      type: object
+      required: [registrationNumber, name, email, mobile, institution]
+      properties:
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        institution:
+          type: string
+        isPaid:
+          type: boolean
+        utrNumber:
+          type: string
+        isActive:
+          type: boolean
+        isSponsored:
+          type: boolean
+        sponsorType:
+          type: string
+
+    ParticipantUpdate:
+      type: object
+      properties:
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        institution:
+          type: string
+        age:
+          type: string
+        gender:
+          type: string
+        address:
+          type: string
+        isOnSpotLinked:
+          type: boolean
+        isOnSpotOnboarded:
+          type: boolean
+        isPaid:
+          type: boolean
+        utrNumber:
+          type: string
+        isActive:
+          type: boolean
+        isSponsored:
+          type: boolean
+        sponsorType:
+          type: string
+
+    ParticipantQRCodes:
+      type: object
+      required: [qr1, qr2]
+      properties:
+        qr1:
+          $ref: "#/components/schemas/QRCode"
+        qr2:
+          $ref: "#/components/schemas/QRCode"
+
+    QRCode:
+      type: object
+      required: [type, dataUrl, label, downloadName]
+      properties:
+        type:
+          type: string
+          enum: [registration, general_agenda, personal_agenda]
+        dataUrl:
+          type: string
+        label:
+          type: string
+        downloadName:
+          type: string
+
+    ImportResult:
+      type: object
+      required: [imported, skipped, errors]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    PersonalAgenda:
+      type: object
+      required: [registrationNumber, name, institution, assignments]
+      properties:
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        institution:
+          type: string
+        assignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Assignment"
+
+    # ASSIGNMENT SCHEMAS
+    Assignment:
+      type: object
+      required: [id, participantId, role, track]
+      properties:
+        id:
+          type: integer
+        participantId:
+          type: integer
+        role:
+          type: string
+          enum: [Speaker, Presenter, Poster, Panelist, Moderator, Judge, Chair, CoChair]
+        track:
+          type: string
+        sessionName:
+          type: ["string", "null"]
+        hall:
+          type: ["string", "null"]
+        date:
+          type: ["string", "null"]
+        time:
+          type: ["string", "null"]
+        presentationTitle:
+          type: ["string", "null"]
+        fileId:
+          type: ["integer", "null"]
+        uploadedFile:
+          $ref: "#/components/schemas/UploadedFile"
+          nullable: true
+
+    AssignmentInput:
+      type: object
+      required: [role, track]
+      properties:
+        role:
+          type: string
+          enum: [Speaker, Presenter, Poster, Panelist, Moderator, Judge, Chair, CoChair]
+        track:
+          type: string
+        sessionName:
+          type: string
+        hall:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        presentationTitle:
+          type: string
+
+    AssignmentUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [Speaker, Presenter, Poster, Panelist, Moderator, Judge, Chair, CoChair]
+        track:
+          type: string
+        sessionName:
+          type: string
+        hall:
+          type: string
+        date:
+          type: string
+        time:
+          type: string
+        presentationTitle:
+          type: string
+
+    # FILE SCHEMAS
+    UploadedFile:
+      type: object
+      required: [id, assignmentId, filename, originalName, fileType, version, uploadedAt]
+      properties:
+        id:
+          type: integer
+        assignmentId:
+          type: integer
+        filename:
+          type: string
+        originalName:
+          type: string
+        fileType:
+          type: string
+          enum: [pptx, jpg]
+        version:
+          type: integer
+        size:
+          type: ["integer", "null"]
+        uploadedAt:
+          type: string
+          format: date-time
+
+    # FOOD SCHEMAS
+    FoodSession:
+      type: object
+      required: [id, name, date, startTime, endTime, enabled, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        enabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    FoodSessionInput:
+      type: object
+      required: [name, date, startTime, endTime]
+      properties:
+        name:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        enabled:
+          type: boolean
+
+    FoodSessionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        date:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        enabled:
+          type: boolean
+
+    ToggleFoodSessionInput:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+
+    FoodScanInput:
+      type: object
+      required: [registrationNumber, foodSessionId]
+      properties:
+        registrationNumber:
+          type: string
+        foodSessionId:
+          type: integer
+
+    FoodScanResult:
+      type: object
+      required: [success, message, status]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        status:
+          type: string
+          enum: [issued, already_collected, session_closed, not_found, not_linked, not_onboarded]
+        participant:
+          $ref: "#/components/schemas/Participant"
+          nullable: true
+
+    FoodLog:
+      type: object
+      required: [id, participantId, foodSessionId, collectedAt]
+      properties:
+        id:
+          type: integer
+        participantId:
+          type: integer
+        participantName:
+          type: string
+        registrationNumber:
+          type: string
+        foodSessionId:
+          type: integer
+        foodSessionName:
+          type: string
+        coordinatorName:
+          type: ["string", "null"]
+        collectedAt:
+          type: string
+          format: date-time
+
+    # ATTENDANCE SCHEMAS
+    AttendanceScanInput:
+      type: object
+      required: [registrationNumber, day]
+      properties:
+        registrationNumber:
+          type: string
+        day:
+          type: string
+
+    AttendanceScanResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        status:
+          type: string
+          enum: [already_marked, already_collected, not_linked, not_onboarded, not_found]
+        goodiesCollected:
+          type: boolean
+        participant:
+          $ref: "#/components/schemas/Participant"
+          nullable: true
+
+    AttendanceLog:
+      type: object
+      required: [id, participantId, scannedAt]
+      properties:
+        id:
+          type: integer
+        participantId:
+          type: integer
+        participantName:
+          type: string
+        registrationNumber:
+          type: string
+        institution:
+          type: string
+        scannedAt:
+          type: string
+          format: date-time
+
+    # DASHBOARD SCHEMAS
+    DashboardStats:
+      type: object
+      required: [totalRegistrations, totalAttendance, pptSubmissions, posterSubmissions, foodStats, submissionsOpen]
+      properties:
+        totalRegistrations:
+          type: integer
+        priorRegistrations:
+          type: integer
+        onSpotRegistrations:
+          type: integer
+        totalAttendance:
+          type: integer
+        pptSubmissions:
+          type: integer
+        posterSubmissions:
+          type: integer
+        foodStats:
+          type: array
+          items:
+            $ref: "#/components/schemas/FoodStatItem"
+        submissionsOpen:
+          type: boolean
+        roleBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleBreakdown"
+        trackBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackBreakdown"
+
+    FoodStatItem:
+      type: object
+      required: [sessionName, count]
+      properties:
+        sessionName:
+          type: string
+        count:
+          type: integer
+
+    RoleBreakdown:
+      type: object
+      required: [role, count]
+      properties:
+        role:
+          type: string
+        count:
+          type: integer
+
+    TrackBreakdown:
+      type: object
+      required: [track, count]
+      properties:
+        track:
+          type: string
+        count:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, message, timestamp]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [registration, upload, attendance, food, submission_status]
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    # TRACK SCHEMAS
+    TrackSummary:
+      type: object
+      required: [name, participantCount, sessionCount]
+      properties:
+        name:
+          type: string
+        participantCount:
+          type: integer
+        sessionCount:
+          type: integer
+
+    TrackParticipant:
+      type: object
+      required: [participantId, registrationNumber, name, institution, role, sessionName, hall, date, time, presentationTitle]
+      properties:
+        participantId:
+          type: integer
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        institution:
+          type: string
+        role:
+          type: string
+        sessionName:
+          type: ["string", "null"]
+        hall:
+          type: ["string", "null"]
+        date:
+          type: ["string", "null"]
+        time:
+          type: ["string", "null"]
+        presentationTitle:
+          type: ["string", "null"]
+        hasFile:
+          type: boolean
+        fileId:
+          type: ["integer", "null"]
+
+    # SCIENTIFIC COMMITTEE SCHEMAS
+    Submission:
+      type: object
+      required: [participantId, registrationNumber, name, institution, role, track, fileId, filename, fileType, uploadedAt]
+      properties:
+        participantId:
+          type: integer
+        registrationNumber:
+          type: string
+        name:
+          type: string
+        institution:
+          type: string
+        role:
+          type: string
+        track:
+          type: string
+        sessionName:
+          type: ["string", "null"]
+        presentationTitle:
+          type: ["string", "null"]
+        fileId:
+          type: integer
+        filename:
+          type: string
+        fileType:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+    # SETTINGS SCHEMAS
+    SubmissionSettings:
+      type: object
+      required: [submissionsOpen, otpMode, testOtps, updatedAt]
+      properties:
+        submissionsOpen:
+          type: boolean
+        otpMode:
+          type: string
+        testOtps:
+          type: string
+        whatsappApiKey:
+          type: ["string", "null"]
+        whatsappInstanceId:
+          type: ["string", "null"]
+        whatsappTemplate:
+          type: ["string", "null"]
+        smtpHost:
+          type: ["string", "null"]
+        smtpPort:
+          type: ["integer", "null"]
+        smtpUser:
+          type: ["string", "null"]
+        smtpPass:
+          type: ["string", "null"]
+        smtpFromEmail:
+          type: ["string", "null"]
+        smtpFromName:
+          type: ["string", "null"]
+        smtpSecure:
+          type: ["boolean", "null"]
+        sessionTimeoutMinutes:
+          type: ["integer", "null"]
+        googleSheetUrl:
+          type: ["string", "null"]
+        liveTvUrl:
+          type: ["string", "null"]
+        conferenceMapUrl:
+          type: ["string", "null"]
+        updatedAt:
+          type: string
+          format: date-time
+
+    SubmissionSettingsUpdate:
+      type: object
+      required: [submissionsOpen]
+      properties:
+        submissionsOpen:
+          type: boolean
+        otpMode:
+          type: string
+        testOtps:
+          type: string
+        whatsappApiKey:
+          type: string
+        whatsappInstanceId:
+          type: string
+        whatsappTemplate:
+          type: string
+        smtpHost:
+          type: string
+        smtpPort:
+          type: integer
+        smtpUser:
+          type: string
+        smtpPass:
+          type: string
+        smtpFromEmail:
+          type: string
+        smtpFromName:
+          type: string
+        smtpSecure:
+          type: boolean
+        sessionTimeoutMinutes:
+          type: integer
+        googleSheetUrl:
+          type: string
+        liveTvUrl:
+          type: string
+        conferenceMapUrl:
+          type: string
+
+    SyncResult:
+      type: object
+      required: [success, syncedCount, message]
+      properties:
+        success:
+          type: boolean
+        syncedCount:
+          type: integer
+        message:
+          type: string
+
+    ParticipantLookupItem:
+      type: object
+      required: [id, name, registrationNumber, institution, maskedEmail, maskedMobile, roles, needsPPT, needsPoster, hasPassword]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        registrationNumber:
+          type: string
+        institution:
+          type: string
+        maskedEmail:
+          type: string
+        maskedMobile:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        needsPPT:
+          type: boolean
+        needsPoster:
+          type: boolean
+        hasPassword:
+          type: boolean
+
+    SendOTPInput:
+      type: object
+      required: [participantId, sendTo]
+      properties:
+        participantId:
+          type: integer
+        sendTo:
+          type: string
+        value:
+          type: string
+
+    VerifyOTPInput:
+      type: object
+      required: [participantId, otp]
+      properties:
+        participantId:
+          type: integer
+        otp:
+          type: string
+
+    SimpleMessageResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    # SYSTEM USER SCHEMAS
+    SystemUser:
+      type: object
+      required: [id, empId, name, userType, mustChangePassword, createdAt]
+      properties:
+        id:
+          type: integer
+        empId:
+          type: string
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        mobile:
+          type: ["string", "null"]
+        userType:
+          type: string
+          enum: [admin, super_admin, track_coordinator, food_coordinator, scientific_committee, pr_member, coordinator_view_only]
+        assignedTrack:
+          type: ["string", "null"]
+        mustChangePassword:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    SystemUserInput:
+      type: object
+      required: [empId, name, userType]
+      properties:
+        empId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        userType:
+          type: string
+          enum: [admin, super_admin, track_coordinator, food_coordinator, scientific_committee, pr_member, coordinator_view_only]
+        password:
+          type: string
+          description: Defaults to Welcome@123 if omitted
+        assignedTrack:
+          type: string
+
+    SystemUserUpdate:
+      type: object
+      properties:
+        empId:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        mobile:
+          type: string
+        userType:
+          type: string
+          enum: [admin, super_admin, track_coordinator, food_coordinator, scientific_committee, pr_member, coordinator_view_only]
+        assignedTrack:
+          type: string
+        password:
+          type: string
