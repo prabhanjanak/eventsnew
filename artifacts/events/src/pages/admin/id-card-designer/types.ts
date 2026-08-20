@@ -1,6 +1,17 @@
 export type CardType = "preregistered" | "onspot";
 
-export type PlaceholderType = "name" | "organization" | "id_number" | "qr_code" | "custom_text";
+export type CardSide = "front" | "back";
+
+export type PlaceholderType =
+  | "name"
+  | "organization"
+  | "id_number"
+  | "qr_code"
+  | "custom_text"
+  | "kit_box"
+  | "food_box"
+  | "commitments_box"
+  | "agenda_box";
 
 export interface PlaceholderConfig {
   id: string;
@@ -41,6 +52,7 @@ export interface SheetLayoutConfig {
   gapYmm: number;
   showCutMarks: boolean;
   pageOrientation: "portrait" | "landscape";
+  printSideMode: "single" | "duplex" | "side_by_side"; // duplex = consecutive front/back pages, side_by_side = front & back next to each other
 }
 
 export interface IdCardDesignData {
@@ -48,11 +60,15 @@ export interface IdCardDesignData {
   eventId: number;
   cardType: CardType;
   templateImageUrl: string | null;
-  widthInches: string; // e.g. "5.51"
-  heightInches: string; // e.g. "3.46"
+  backTemplateImageUrl: string | null;
+  widthInches: string; // e.g. "3.46" (vertical) or "5.51" (horizontal)
+  heightInches: string; // e.g. "5.51" (vertical) or "3.46" (horizontal)
   dpi: number; // default 300
-  orientation: "landscape" | "portrait";
-  placeholders: PlaceholderConfig[];
+  orientation: "portrait" | "landscape";
+  isDoubleSided: boolean; // One-Sided vs Two-Sided option
+  printSideMode: "single" | "duplex" | "side_by_side";
+  placeholders: PlaceholderConfig[]; // Front placeholders
+  backPlaceholders: PlaceholderConfig[]; // Back placeholders
   sheetConfig: SheetLayoutConfig;
   status: "not_configured" | "draft" | "published";
   version: number;

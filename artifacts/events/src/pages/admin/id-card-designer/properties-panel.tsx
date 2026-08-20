@@ -1,9 +1,10 @@
 import React from "react";
-import type { IdCardDesignData, PlaceholderConfig } from "./types";
+import type { IdCardDesignData, PlaceholderConfig, CardSide } from "./types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlignLeft,
   AlignCenter,
@@ -17,6 +18,7 @@ import {
   Palette,
   Layers,
   Sparkles,
+  Upload,
 } from "lucide-react";
 
 interface PropertiesPanelProps {
@@ -24,7 +26,8 @@ interface PropertiesPanelProps {
   onChange: (updated: IdCardDesignData) => void;
   selectedPlaceholderId: string | null;
   onSelectPlaceholder: (id: string | null) => void;
-  onOpenUploadModal: () => void;
+  onOpenUploadModal: (side: CardSide) => void;
+  activeSide: CardSide;
 }
 
 const FONT_FAMILIES = [
@@ -38,14 +41,14 @@ const FONT_FAMILIES = [
 ];
 
 const COLOR_SWATCHES = [
-  "#FFFFFF",
   "#000000",
+  "#FFFFFF",
   "#F59E0B", // Gold / Amber
   "#3B82F6", // Royal Blue
   "#10B981", // Emerald
   "#EF4444", // Crimson
   "#8B5CF6", // Purple
-  "#E2E8F0", // Slate Light
+  "#1E293B", // Slate Dark
 ];
 
 export function PropertiesPanel({
@@ -54,20 +57,43 @@ export function PropertiesPanel({
   selectedPlaceholderId,
   onSelectPlaceholder,
   onOpenUploadModal,
+  activeSide,
 }: PropertiesPanelProps) {
-  const selected = design.placeholders.find((p) => p.id === selectedPlaceholderId) || null;
+  const isBack = activeSide === "back";
+  const currentList = isBack ? (design.backPlaceholders || []) : (design.placeholders || []);
+  const selected = currentList.find((p) => p.id === selectedPlaceholderId) || null;
 
   const updateSelected = (updates: Partial<PlaceholderConfig>) => {
     if (!selected) return;
-    const updated = design.placeholders.map((p) => (p.id === selected.id ? { ...p, ...updates } : p));
-    onChange({ ...design, placeholders: updated });
+    if (isBack) {
+      const updated = (design.backPlaceholders || []).map((p) => (p.id === selected.id ? { ...p, ...updates } : p));
+      onChange({ ...design, backPlaceholders: updated });
+    } else {
+      const updated = (design.placeholders || []).map((p) => (p.id === selected.id ? { ...p, ...updates } : p));
+      onChange({ ...design, placeholders: updated });
+    }
   };
 
   const handleDelete = () => {
     if (!selected) return;
-    const filtered = design.placeholders.filter((p) => p.id !== selected.id);
-    onChange({ ...design, placeholders: filtered });
+    if (isBack) {
+      const filtered = (design.backPlaceholders || []).filter((p) => p.id !== selected.id);
+      onChange({ ...design, backPlaceholders: filtered });
+    } else {
+      const filtered = design.placeholders.filter((p) => p.id !== selected.id);
+      onChange({ ...design, placeholders: filtered });
+    }
     onSelectPlaceholder(null);
+  };
+
+  // Dimension presets
+  const applyPreset = (w: string, h: string, orientation: "portrait" | "landscape") => {
+    onChange({
+      ...design,
+      widthInches: w,
+      heightInches: h,
+      orientation,
+    });
   };
 
   return (
@@ -77,7 +103,7 @@ export function PropertiesPanel({
         <div className="flex items-center gap-2">
           <Settings2 className="w-4 h-4 text-amber-400" />
           <h3 className="font-bold text-white uppercase tracking-wider text-xs">
-            {selected ? selected.label : "Card Configuration"}
+            {selected ? `${selected.label}` : "Card Specifications"}
           </h3>
         </div>
 
@@ -173,7 +199,7 @@ export function PropertiesPanel({
             </div>
           </div>
 
-          {/* Typography Controls (for text placeholders) */}
+          {/* Typography Controls */}
           {selected.type !== "qr_code" && (
             <div className="space-y-3 pt-2 border-t border-[#24242A]">
               <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -242,7 +268,7 @@ export function PropertiesPanel({
                     type="button"
                     onClick={() => updateSelected({ align: "left" })}
                     className={`py-1 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                      selected.align === "left" || !selected.align ? "bg-white text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
+                      selected.align === "left" ? "bg-white text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
                     }`}
                   >
                     <AlignLeft className="w-3.5 h-3.5" />
@@ -251,7 +277,7 @@ export function PropertiesPanel({
                     type="button"
                     onClick={() => updateSelected({ align: "center" })}
                     className={`py-1 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-                      selected.align === "center" ? "bg-white text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
+                      selected.align === "center" || !selected.align ? "bg-white text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
                     }`}
                   >
                     <AlignCenter className="w-3.5 h-3.5" />
@@ -287,7 +313,7 @@ export function PropertiesPanel({
                 </Select>
               </div>
 
-              {/* Text Color Swatches & Custom Hex */}
+              {/* Color Swatches */}
               <div className="space-y-2">
                 <span className="text-[10px] text-zinc-500 flex items-center gap-1">
                   <Palette className="w-3 h-3 text-zinc-400" /> Text Color
@@ -295,12 +321,12 @@ export function PropertiesPanel({
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={selected.color || "#FFFFFF"}
+                    value={selected.color || "#000000"}
                     onChange={(e) => updateSelected({ color: e.target.value })}
                     className="w-8 h-8 rounded-lg border border-[#2A2A35] bg-transparent cursor-pointer"
                   />
                   <Input
-                    value={selected.color || "#FFFFFF"}
+                    value={selected.color || "#000000"}
                     onChange={(e) => updateSelected({ color: e.target.value })}
                     className="h-8 bg-[#18181F] border-[#2A2A35] text-zinc-200 text-xs rounded-xl font-mono flex-1"
                   />
@@ -365,16 +391,92 @@ export function PropertiesPanel({
       ) : (
         /* ── CARD GLOBAL SETTINGS (NO ELEMENT SELECTED) ───────────────────── */
         <div className="p-4 space-y-5">
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs leading-relaxed">
-            <strong>ID Card Canvas Properties</strong>
-            <p className="text-[11px] text-amber-300/80 mt-0.5">
-              Select any placeholder to modify its fonts and coordinates, or adjust the physical print dimensions below.
-            </p>
+          {/* One-Sided vs 2-Sided Toggle */}
+          <div className="p-3.5 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="two-sided-switch" className="font-bold text-xs text-white cursor-pointer">
+                Card Sides Configuration
+              </Label>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                {design.isDoubleSided ? "2-Sided (Front & Back)" : "1-Sided (Front Only)"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="two-sided-switch"
+                checked={design.isDoubleSided}
+                onCheckedChange={(checked) => onChange({ ...design, isDoubleSided: Boolean(checked) })}
+              />
+              <Label htmlFor="two-sided-switch" className="text-xs text-zinc-300 cursor-pointer">
+                Enable Double-Sided (Front &amp; Back) ID Card Printing
+              </Label>
+            </div>
           </div>
 
-          <div className="space-y-3">
+          {/* Quick Orientation & Dimension Presets */}
+          <div className="space-y-2">
             <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
-              Physical Card Dimensions
+              Dimension Presets
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyPreset("3.46", "5.51", "portrait")}
+                className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                  design.widthInches === "3.46" && design.heightInches === "5.51"
+                    ? "bg-amber-400/10 border-amber-400 text-white"
+                    : "bg-[#18181F] border-[#2A2A35] text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="font-bold text-xs">Vertical Standard</div>
+                <div className="text-[10px] font-mono text-zinc-500">3.46 × 5.51 in</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset("4.00", "6.00", "portrait")}
+                className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                  design.widthInches === "4.00" && design.heightInches === "6.00"
+                    ? "bg-amber-400/10 border-amber-400 text-white"
+                    : "bg-[#18181F] border-[#2A2A35] text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="font-bold text-xs">Vertical Lanyard</div>
+                <div className="text-[10px] font-mono text-zinc-500">4.00 × 6.00 in</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset("5.51", "3.46", "landscape")}
+                className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                  design.widthInches === "5.51" && design.heightInches === "3.46"
+                    ? "bg-amber-400/10 border-amber-400 text-white"
+                    : "bg-[#18181F] border-[#2A2A35] text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="font-bold text-xs">Horizontal Badge</div>
+                <div className="text-[10px] font-mono text-zinc-500">5.51 × 3.46 in</div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => applyPreset("2.125", "3.375", "portrait")}
+                className={`p-2 rounded-xl text-left border transition-all cursor-pointer ${
+                  design.widthInches === "2.125" && design.heightInches === "3.375"
+                    ? "bg-amber-400/10 border-amber-400 text-white"
+                    : "bg-[#18181F] border-[#2A2A35] text-zinc-400 hover:text-white"
+                }`}
+              >
+                <div className="font-bold text-xs">PVC Card (CR80)</div>
+                <div className="text-[10px] font-mono text-zinc-500">2.125 × 3.375 in</div>
+              </button>
+            </div>
+          </div>
+
+          {/* Custom Size Spinners */}
+          <div className="space-y-3 pt-2 border-t border-[#24242A]">
+            <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+              Custom Physical Dimensions
             </Label>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -401,7 +503,7 @@ export function PropertiesPanel({
             </div>
 
             <div className="space-y-1">
-              <span className="text-[10px] text-zinc-500">Print DPI (Resolution)</span>
+              <span className="text-[10px] text-zinc-500">Resolution (DPI)</span>
               <Select
                 value={String(design.dpi || 300)}
                 onValueChange={(val) => onChange({ ...design, dpi: parseInt(val) || 300 })}
@@ -411,43 +513,81 @@ export function PropertiesPanel({
                 </SelectTrigger>
                 <SelectContent className="bg-[#18181F] border-[#2A2A35] text-zinc-200">
                   <SelectItem value="300">300 DPI (High-Resolution Print Quality)</SelectItem>
-                  <SelectItem value="150">150 DPI (Draft / Screen Preview)</SelectItem>
+                  <SelectItem value="150">150 DPI (Draft Preview)</SelectItem>
                   <SelectItem value="600">600 DPI (Ultra-Fine Printing)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Background Template */}
-          <div className="space-y-2 pt-2 border-t border-[#24242A]">
-            <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center justify-between">
-              <span>Background Template</span>
-              {design.templateImageUrl && (
-                <span className="text-[10px] text-emerald-400 font-mono">✓ PNG Active</span>
-              )}
+          {/* Background Templates (Front & Back) */}
+          <div className="space-y-3 pt-2 border-t border-[#24242A]">
+            <Label className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">
+              Template Backgrounds
             </Label>
 
-            {design.templateImageUrl ? (
-              <div className="p-2 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-2">
-                <img
-                  src={design.templateImageUrl}
-                  alt="Template Preview"
-                  className="w-full h-24 object-contain rounded-lg bg-black/40 border border-white/10"
-                />
-                <Button
-                  onClick={onOpenUploadModal}
-                  className="w-full h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
-                >
-                  Replace PNG Template
-                </Button>
+            {/* Front Template */}
+            <div className="p-3 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-xs text-white">Front Side Template</span>
+                {design.templateImageUrl && <span className="text-[10px] text-emerald-400 font-mono">✓ Active</span>}
               </div>
-            ) : (
-              <Button
-                onClick={onOpenUploadModal}
-                className="w-full h-9 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs cursor-pointer shadow"
-              >
-                + Upload PNG Template
-              </Button>
+              {design.templateImageUrl ? (
+                <div className="space-y-2">
+                  <img
+                    src={design.templateImageUrl}
+                    alt="Front Template"
+                    className="w-full h-20 object-contain rounded-lg bg-black/40 border border-white/10"
+                  />
+                  <Button
+                    onClick={() => onOpenUploadModal("front")}
+                    className="w-full h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] cursor-pointer"
+                  >
+                    Replace Front Template
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => onOpenUploadModal("front")}
+                  className="w-full h-8 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs cursor-pointer shadow"
+                >
+                  + Upload Front PNG
+                </Button>
+              )}
+            </div>
+
+            {/* Back Template (if double-sided) */}
+            {design.isDoubleSided && (
+              <div className="p-3 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-white">Back Side Template</span>
+                  {design.backTemplateImageUrl && (
+                    <span className="text-[10px] text-emerald-400 font-mono">✓ Active</span>
+                  )}
+                </div>
+                {design.backTemplateImageUrl ? (
+                  <div className="space-y-2">
+                    <img
+                      src={design.backTemplateImageUrl}
+                      alt="Back Template"
+                      className="w-full h-20 object-contain rounded-lg bg-black/40 border border-white/10"
+                    />
+                    <Button
+                      onClick={() => onOpenUploadModal("back")}
+                      className="w-full h-7 rounded-lg bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] cursor-pointer"
+                    >
+                      Replace Back Template
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => onOpenUploadModal("back")}
+                    className="w-full h-8 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs cursor-pointer shadow"
+                  >
+                    + Upload Back PNG
+                  </Button>
+                )}
+              </div>
             )}
           </div>
         </div>

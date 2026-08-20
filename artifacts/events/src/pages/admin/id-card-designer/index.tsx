@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useActiveEvent } from "@/hooks/use-active-event";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { IdCardDesignData, CardAttendee, CardType, PlaceholderConfig } from "./types";
+import type { IdCardDesignData, CardAttendee, CardType, PlaceholderConfig, CardSide } from "./types";
 import { IdCardCanvas } from "./id-card-canvas";
 import { PlaceholdersSidebar } from "./placeholders-sidebar";
 import { PropertiesPanel } from "./properties-panel";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ import {
   QrCode,
   Settings,
   Check,
+  RotateCw,
 } from "lucide-react";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -63,8 +65,12 @@ export default function IdCardDesignerPage() {
   // Active tab inside ID Card Designer module
   const [activeTab, setActiveTab] = useState<"overview" | "preregistered" | "onspot" | "preview" | "settings">("overview");
 
-  // Selection & Upload modals
+  // Active side being edited in canvas: 'front' | 'back'
+  const [activeSide, setActiveSide] = useState<CardSide>("front");
+
+  // Modals & Selection states
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadSide, setUploadSide] = useState<CardSide>("front");
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [selectedPlaceholderId, setSelectedPlaceholderId] = useState<string | null>(null);
 
@@ -134,7 +140,7 @@ export default function IdCardDesignerPage() {
     enabled: !!activeEventId && !!token && isAuthorized,
   });
 
-  // Local Editable Design State for Active Mode
+  // Local Editable Design State
   const [preRegDesign, setPreRegDesign] = useState<IdCardDesignData | null>(null);
   const [onSpotDesign, setOnSpotDesign] = useState<IdCardDesignData | null>(null);
 
@@ -143,23 +149,31 @@ export default function IdCardDesignerPage() {
     if (preRegData?.design) {
       const d = preRegData.design;
       let placeholders: PlaceholderConfig[] = [];
+      let backPlaceholders: PlaceholderConfig[] = [];
       try {
         placeholders = typeof d.placeholdersJson === "string" ? JSON.parse(d.placeholdersJson) : d.placeholdersJson || [];
       } catch {
         placeholders = [];
       }
+      try {
+        backPlaceholders = typeof d.backPlaceholdersJson === "string" ? JSON.parse(d.backPlaceholdersJson) : d.backPlaceholdersJson || [];
+      } catch {
+        backPlaceholders = [];
+      }
+
       let sheetConfig = {
         paperSize: "A4" as const,
         paperWidthMm: 210,
         paperHeightMm: 297,
         cardsPerRow: 2,
-        cardsPerCol: 3,
+        cardsPerCol: 2,
         marginTopMm: 10,
         marginLeftMm: 10,
         gapXmm: 5,
         gapYmm: 5,
         showCutMarks: true,
         pageOrientation: "portrait" as const,
+        printSideMode: d.isDoubleSided ? "duplex" as const : "single" as const,
       };
       try {
         if (d.sheetConfigJson) sheetConfig = JSON.parse(d.sheetConfigJson);
@@ -170,11 +184,15 @@ export default function IdCardDesignerPage() {
         eventId: activeEventId || 1,
         cardType: "preregistered",
         templateImageUrl: d.templateImageUrl,
-        widthInches: d.widthInches || "5.51",
-        heightInches: d.heightInches || "3.46",
+        backTemplateImageUrl: d.backTemplateImageUrl,
+        widthInches: d.widthInches || "3.46",
+        heightInches: d.heightInches || "5.51",
         dpi: d.dpi || 300,
-        orientation: d.orientation || "landscape",
+        orientation: d.orientation || "portrait",
+        isDoubleSided: Boolean(d.isDoubleSided),
+        printSideMode: d.printSideMode || "duplex",
         placeholders,
+        backPlaceholders,
         sheetConfig,
         status: d.status || "draft",
         version: d.version || 1,
@@ -187,23 +205,31 @@ export default function IdCardDesignerPage() {
     if (onSpotData?.design) {
       const d = onSpotData.design;
       let placeholders: PlaceholderConfig[] = [];
+      let backPlaceholders: PlaceholderConfig[] = [];
       try {
         placeholders = typeof d.placeholdersJson === "string" ? JSON.parse(d.placeholdersJson) : d.placeholdersJson || [];
       } catch {
         placeholders = [];
       }
+      try {
+        backPlaceholders = typeof d.backPlaceholdersJson === "string" ? JSON.parse(d.backPlaceholdersJson) : d.backPlaceholdersJson || [];
+      } catch {
+        backPlaceholders = [];
+      }
+
       let sheetConfig = {
         paperSize: "A4" as const,
         paperWidthMm: 210,
         paperHeightMm: 297,
         cardsPerRow: 2,
-        cardsPerCol: 3,
+        cardsPerCol: 2,
         marginTopMm: 10,
         marginLeftMm: 10,
         gapXmm: 5,
         gapYmm: 5,
         showCutMarks: true,
         pageOrientation: "portrait" as const,
+        printSideMode: d.isDoubleSided ? "duplex" as const : "single" as const,
       };
       try {
         if (d.sheetConfigJson) sheetConfig = JSON.parse(d.sheetConfigJson);
@@ -214,11 +240,15 @@ export default function IdCardDesignerPage() {
         eventId: activeEventId || 1,
         cardType: "onspot",
         templateImageUrl: d.templateImageUrl,
-        widthInches: d.widthInches || "5.51",
-        heightInches: d.heightInches || "3.46",
+        backTemplateImageUrl: d.backTemplateImageUrl,
+        widthInches: d.widthInches || "3.46",
+        heightInches: d.heightInches || "5.51",
         dpi: d.dpi || 300,
-        orientation: d.orientation || "landscape",
+        orientation: d.orientation || "portrait",
+        isDoubleSided: Boolean(d.isDoubleSided),
+        printSideMode: d.printSideMode || "duplex",
         placeholders,
+        backPlaceholders,
         sheetConfig,
         status: d.status || "draft",
         version: d.version || 1,
@@ -256,13 +286,19 @@ export default function IdCardDesignerPage() {
     );
   }, [attendees, sampleAttendeeId]);
 
-  // Canvas preview ref for Live Preview tab
-  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
+  // Canvas preview refs for Live Preview tab (Front & Back)
+  const previewFrontCanvasRef = useRef<HTMLCanvasElement>(null);
+  const previewBackCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Render live preview on tab change or design change
+  // Render live preview canvases
   useEffect(() => {
-    if (activeTab === "preview" && currentDesign && previewCanvasRef.current) {
-      renderCardToCanvas(currentDesign, sampleAttendee, previewCanvasRef.current, 300).catch(console.error);
+    if (activeTab === "preview" && currentDesign) {
+      if (previewFrontCanvasRef.current) {
+        renderCardToCanvas(currentDesign, sampleAttendee, previewFrontCanvasRef.current, 300, "front").catch(console.error);
+      }
+      if (previewBackCanvasRef.current && currentDesign.isDoubleSided) {
+        renderCardToCanvas(currentDesign, sampleAttendee, previewBackCanvasRef.current, 300, "back").catch(console.error);
+      }
     }
   }, [activeTab, currentDesign, sampleAttendee]);
 
@@ -274,11 +310,15 @@ export default function IdCardDesignerPage() {
       const payload = {
         cardType: currentDesign.cardType,
         templateImageUrl: currentDesign.templateImageUrl,
+        backTemplateImageUrl: currentDesign.backTemplateImageUrl,
         widthInches: currentDesign.widthInches,
         heightInches: currentDesign.heightInches,
         dpi: currentDesign.dpi,
         orientation: currentDesign.orientation,
+        isDoubleSided: currentDesign.isDoubleSided,
+        printSideMode: currentDesign.printSideMode,
         placeholders: currentDesign.placeholders,
+        backPlaceholders: currentDesign.backPlaceholders,
         sheetConfig: currentDesign.sheetConfig,
         status,
       };
@@ -306,7 +346,7 @@ export default function IdCardDesignerPage() {
     },
   });
 
-  // 5. Upload Template PNG
+  // 5. Upload Template PNG (Front or Back)
   const handleUploadPng = async () => {
     if (!selectedFile || !activeEventId) {
       toast({ title: "Select File", description: "Please select a PNG template file.", variant: "destructive" });
@@ -323,24 +363,35 @@ export default function IdCardDesignerPage() {
     formData.append("template", selectedFile);
 
     try {
-      const res = await fetch(`${BASE_URL}/api/events/${activeEventId}/id-card-design/upload-template`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const res = await fetch(
+        `${BASE_URL}/api/events/${activeEventId}/id-card-design/upload-template?side=${uploadSide}`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        }
+      );
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
 
       if (currentDesign && setCurrentDesign) {
-        setCurrentDesign({
-          ...currentDesign,
-          templateImageUrl: data.url,
-        });
+        if (uploadSide === "back") {
+          setCurrentDesign({
+            ...currentDesign,
+            backTemplateImageUrl: data.url,
+            isDoubleSided: true,
+          });
+        } else {
+          setCurrentDesign({
+            ...currentDesign,
+            templateImageUrl: data.url,
+          });
+        }
       }
 
       toast({
-        title: "Template Uploaded ✓",
+        title: `${uploadSide === "front" ? "Front" : "Back"} Template Uploaded ✓`,
         description: "Background PNG template applied to ID card canvas.",
       });
       setUploadModalOpen(false);
@@ -386,8 +437,9 @@ export default function IdCardDesignerPage() {
     readyForPrinting: 0,
   };
 
-  const currentWInches = parseFloat(currentDesign?.widthInches || "5.51");
-  const currentHInches = parseFloat(currentDesign?.heightInches || "3.46");
+  const currentWInches = parseFloat(currentDesign?.widthInches || "3.46");
+  const currentHInches = parseFloat(currentDesign?.heightInches || "5.51");
+  const isVertical = currentHInches >= currentWInches;
   const currentPixelDims = getCardPixelDimensions(currentWInches, currentHInches, currentDesign?.dpi || 300);
 
   return (
@@ -408,7 +460,10 @@ export default function IdCardDesignerPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20 font-bold uppercase tracking-wider">
-                Event Module
+                {isVertical ? "Vertical Card" : "Horizontal Card"}
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-mono">
+                {currentDesign?.isDoubleSided ? "2-Sided (Front & Back)" : "1-Sided"}
               </span>
               <h1 className="text-base font-black text-white truncate flex items-center gap-1.5">
                 <span>{activeEvent.title}</span>
@@ -424,7 +479,6 @@ export default function IdCardDesignerPage() {
 
         {/* Global Save & Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Status Badge */}
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1A1A22] border border-[#2B2B36] text-xs">
             <span
               className={`w-2 h-2 rounded-full ${
@@ -491,7 +545,7 @@ export default function IdCardDesignerPage() {
             <Layers className="w-3.5 h-3.5" />
             <span>Pre-Registered Designer</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-zinc-800 text-zinc-300 font-mono">
-              {preRegDesign?.placeholders.length || 0}
+              {(preRegDesign?.placeholders.length || 0) + (preRegDesign?.isDoubleSided ? (preRegDesign?.backPlaceholders.length || 0) : 0)}
             </span>
           </button>
 
@@ -533,7 +587,7 @@ export default function IdCardDesignerPage() {
         </div>
 
         <div className="hidden md:flex items-center gap-2 text-[11px] font-mono text-zinc-500">
-          <span>Card: {currentWInches} × {currentHInches} in</span>
+          <span>{currentWInches} × {currentHInches} in ({isVertical ? "Vertical" : "Horizontal"})</span>
           <span>•</span>
           <span>{currentPixelDims.widthPx} × {currentPixelDims.heightPx} px @ {currentDesign?.dpi || 300} DPI</span>
         </div>
@@ -558,7 +612,7 @@ export default function IdCardDesignerPage() {
                   <span className="text-xs text-zinc-500 font-mono">v{currentDesign?.version || 1}</span>
                 </div>
                 <p className="text-[11px] text-zinc-500">
-                  {currentDesign?.templateImageUrl ? "Custom PNG background loaded" : "Default canvas active"}
+                  {currentDesign?.isDoubleSided ? "2-Sided (Front & Back)" : "1-Sided (Front only)"}
                 </p>
               </div>
 
@@ -568,7 +622,7 @@ export default function IdCardDesignerPage() {
                   {currentWInches} × {currentHInches} in
                 </p>
                 <p className="text-[11px] text-zinc-500 font-mono">
-                  {currentPixelDims.widthPx} × {currentPixelDims.heightPx} px @ {currentDesign?.dpi || 300} DPI
+                  {isVertical ? "Vertical (Portrait)" : "Horizontal (Landscape)"} • {currentPixelDims.widthPx} × {currentPixelDims.heightPx} px
                 </p>
               </div>
 
@@ -576,7 +630,7 @@ export default function IdCardDesignerPage() {
                 <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Configured Fields</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-black text-white">{preRegDesign?.placeholders.length || 0}</span>
-                  <span className="text-xs text-zinc-500">Pre-Reg / {onSpotDesign?.placeholders.length || 0} On-Spot</span>
+                  <span className="text-xs text-zinc-500">Front / {preRegDesign?.backPlaceholders?.length || 0} Back</span>
                 </div>
                 <p className="text-[11px] text-zinc-500">Dynamic bindings active</p>
               </div>
@@ -604,7 +658,7 @@ export default function IdCardDesignerPage() {
                     Design Pre-Registered ID Card
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Visual Canvas Editor with Delegate Name, Hospital, ID Number, and QR pass.
+                    Visual Canvas Editor with Vertical layout, Front and Back side configuration, and custom placeholders.
                   </p>
                 </div>
                 <div className="text-[11px] text-zinc-500 font-bold flex items-center gap-1">
@@ -625,7 +679,7 @@ export default function IdCardDesignerPage() {
                     Design On-Spot Physical Card
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Lightweight physical cards with pre-printed Card ID Number and Scan Gun QR Code.
+                    Vertical physical card setup with pre-printed Card ID Number and Scan Gun QR Code.
                   </p>
                 </div>
                 <div className="text-[11px] text-zinc-500 font-bold flex items-center gap-1">
@@ -643,10 +697,10 @@ export default function IdCardDesignerPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-white group-hover:text-amber-300 transition-colors">
-                    Batch Print Ready PDF Sheets
+                    Batch Print 2-Sided / 1-Sided Sheets
                   </h3>
                   <p className="text-xs text-zinc-400 mt-1">
-                    Multi-card A4/A3 sheet compiler with cut marks and 300 DPI high-resolution export.
+                    Multi-card A4/A3 sheet compiler supporting automatic Duplex sheets and Side-by-Side folding.
                   </p>
                 </div>
                 <div className="text-[11px] text-zinc-500 font-bold flex items-center gap-1">
@@ -656,35 +710,49 @@ export default function IdCardDesignerPage() {
               </div>
             </div>
 
-            {/* Template Summary Card */}
+            {/* Template & Sides Summary Card */}
             <div className="p-6 rounded-3xl bg-[#141418] border border-[#26262F] shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <FileImage className="w-5 h-5 text-amber-400" />
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Current ID Card Template Image
+                    Vertical Card &amp; 2-Sided Configuration
                   </h3>
                 </div>
                 <p className="text-xs text-zinc-400 max-w-lg leading-relaxed">
-                  Recommended: High-resolution PNG, 300 DPI equivalent. Card measurements are strictly preserved across both single card downloads and multi-page batch sheets.
+                  Configured size: <strong className="text-white">{currentWInches} × {currentHInches} in (Vertical)</strong>. Supports 1-Sided and 2-Sided (Front &amp; Back) with high-res 300 DPI PNG backgrounds.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 shrink-0">
                 <Button
                   variant="outline"
-                  onClick={() => setUploadModalOpen(true)}
+                  onClick={() => {
+                    setUploadSide("front");
+                    setUploadModalOpen(true);
+                  }}
                   className="rounded-xl border-[#2A2A35] bg-[#18181F] text-zinc-200 text-xs font-bold h-10 px-4 cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5 mr-1.5" />
-                  Replace PNG Template
+                  Upload Front PNG
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setUploadSide("back");
+                    setUploadModalOpen(true);
+                  }}
+                  className="rounded-xl border-[#2A2A35] bg-[#18181F] text-zinc-200 text-xs font-bold h-10 px-4 cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  Upload Back PNG
                 </Button>
                 <Button
                   onClick={() => setActiveTab("preview")}
                   className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-black h-10 px-4 cursor-pointer shadow"
                 >
                   <Eye className="w-3.5 h-3.5 mr-1.5" />
-                  Preview with Live Attendee
+                  Live Preview
                 </Button>
               </div>
             </div>
@@ -700,6 +768,8 @@ export default function IdCardDesignerPage() {
               onChange={setCurrentDesign}
               selectedPlaceholderId={selectedPlaceholderId}
               onSelectPlaceholder={setSelectedPlaceholderId}
+              activeSide={activeSide}
+              onSideChange={setActiveSide}
             />
 
             <IdCardCanvas
@@ -708,6 +778,8 @@ export default function IdCardDesignerPage() {
               selectedPlaceholderId={selectedPlaceholderId}
               onSelectPlaceholder={setSelectedPlaceholderId}
               sampleAttendee={sampleAttendee}
+              activeSide={activeSide}
+              onSideChange={setActiveSide}
             />
 
             <PropertiesPanel
@@ -715,22 +787,26 @@ export default function IdCardDesignerPage() {
               onChange={setCurrentDesign}
               selectedPlaceholderId={selectedPlaceholderId}
               onSelectPlaceholder={setSelectedPlaceholderId}
-              onOpenUploadModal={() => setUploadModalOpen(true)}
+              onOpenUploadModal={(side) => {
+                setUploadSide(side);
+                setUploadModalOpen(true);
+              }}
+              activeSide={activeSide}
             />
           </div>
         )}
 
-        {/* 4. LIVE PREVIEW & INDIVIDUAL DOWNLOAD */}
+        {/* 4. LIVE PREVIEW & INDIVIDUAL DOWNLOAD (FRONT & BACK) */}
         {activeTab === "preview" && currentDesign && (
-          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 max-w-4xl mx-auto w-full">
+          <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 max-w-5xl mx-auto w-full">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#24242A] pb-4">
               <div>
                 <h2 className="text-base font-black text-white uppercase tracking-wider flex items-center gap-2">
                   <Eye className="w-4 h-4 text-amber-400" />
-                  Live ID Card Preview
+                  Live ID Card Preview ({currentDesign.isDoubleSided ? "Front & Back 2-Sided" : "Front Side"})
                 </h2>
                 <p className="text-xs text-zinc-400">
-                  Renders the active template using real database attendee records at 300 DPI print quality.
+                  Renders the vertical template using real attendee data at 300 DPI physical print quality.
                 </p>
               </div>
 
@@ -754,36 +830,89 @@ export default function IdCardDesignerPage() {
               </div>
             </div>
 
-            {/* Rendered Live Card */}
-            <div className="flex flex-col items-center justify-center p-8 bg-[#121216] border border-[#24242A] rounded-3xl shadow-2xl space-y-6">
-              <div className="max-w-md w-full shadow-2xl rounded-2xl overflow-hidden border border-white/20">
-                <canvas ref={previewCanvasRef} className="w-full h-auto block rounded-2xl" />
+            {/* Rendered Live Cards (Front & Back) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-start justify-center p-8 bg-[#121216] border border-[#24242A] rounded-3xl shadow-2xl">
+              {/* Front Side Preview */}
+              <div className="flex flex-col items-center space-y-3">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                  Front Side Card
+                </span>
+                <div className="w-full max-w-[320px] shadow-2xl rounded-2xl overflow-hidden border border-white/20">
+                  <canvas ref={previewFrontCanvasRef} className="w-full h-auto block rounded-2xl" />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => downloadSingleCardPng(currentDesign, sampleAttendee, "front")}
+                  className="rounded-xl border-[#2A2A35] bg-[#18181F] text-zinc-300 text-xs"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Download Front PNG
+                </Button>
               </div>
 
-              <div className="text-center space-y-1">
-                <h3 className="text-sm font-bold text-white">{sampleAttendee.name}</h3>
+              {/* Back Side Preview (if enabled) */}
+              {currentDesign.isDoubleSided ? (
+                <div className="flex flex-col items-center space-y-3">
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" />
+                    Back Side Card
+                  </span>
+                  <div className="w-full max-w-[320px] shadow-2xl rounded-2xl overflow-hidden border border-white/20">
+                    <canvas ref={previewBackCanvasRef} className="w-full h-auto block rounded-2xl" />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => downloadSingleCardPng(currentDesign, sampleAttendee, "back")}
+                    className="rounded-xl border-[#2A2A35] bg-[#18181F] text-zinc-300 text-xs"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Download Back PNG
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-8 rounded-2xl border border-dashed border-[#2B2B36] text-center space-y-3 flex flex-col items-center justify-center h-full min-h-[380px]">
+                  <RotateCw className="w-8 h-8 text-zinc-600 animate-spin" />
+                  <div>
+                    <h4 className="font-bold text-sm text-zinc-300">Single-Sided ID Card Mode</h4>
+                    <p className="text-xs text-zinc-500 max-w-xs mt-1">
+                      To enable the back side with food/attendance verification boxes and instructions, toggle 2-Sided in Template Settings.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (setCurrentDesign) setCurrentDesign({ ...currentDesign, isDoubleSided: true });
+                    }}
+                    className="rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs"
+                  >
+                    + Enable 2-Sided (Back Side)
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Individual Card Download Action Bar */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-[#16161C] border border-[#26262F]">
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  {sampleAttendee.name} ({sampleAttendee.registrationNumber})
+                </h3>
                 <p className="text-xs text-zinc-400">
-                  {sampleAttendee.institution} • Registration #{sampleAttendee.registrationNumber}
+                  {currentWInches} × {currentHInches} in Vertical • {currentDesign.isDoubleSided ? "2 Pages (Front & Back)" : "1 Page"}
                 </p>
               </div>
 
-              {/* Individual Card Download Actions */}
-              <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className="flex items-center gap-3">
                 <Button
                   onClick={() => downloadSingleCardPdf(currentDesign, sampleAttendee)}
                   className="rounded-2xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-xs h-11 px-6 shadow-lg cursor-pointer flex items-center gap-2"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download Print-Ready PDF (300 DPI)</span>
-                </Button>
-
-                <Button
-                  variant="outline"
-                  onClick={() => downloadSingleCardPng(currentDesign, sampleAttendee)}
-                  className="rounded-2xl border-[#2A2A35] bg-[#18181F] text-zinc-200 hover:text-white font-bold text-xs h-11 px-5 cursor-pointer flex items-center gap-2"
-                >
-                  <FileImage className="w-4 h-4" />
-                  <span>Download High-Res PNG</span>
+                  <span>
+                    Download Print-Ready PDF ({currentDesign.isDoubleSided ? "2-Sided Front & Back" : "Front Side"})
+                  </span>
                 </Button>
               </div>
             </div>
@@ -804,6 +933,29 @@ export default function IdCardDesignerPage() {
             </div>
 
             <div className="p-6 rounded-3xl bg-[#141418] border border-[#24242A] space-y-5">
+              {/* One-Sided vs 2-Sided Toggle */}
+              <div className="p-4 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-white">Card Sides Configuration</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                    {currentDesign.isDoubleSided ? "2-Sided (Front & Back)" : "1-Sided (Front only)"}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="setting-two-sided"
+                    checked={currentDesign.isDoubleSided}
+                    onCheckedChange={(checked) =>
+                      setCurrentDesign({ ...currentDesign, isDoubleSided: Boolean(checked) })
+                    }
+                  />
+                  <Label htmlFor="setting-two-sided" className="text-xs text-zinc-300 cursor-pointer">
+                    Enable Double-Sided (Front &amp; Back) ID Card Printing
+                  </Label>
+                </div>
+              </div>
+
+              {/* Physical Dimensions */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-zinc-300">Physical Width (Inches) *</Label>
@@ -814,7 +966,7 @@ export default function IdCardDesignerPage() {
                     onChange={(e) => setCurrentDesign({ ...currentDesign, widthInches: e.target.value })}
                     className="h-10 bg-[#0E0E11] border-[#2A2A35] text-zinc-200 text-xs rounded-xl font-mono"
                   />
-                  <span className="text-[10px] text-zinc-500">e.g. 5.51 in</span>
+                  <span className="text-[10px] text-zinc-500">e.g. 3.46 in (Vertical)</span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -826,7 +978,7 @@ export default function IdCardDesignerPage() {
                     onChange={(e) => setCurrentDesign({ ...currentDesign, heightInches: e.target.value })}
                     className="h-10 bg-[#0E0E11] border-[#2A2A35] text-zinc-200 text-xs rounded-xl font-mono"
                   />
-                  <span className="text-[10px] text-zinc-500">e.g. 3.46 in</span>
+                  <span className="text-[10px] text-zinc-500">e.g. 5.51 in (Vertical)</span>
                 </div>
               </div>
 
@@ -858,8 +1010,8 @@ export default function IdCardDesignerPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#18181F] border-[#2A2A35] text-zinc-200">
-                      <SelectItem value="landscape">Landscape (Horizontal)</SelectItem>
                       <SelectItem value="portrait">Portrait (Vertical)</SelectItem>
+                      <SelectItem value="landscape">Landscape (Horizontal)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -877,32 +1029,82 @@ export default function IdCardDesignerPage() {
                 </p>
               </div>
 
-              {/* Upload PNG Template */}
+              {/* Front Template Upload */}
               <div className="pt-2 border-t border-[#24242A] space-y-3">
-                <Label className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
-                  Background Template PNG
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    1. Front Side Background PNG
+                  </Label>
+                  {currentDesign.templateImageUrl && <span className="text-[10px] text-emerald-400 font-mono">✓ Active</span>}
+                </div>
 
                 {currentDesign.templateImageUrl ? (
                   <div className="p-4 rounded-2xl bg-[#0E0E11] border border-[#2A2A35] space-y-3">
                     <img
                       src={currentDesign.templateImageUrl}
-                      alt="Template Preview"
+                      alt="Front Template"
                       className="w-full h-32 object-contain bg-black/50 rounded-xl border border-white/10"
                     />
                     <Button
-                      onClick={() => setUploadModalOpen(true)}
+                      onClick={() => {
+                        setUploadSide("front");
+                        setUploadModalOpen(true);
+                      }}
                       className="w-full rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 cursor-pointer"
                     >
-                      Replace PNG Template
+                      Replace Front PNG Template
                     </Button>
                   </div>
                 ) : (
                   <Button
-                    onClick={() => setUploadModalOpen(true)}
+                    onClick={() => {
+                      setUploadSide("front");
+                      setUploadModalOpen(true);
+                    }}
                     className="w-full rounded-2xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold h-11 cursor-pointer shadow"
                   >
-                    + Upload PNG Template
+                    + Upload Front PNG Template
+                  </Button>
+                )}
+              </div>
+
+              {/* Back Template Upload */}
+              <div className="pt-2 border-t border-[#24242A] space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-zinc-300 uppercase tracking-wider">
+                    2. Back Side Background PNG
+                  </Label>
+                  {currentDesign.backTemplateImageUrl && (
+                    <span className="text-[10px] text-emerald-400 font-mono">✓ Active</span>
+                  )}
+                </div>
+
+                {currentDesign.backTemplateImageUrl ? (
+                  <div className="p-4 rounded-2xl bg-[#0E0E11] border border-[#2A2A35] space-y-3">
+                    <img
+                      src={currentDesign.backTemplateImageUrl}
+                      alt="Back Template"
+                      className="w-full h-32 object-contain bg-black/50 rounded-xl border border-white/10"
+                    />
+                    <Button
+                      onClick={() => {
+                        setUploadSide("back");
+                        setUploadModalOpen(true);
+                      }}
+                      className="w-full rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold h-9 cursor-pointer"
+                    >
+                      Replace Back PNG Template
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    onClick={() => {
+                      setUploadSide("back");
+                      setUploadModalOpen(true);
+                    }}
+                    className="w-full rounded-2xl bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold h-11 cursor-pointer shadow"
+                  >
+                    + Upload Back PNG Template (Enables 2-Sided)
                   </Button>
                 )}
               </div>
@@ -915,9 +1117,11 @@ export default function IdCardDesignerPage() {
       <Dialog open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <DialogContent className="max-w-md bg-[#141418] border border-[#2B2B32] text-zinc-100 rounded-3xl p-6 shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-black text-white">Upload ID Card Template PNG</DialogTitle>
+            <DialogTitle className="text-lg font-black text-white">
+              Upload {uploadSide === "front" ? "Front Side" : "Back Side"} Template PNG
+            </DialogTitle>
             <DialogDescription className="text-xs text-zinc-400">
-              Upload a high-resolution PNG image without person text or QR code. The system will dynamically overlay attendee placeholders on top.
+              Upload the vertical {uploadSide} card image without attendee name. Dynamic placeholders will be overlaid on top.
             </DialogDescription>
           </DialogHeader>
 
@@ -934,7 +1138,7 @@ export default function IdCardDesignerPage() {
                 <p className="text-xs font-bold text-white">
                   {selectedFile ? selectedFile.name : "Click or drag & drop PNG file here"}
                 </p>
-                <p className="text-[10px] text-zinc-500 mt-1">Recommended: 300 DPI high-resolution PNG (Max 30MB)</p>
+                <p className="text-[10px] text-zinc-500 mt-1">Recommended: 300 DPI vertical PNG (Max 30MB)</p>
               </div>
             </div>
           </div>
@@ -952,7 +1156,7 @@ export default function IdCardDesignerPage() {
               disabled={!selectedFile || uploadingFile}
               className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-black text-xs px-5 shadow"
             >
-              {uploadingFile ? "Uploading..." : "Apply Template"}
+              {uploadingFile ? "Uploading..." : `Apply ${uploadSide === "front" ? "Front" : "Back"} Template`}
             </Button>
           </DialogFooter>
         </DialogContent>

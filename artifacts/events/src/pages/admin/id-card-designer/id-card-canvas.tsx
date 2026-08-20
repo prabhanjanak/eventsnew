@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from "react";
-import type { IdCardDesignData, PlaceholderConfig, CardAttendee } from "./types";
+import type { IdCardDesignData, PlaceholderConfig, CardAttendee, CardSide } from "./types";
 import { getCardPixelDimensions } from "./card-renderer";
 import {
   ZoomIn,
@@ -12,12 +12,13 @@ import {
   Trash2,
   Lock,
   Unlock,
-  Move,
   Sparkles,
   QrCode as QrIcon,
   Type,
   Building,
   Hash,
+  RotateCw,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +28,8 @@ interface IdCardCanvasProps {
   selectedPlaceholderId: string | null;
   onSelectPlaceholder: (id: string | null) => void;
   sampleAttendee?: Partial<CardAttendee>;
+  activeSide: CardSide;
+  onSideChange: (side: CardSide) => void;
 }
 
 export function IdCardCanvas({
@@ -35,18 +38,28 @@ export function IdCardCanvas({
   selectedPlaceholderId,
   onSelectPlaceholder,
   sampleAttendee,
+  activeSide,
+  onSideChange,
 }: IdCardCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState<number>(100);
   const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
 
-  const widthInches = parseFloat(design.widthInches) || 5.51;
-  const heightInches = parseFloat(design.heightInches) || 3.46;
+  const widthInches = parseFloat(design.widthInches) || 3.46;
+  const heightInches = parseFloat(design.heightInches) || 5.51;
   const { widthPx, heightPx, aspectRatio } = getCardPixelDimensions(widthInches, heightInches, design.dpi || 300);
+
+  const isPortrait = heightInches >= widthInches;
+  // Dynamic Canvas Display Box
+  const canvasDisplayWidth = isPortrait ? 420 : 680;
+  const canvasDisplayHeight = isPortrait ? 420 / aspectRatio : 680 / aspectRatio;
+
+  const currentPlaceholders = activeSide === "back" ? (design.backPlaceholders || []) : (design.placeholders || []);
+  const currentTemplateImg = activeSide === "back" ? design.backTemplateImageUrl : design.templateImageUrl;
 
   // Dragging / Resizing State
   const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [isResizing, setIsResizing] = useState<string | null>(null); // 'se' | 'sw' | 'ne' | 'nw' | 'e' | 's'
+  const [isResizing, setIsResizing] = useState<string | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number; phX: number; phY: number; phW: number; phH: number }>({
     x: 0,
     y: 0,
@@ -56,7 +69,7 @@ export function IdCardCanvas({
     phH: 0,
   });
 
-  const selectedPlaceholder = design.placeholders.find((p) => p.id === selectedPlaceholderId) || null;
+  const selectedPlaceholder = currentPlaceholders.find((p) => p.id === selectedPlaceholderId) || null;
 
   // Auto-fit zoom on mount or container resize
   const handleFitZoom = useCallback(() => {
@@ -65,29 +78,29 @@ export function IdCardCanvas({
     const containerH = containerRef.current.clientHeight - 80;
     if (containerW <= 0 || containerH <= 0) return;
 
-    // Target display width: 700px default
-    const baseW = 720;
-    const baseH = baseW / aspectRatio;
-
-    const scaleW = containerW / baseW;
-    const scaleH = containerH / baseH;
-    const fitScale = Math.min(scaleW, scaleH, 1.2);
+    const scaleW = containerW / canvasDisplayWidth;
+    const scaleH = containerH / canvasDisplayHeight;
+    const fitScale = Math.min(scaleW, scaleH, 1.15);
     setZoom(Math.round(fitScale * 100));
-  }, [aspectRatio]);
+  }, [canvasDisplayWidth, canvasDisplayHeight]);
 
   useEffect(() => {
     handleFitZoom();
   }, [handleFitZoom]);
 
-  // Snapping helper
   const snap = (val: number, step: number = 0.5) => {
     return snapToGrid ? Math.round(val / step) * step : val;
   };
 
-  // Move Placeholder helper
+  // Move / Update Placeholder helper
   const updatePlaceholder = (id: string, updates: Partial<PlaceholderConfig>) => {
-    const updatedPlaceholders = design.placeholders.map((p) => (p.id === id ? { ...p, ...updates } : p));
-    onChange({ ...design, placeholders: updatedPlaceholders });
+    if (activeSide === "back") {
+      const updated = (design.backPlaceholders || []).map((p) => (p.id === id ? { ...p, ...updates } : p));
+      onChange({ ...design, backPlaceholders: updated });
+    } else {
+      const updated = (design.placeholders || []).map((p) => (p.id === id ? { ...p, ...updates } : p));
+      onChange({ ...design, placeholders: updated });
+    }
   };
 
   // Keyboard Delete & Deselect
@@ -97,8 +110,13 @@ export function IdCardCanvas({
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedPlaceholderId && selectedPlaceholder && !selectedPlaceholder.isLocked) {
           e.preventDefault();
-          const filtered = design.placeholders.filter((p) => p.id !== selectedPlaceholderId);
-          onChange({ ...design, placeholders: filtered });
+          if (activeSide === "back") {
+            const filtered = (design.backPlaceholders || []).filter((p) => p.id !== selectedPlaceholderId);
+            onChange({ ...design, backPlaceholders: filtered });
+          } else {
+            const filtered = (design.placeholders || []).filter((p) => p.id !== selectedPlaceholderId);
+            onChange({ ...design, placeholders: filtered });
+          }
           onSelectPlaceholder(null);
         }
       }
@@ -108,7 +126,7 @@ export function IdCardCanvas({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedPlaceholderId, selectedPlaceholder, design, onChange, onSelectPlaceholder]);
+  }, [selectedPlaceholderId, selectedPlaceholder, design, onChange, onSelectPlaceholder, activeSide]);
 
   // Mouse Move for Drag / Resize
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -132,7 +150,6 @@ export function IdCardCanvas({
       let newX = snap(dragStart.phX + deltaXPercent);
       let newY = snap(dragStart.phY + deltaYPercent);
 
-      // Bound within card
       newX = Math.max(0, Math.min(100 - dragStart.phW, newX));
       newY = Math.max(0, Math.min(100 - dragStart.phH, newY));
 
@@ -178,7 +195,6 @@ export function IdCardCanvas({
     setIsResizing(null);
   };
 
-  // Center alignment helpers
   const handleCenterHorizontal = () => {
     if (!selectedPlaceholder) return;
     const newX = snap((100 - selectedPlaceholder.widthPercent) / 2);
@@ -197,17 +213,26 @@ export function IdCardCanvas({
       ...selectedPlaceholder,
       id: `ph_${Date.now()}`,
       label: `${selectedPlaceholder.label} (Copy)`,
-      xPercent: Math.min(80, selectedPlaceholder.xPercent + 4),
-      yPercent: Math.min(80, selectedPlaceholder.yPercent + 4),
+      xPercent: Math.min(80, selectedPlaceholder.xPercent + 3),
+      yPercent: Math.min(80, selectedPlaceholder.yPercent + 3),
     };
-    onChange({ ...design, placeholders: [...design.placeholders, dup] });
+    if (activeSide === "back") {
+      onChange({ ...design, backPlaceholders: [...(design.backPlaceholders || []), dup] });
+    } else {
+      onChange({ ...design, placeholders: [...design.placeholders, dup] });
+    }
     onSelectPlaceholder(dup.id);
   };
 
   const handleDelete = () => {
     if (!selectedPlaceholderId) return;
-    const filtered = design.placeholders.filter((p) => p.id !== selectedPlaceholderId);
-    onChange({ ...design, placeholders: filtered });
+    if (activeSide === "back") {
+      const filtered = (design.backPlaceholders || []).filter((p) => p.id !== selectedPlaceholderId);
+      onChange({ ...design, backPlaceholders: filtered });
+    } else {
+      const filtered = design.placeholders.filter((p) => p.id !== selectedPlaceholderId);
+      onChange({ ...design, placeholders: filtered });
+    }
     onSelectPlaceholder(null);
   };
 
@@ -220,8 +245,38 @@ export function IdCardCanvas({
     <div className="flex-1 flex flex-col h-full bg-[#0C0C0E] select-none overflow-hidden relative">
       {/* ── TOP CANVAS TOOLBAR ────────────────────────────────────────────── */}
       <div className="h-13 bg-[#141418] border-b border-[#24242A] px-4 flex items-center justify-between gap-3 shrink-0 z-20">
-        {/* Left Toolbar: Quick Actions for Selected Element */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+        {/* Left Toolbar: Side Switcher (Front / Back) & Selected Placeholder Controls */}
+        <div className="flex items-center gap-2 overflow-x-auto py-1">
+          {/* One-Sided vs 2-Sided Switcher */}
+          {design.isDoubleSided && (
+            <div className="flex items-center p-0.5 bg-[#1A1A22] border border-[#2B2B36] rounded-xl mr-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  onSideChange("front");
+                  onSelectPlaceholder(null);
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeSide === "front" ? "bg-amber-400 text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Front Side
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSideChange("back");
+                  onSelectPlaceholder(null);
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeSide === "back" ? "bg-amber-400 text-zinc-950 shadow" : "text-zinc-400 hover:text-white"
+                }`}
+              >
+                Back Side
+              </button>
+            </div>
+          )}
+
           {selectedPlaceholder ? (
             <>
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-xs text-zinc-200">
@@ -237,7 +292,7 @@ export function IdCardCanvas({
                 <span className="font-bold">{selectedPlaceholder.label}</span>
               </div>
 
-              <div className="h-4 w-px bg-zinc-700 mx-1" />
+              <div className="h-4 w-px bg-zinc-700 mx-0.5" />
 
               <Button
                 variant="ghost"
@@ -299,7 +354,7 @@ export function IdCardCanvas({
           ) : (
             <div className="text-xs text-zinc-500 flex items-center gap-1.5 italic">
               <Sparkles className="w-3.5 h-3.5 text-zinc-600" />
-              <span>Click any element or add placeholders from the left panel to edit</span>
+              <span>Editing {activeSide === "front" ? "Front Side" : "Back Side"} • Click elements to edit</span>
             </div>
           )}
         </div>
@@ -383,30 +438,32 @@ export function IdCardCanvas({
               if (e.target === e.currentTarget) onSelectPlaceholder(null);
             }}
             style={{
-              width: "720px",
-              height: `${720 / aspectRatio}px`,
-              backgroundImage: design.templateImageUrl ? `url(${design.templateImageUrl})` : undefined,
+              width: `${canvasDisplayWidth}px`,
+              height: `${canvasDisplayHeight}px`,
+              backgroundImage: currentTemplateImg ? `url(${currentTemplateImg})` : undefined,
               backgroundSize: "100% 100%",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",
             }}
             className={`relative rounded-xl border-2 transition-all ${
-              !design.templateImageUrl ? "bg-gradient-to-br from-[#18181C] to-[#0A0A0C] border-dashed border-[#3A3A45]" : "border-white/20 shadow-2xl"
+              !currentTemplateImg ? "bg-gradient-to-br from-[#18181C] to-[#0A0A0C] border-dashed border-[#3A3A45]" : "border-white/20 shadow-2xl"
             } overflow-hidden`}
           >
-            {/* Empty Template Guide when no PNG uploaded */}
-            {!design.templateImageUrl && (
+            {/* Empty Template Guide when no PNG uploaded for this side */}
+            {!currentTemplateImg && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pointer-events-none text-zinc-500">
                 <Sparkles className="w-8 h-8 text-zinc-600 mb-2 animate-pulse" />
-                <p className="font-bold text-sm text-zinc-400">ID Card Canvas</p>
+                <p className="font-bold text-sm text-zinc-400">
+                  {activeSide === "front" ? "Front Side Canvas" : "Back Side Canvas"}
+                </p>
                 <p className="text-xs max-w-xs mt-1 text-zinc-600">
-                  Upload a background PNG template from Template Settings or place dynamic placeholders directly.
+                  Upload {activeSide === "front" ? "front" : "back"} PNG template from Template Settings or place placeholders directly.
                 </p>
               </div>
             )}
 
             {/* Placeholders Render Overlay */}
-            {design.placeholders.map((ph) => {
+            {currentPlaceholders.map((ph) => {
               const isSelected = ph.id === selectedPlaceholderId;
               let displaySample = "";
               if (ph.type === "name") {
@@ -472,9 +529,9 @@ export function IdCardCanvas({
                     <div
                       style={{
                         fontFamily: ph.fontFamily || "Inter, sans-serif",
-                        fontSize: `${(ph.fontSizePt || 16) * (720 / 400) * 0.75}px`,
+                        fontSize: `${(ph.fontSizePt || 16) * (canvasDisplayWidth / 350) * 0.75}px`,
                         fontWeight: ph.fontWeight === "bold" ? 700 : ph.fontWeight === "black" ? 900 : ph.fontWeight === "semibold" ? 600 : 500,
-                        color: ph.color || "#FFFFFF",
+                        color: ph.color || (currentTemplateImg ? "#000000" : "#FFFFFF"),
                         letterSpacing: `${ph.letterSpacing || 0}px`,
                         width: "100%",
                       }}
@@ -491,10 +548,9 @@ export function IdCardCanvas({
                     </div>
                   )}
 
-                  {/* Resize Handles when selected and not locked */}
+                  {/* Resize Handles */}
                   {isSelected && !ph.isLocked && (
                     <>
-                      {/* East Handle */}
                       <div
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -510,7 +566,6 @@ export function IdCardCanvas({
                         }}
                         className="absolute -right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 bg-amber-400 border-2 border-black rounded-full cursor-ew-resize z-40"
                       />
-                      {/* South Handle */}
                       <div
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -526,7 +581,6 @@ export function IdCardCanvas({
                         }}
                         className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-amber-400 border-2 border-black rounded-full cursor-ns-resize z-40"
                       />
-                      {/* South-East Handle */}
                       <div
                         onMouseDown={(e) => {
                           e.stopPropagation();
@@ -552,7 +606,7 @@ export function IdCardCanvas({
           {/* Physical Spec Legend Badge */}
           <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-400 px-2 font-mono">
             <span>
-              Size: <strong>{widthInches} × {heightInches} in</strong> ({design.orientation})
+              Size: <strong>{widthInches} × {heightInches} in</strong> ({isPortrait ? "Vertical" : "Horizontal"} • {activeSide === "front" ? "Front" : "Back"})
             </span>
             <span>
               Res: <strong>{widthPx} × {heightPx} px</strong> @ {design.dpi} DPI

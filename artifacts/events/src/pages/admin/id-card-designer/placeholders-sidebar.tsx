@@ -1,5 +1,5 @@
 import React from "react";
-import type { IdCardDesignData, PlaceholderConfig, CardType, PlaceholderType } from "./types";
+import type { IdCardDesignData, PlaceholderConfig, CardType, PlaceholderType, CardSide } from "./types";
 import { Button } from "@/components/ui/button";
 import {
   Type,
@@ -13,6 +13,10 @@ import {
   Trash2,
   Sparkles,
   Check,
+  CheckSquare,
+  Utensils,
+  Gift,
+  Calendar,
 } from "lucide-react";
 
 interface PlaceholdersSidebarProps {
@@ -21,6 +25,8 @@ interface PlaceholdersSidebarProps {
   onChange: (updated: IdCardDesignData) => void;
   selectedPlaceholderId: string | null;
   onSelectPlaceholder: (id: string | null) => void;
+  activeSide: CardSide;
+  onSideChange: (side: CardSide) => void;
 }
 
 export function PlaceholdersSidebar({
@@ -29,9 +35,12 @@ export function PlaceholdersSidebar({
   onChange,
   selectedPlaceholderId,
   onSelectPlaceholder,
+  activeSide,
+  onSideChange,
 }: PlaceholdersSidebarProps) {
-  // Pre-registered supports Name, Org, ID, QR, Custom
-  // On-Spot strictly supports ID Number & QR Code
+  const isBack = activeSide === "back";
+  const currentList = isBack ? (design.backPlaceholders || []) : (design.placeholders || []);
+
   const availablePlaceholders: {
     type: PlaceholderType;
     label: string;
@@ -53,7 +62,7 @@ export function PlaceholdersSidebar({
               fontWeight: "bold",
               color: "#FFFFFF",
               align: "center",
-              widthPercent: 50,
+              widthPercent: 70,
               heightPercent: 12,
             },
           },
@@ -64,10 +73,57 @@ export function PlaceholdersSidebar({
             icon: QrIcon,
             color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
             defaultProps: {
-              widthPercent: 30,
-              heightPercent: 40,
+              widthPercent: 45,
+              heightPercent: 30,
               qrErrorCorrection: "M",
               qrMargin: 1,
+            },
+          },
+        ]
+      : isBack
+      ? [
+          {
+            type: "qr_code",
+            label: "Back Scan QR Pass",
+            description: "Scannable QR pass for Food & Attendance Desks",
+            icon: QrIcon,
+            color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+            defaultProps: {
+              widthPercent: 45,
+              heightPercent: 30,
+              qrErrorCorrection: "M",
+              qrMargin: 1,
+            },
+          },
+          {
+            type: "id_number",
+            label: "Registration ID",
+            description: "Card ID Number printed on back",
+            icon: Hash,
+            color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
+            defaultProps: {
+              fontSizePt: 14,
+              fontWeight: "bold",
+              color: "#FFFFFF",
+              align: "center",
+              widthPercent: 60,
+              heightPercent: 8,
+            },
+          },
+          {
+            type: "custom_text",
+            label: "Verification Notice / Instructions",
+            description: "Non-transferable notice or emergency contact",
+            icon: Sparkles,
+            color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+            defaultProps: {
+              fontSizePt: 10,
+              fontWeight: "medium",
+              color: "#9CA3AF",
+              align: "center",
+              customSampleText: "Must be worn at all times. Non-transferable.",
+              widthPercent: 80,
+              heightPercent: 8,
             },
           },
         ]
@@ -79,13 +135,13 @@ export function PlaceholdersSidebar({
             icon: Type,
             color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20",
             defaultProps: {
-              fontSizePt: 20,
+              fontSizePt: 22,
               fontWeight: "bold",
-              color: "#FFFFFF",
-              align: "left",
+              color: "#000000",
+              align: "center",
               textTransform: "capitalize",
-              widthPercent: 60,
-              heightPercent: 14,
+              widthPercent: 80,
+              heightPercent: 12,
             },
           },
           {
@@ -97,25 +153,42 @@ export function PlaceholdersSidebar({
             defaultProps: {
               fontSizePt: 14,
               fontWeight: "medium",
-              color: "#D1D5DB",
-              align: "left",
+              color: "#374151",
+              align: "center",
+              widthPercent: 80,
+              heightPercent: 8,
+            },
+          },
+          {
+            type: "custom_text",
+            label: "Role Category (e.g. DELEGATE)",
+            description: "Role pill label (e.g. DELEGATE / FACULTY)",
+            icon: Sparkles,
+            color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
+            defaultProps: {
+              fontSizePt: 14,
+              fontWeight: "bold",
+              color: "#FFFFFF",
+              align: "center",
+              textTransform: "uppercase",
+              customSampleText: "DELEGATE",
               widthPercent: 60,
-              heightPercent: 10,
+              heightPercent: 8,
             },
           },
           {
             type: "id_number",
-            label: "Registration ID",
+            label: "Registration ID Number",
             description: "Dynamic ID Number (e.g. VISION26-00482)",
             icon: Hash,
             color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
             defaultProps: {
-              fontSizePt: 15,
+              fontSizePt: 13,
               fontWeight: "bold",
-              color: "#F59E0B",
-              align: "left",
-              widthPercent: 40,
-              heightPercent: 10,
+              color: "#4B5563",
+              align: "center",
+              widthPercent: 50,
+              heightPercent: 7,
             },
           },
           {
@@ -125,48 +198,30 @@ export function PlaceholdersSidebar({
             icon: QrIcon,
             color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
             defaultProps: {
-              widthPercent: 25,
-              heightPercent: 35,
+              widthPercent: 35,
+              heightPercent: 24,
               qrErrorCorrection: "M",
               qrMargin: 1,
-            },
-          },
-          {
-            type: "custom_text",
-            label: "Static / Badge Subtitle",
-            description: "Custom label (e.g. 'DELEGATE PASS' or 'FACULTY')",
-            icon: Sparkles,
-            color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-            defaultProps: {
-              fontSizePt: 12,
-              fontWeight: "bold",
-              color: "#E2E8F0",
-              align: "center",
-              textTransform: "uppercase",
-              customSampleText: "DELEGATE PASS",
-              widthPercent: 40,
-              heightPercent: 8,
             },
           },
         ];
 
   const handleAddPlaceholder = (item: (typeof availablePlaceholders)[0]) => {
-    // Generate new unique ID
     const newId = `ph_${Date.now()}`;
     const newPh: PlaceholderConfig = {
       id: newId,
       type: item.type,
       label: item.label,
       xPercent: 15,
-      yPercent: 20 + design.placeholders.length * 10,
-      widthPercent: item.defaultProps.widthPercent || 40,
+      yPercent: 20 + currentList.length * 10,
+      widthPercent: item.defaultProps.widthPercent || 60,
       heightPercent: item.defaultProps.heightPercent || 10,
       isLocked: false,
       fontFamily: "Inter, sans-serif",
       fontSizePt: item.defaultProps.fontSizePt || 16,
       fontWeight: item.defaultProps.fontWeight || "bold",
-      color: item.defaultProps.color || "#FFFFFF",
-      align: item.defaultProps.align || "left",
+      color: item.defaultProps.color || "#000000",
+      align: item.defaultProps.align || "center",
       textTransform: item.defaultProps.textTransform || "none",
       truncate: true,
       customSampleText: item.defaultProps.customSampleText,
@@ -174,10 +229,17 @@ export function PlaceholdersSidebar({
       qrMargin: item.defaultProps.qrMargin || 1,
     };
 
-    onChange({
-      ...design,
-      placeholders: [...design.placeholders, newPh],
-    });
+    if (isBack) {
+      onChange({
+        ...design,
+        backPlaceholders: [...(design.backPlaceholders || []), newPh],
+      });
+    } else {
+      onChange({
+        ...design,
+        placeholders: [...design.placeholders, newPh],
+      });
+    }
     onSelectPlaceholder(newId);
   };
 
@@ -190,22 +252,22 @@ export function PlaceholdersSidebar({
             <Plus className="w-4 h-4 text-amber-400" />
             Add Placeholders
           </h3>
-          <span className="text-[10px] text-zinc-500 font-mono">
-            {cardType === "onspot" ? "On-Spot Mode" : "Pre-Reg Mode"}
+          <span className="text-[10px] text-amber-300 font-bold px-2 py-0.5 rounded-md bg-amber-400/10 border border-amber-400/20">
+            {isBack ? "Back Side" : "Front Side"}
           </span>
         </div>
         <p className="text-[11px] text-zinc-400 leading-relaxed">
-          Click any dynamic field below to place it onto the ID card canvas.
+          Click any dynamic field below to place it onto the {isBack ? "back" : "front"} canvas.
         </p>
 
         <div className="space-y-1.5 pt-1">
           {availablePlaceholders.map((item) => {
             const Icon = item.icon;
-            const alreadyAdded = design.placeholders.some((p) => p.type === item.type);
+            const alreadyAdded = currentList.some((p) => p.type === item.type);
 
             return (
               <button
-                key={item.type}
+                key={item.type + item.label}
                 type="button"
                 onClick={() => handleAddPlaceholder(item)}
                 className="w-full p-2.5 rounded-2xl bg-[#1A1A22] hover:bg-[#22222E] border border-[#2B2B36] text-left flex items-start gap-2.5 transition-all cursor-pointer group shadow-sm hover:border-white/20 active:scale-98"
@@ -237,18 +299,18 @@ export function PlaceholdersSidebar({
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
             <Layers className="w-4 h-4 text-cyan-400" />
-            Active Layers ({design.placeholders.length})
+            {isBack ? "Back Layers" : "Front Layers"} ({currentList.length})
           </h3>
         </div>
 
-        {design.placeholders.length === 0 ? (
+        {currentList.length === 0 ? (
           <div className="p-6 text-center rounded-2xl border border-dashed border-[#2B2B36] text-zinc-500 space-y-1">
-            <p className="font-bold text-xs">No elements on canvas</p>
-            <p className="text-[10px]">Add placeholders from above to begin designing.</p>
+            <p className="font-bold text-xs">No elements on {isBack ? "back" : "front"}</p>
+            <p className="text-[10px]">Add placeholders from above to begin.</p>
           </div>
         ) : (
           <div className="space-y-1">
-            {design.placeholders.map((ph, idx) => {
+            {currentList.map((ph, idx) => {
               const isSelected = ph.id === selectedPlaceholderId;
               return (
                 <div
@@ -270,10 +332,17 @@ export function PlaceholdersSidebar({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const updated = design.placeholders.map((p) =>
-                          p.id === ph.id ? { ...p, isLocked: !p.isLocked } : p
-                        );
-                        onChange({ ...design, placeholders: updated });
+                        if (isBack) {
+                          const updated = (design.backPlaceholders || []).map((p) =>
+                            p.id === ph.id ? { ...p, isLocked: !p.isLocked } : p
+                          );
+                          onChange({ ...design, backPlaceholders: updated });
+                        } else {
+                          const updated = design.placeholders.map((p) =>
+                            p.id === ph.id ? { ...p, isLocked: !p.isLocked } : p
+                          );
+                          onChange({ ...design, placeholders: updated });
+                        }
                       }}
                       className="p-1 rounded text-zinc-400 hover:text-white"
                       title={ph.isLocked ? "Unlock" : "Lock"}
@@ -284,8 +353,13 @@ export function PlaceholdersSidebar({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const filtered = design.placeholders.filter((p) => p.id !== ph.id);
-                        onChange({ ...design, placeholders: filtered });
+                        if (isBack) {
+                          const filtered = (design.backPlaceholders || []).filter((p) => p.id !== ph.id);
+                          onChange({ ...design, backPlaceholders: filtered });
+                        } else {
+                          const filtered = design.placeholders.filter((p) => p.id !== ph.id);
+                          onChange({ ...design, placeholders: filtered });
+                        }
                         if (selectedPlaceholderId === ph.id) onSelectPlaceholder(null);
                       }}
                       className="p-1 rounded text-zinc-500 hover:text-rose-400"

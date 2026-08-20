@@ -126,11 +126,15 @@ export async function ensureSuperAdmin() {
           event_id integer NOT NULL REFERENCES events(id) ON DELETE CASCADE,
           card_type text NOT NULL DEFAULT 'preregistered',
           template_image_url text,
-          width_inches text NOT NULL DEFAULT '5.51',
-          height_inches text NOT NULL DEFAULT '3.46',
+          back_template_image_url text,
+          width_inches text NOT NULL DEFAULT '3.46',
+          height_inches text NOT NULL DEFAULT '5.51',
           dpi integer NOT NULL DEFAULT 300,
-          orientation text NOT NULL DEFAULT 'landscape',
+          orientation text NOT NULL DEFAULT 'portrait',
+          is_double_sided boolean NOT NULL DEFAULT false,
+          print_side_mode text NOT NULL DEFAULT 'duplex',
           placeholders_json text,
+          back_placeholders_json text,
           sheet_config_json text,
           status text NOT NULL DEFAULT 'draft',
           version integer NOT NULL DEFAULT 1,
@@ -140,6 +144,10 @@ export async function ensureSuperAdmin() {
           updated_at timestamp DEFAULT now() NOT NULL
         )`,
         `CREATE INDEX IF NOT EXISTS id_card_designs_event_card_type_idx ON id_card_designs(event_id, card_type)`,
+        `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS back_template_image_url text`,
+        `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS back_placeholders_json text`,
+        `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS is_double_sided boolean DEFAULT false`,
+        `ALTER TABLE id_card_designs ADD COLUMN IF NOT EXISTS print_side_mode text DEFAULT 'duplex'`,
       ];
 
       for (const statement of ddlStatements) {

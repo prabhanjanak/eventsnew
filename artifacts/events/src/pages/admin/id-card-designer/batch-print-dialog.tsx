@@ -26,6 +26,7 @@ import {
   Check,
   Loader2,
   Users,
+  Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,13 +56,14 @@ export function BatchPrintDialog({
       paperWidthMm: 210,
       paperHeightMm: 297,
       cardsPerRow: 2,
-      cardsPerCol: 3,
+      cardsPerCol: 2,
       marginTopMm: 10,
       marginLeftMm: 10,
       gapXmm: 5,
       gapYmm: 5,
       showCutMarks: true,
       pageOrientation: "portrait",
+      printSideMode: design.isDoubleSided ? "duplex" : "single",
     }
   );
 
@@ -136,7 +138,7 @@ export function BatchPrintDialog({
 
       toast({
         title: "Batch PDF Generated ✓",
-        description: `Successfully compiled ${readyList.length} ID cards onto print-ready sheets.`,
+        description: `Successfully compiled ${readyList.length} ID cards onto print-ready sheets (${design.isDoubleSided ? "2-Sided" : "1-Sided"}).`,
       });
       onOpenChange(false);
     } catch (err: any) {
@@ -161,7 +163,12 @@ export function BatchPrintDialog({
                 <Printer className="w-5 h-5" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-black text-white">Batch ID Card Printing</DialogTitle>
+                <DialogTitle className="text-lg font-black text-white flex items-center gap-2">
+                  <span>Batch ID Card Printing</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-white/10 text-zinc-300">
+                    {design.isDoubleSided ? "2-Sided Mode" : "1-Sided Mode"}
+                  </span>
+                </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400">
                   Select attendees, validate print readiness, configure sheet layout, and compile high-res 300 DPI PDF.
                 </DialogDescription>
@@ -345,19 +352,6 @@ export function BatchPrintDialog({
               </div>
             </div>
 
-            {/* Incomplete Records Warning */}
-            {missingList.length > 0 && (
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-200 text-xs space-y-2">
-                <div className="flex items-center gap-2 font-bold text-amber-300">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{missingList.length} Attendee records have missing required fields</span>
-                </div>
-                <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                  These cards will generate with default fallback values. We recommend verifying their names and registration IDs in the Attendees Directory before final print.
-                </p>
-              </div>
-            )}
-
             {/* Ready Attendees Quick Table Preview */}
             <div className="border border-[#24242A] rounded-2xl overflow-hidden bg-[#0D0D10]">
               <div className="p-3 bg-[#16161C] border-b border-[#24242A] text-xs font-bold text-white flex items-center justify-between">
@@ -387,6 +381,47 @@ export function BatchPrintDialog({
         {/* ── STEP 3: SHEET LAYOUT CONFIGURATION ───────────────────────────── */}
         {activeStep === "layout" && (
           <div className="flex-1 overflow-y-auto space-y-5 py-4">
+            {/* Double-Sided Duplex Mode Selection */}
+            {design.isDoubleSided && (
+              <div className="p-4 rounded-2xl bg-[#1A1A22] border border-[#2B2B36] space-y-3">
+                <Label className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4" />
+                  Double-Sided Printing Mode
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSheetConfig({ ...sheetConfig, printSideMode: "duplex" })}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      sheetConfig.printSideMode === "duplex"
+                        ? "bg-amber-400/10 border-amber-400 text-white shadow"
+                        : "bg-[#141418] border-[#2A2A35] text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-white">Duplex Sheet Printing (Front &amp; Back)</div>
+                    <div className="text-[10px] text-zinc-400 mt-1">
+                      Generates Front Sheet followed by mirrored Back Sheet for standard 2-sided automatic printers.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSheetConfig({ ...sheetConfig, printSideMode: "side_by_side" })}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      sheetConfig.printSideMode === "side_by_side"
+                        ? "bg-amber-400/10 border-amber-400 text-white shadow"
+                        : "bg-[#141418] border-[#2A2A35] text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <div className="font-bold text-xs text-white">Side-by-Side (Folding Badge)</div>
+                    <div className="text-[10px] text-zinc-400 mt-1">
+                      Front and Back are placed side-by-side on the same sheet with a center fold line to fold into a double-sided badge.
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Paper & Grid Setup */}
               <div className="p-5 rounded-2xl bg-[#16161B] border border-[#24242A] space-y-4">
@@ -434,7 +469,7 @@ export function BatchPrintDialog({
                       max={6}
                       value={sheetConfig.cardsPerCol}
                       onChange={(e) =>
-                        setSheetConfig({ ...sheetConfig, cardsPerCol: parseInt(e.target.value) || 3 })
+                        setSheetConfig({ ...sheetConfig, cardsPerCol: parseInt(e.target.value) || 2 })
                       }
                       className="h-9 bg-[#101014] border-[#2A2A35] text-zinc-200 text-xs rounded-xl font-mono"
                     />
@@ -528,16 +563,6 @@ export function BatchPrintDialog({
                 </div>
               </div>
             </div>
-
-            {/* Total Estimated Sheets */}
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs flex items-center justify-between text-amber-200">
-              <span>
-                Estimated Sheets: <strong>{Math.ceil(readyList.length / (sheetConfig.cardsPerRow * sheetConfig.cardsPerCol))} Pages</strong>
-              </span>
-              <span>
-                Card Size: <strong>{design.widthInches} × {design.heightInches} in</strong> @ 300 DPI
-              </span>
-            </div>
           </div>
         )}
 
@@ -606,7 +631,9 @@ export function BatchPrintDialog({
                   ) : (
                     <>
                       <Download className="w-4 h-4" />
-                      <span>Download Print-Ready PDF ({readyList.length} Cards)</span>
+                      <span>
+                        Download Print-Ready PDF ({readyList.length} Cards • {design.isDoubleSided ? "2-Sided" : "1-Sided"})
+                      </span>
                     </>
                   )}
                 </Button>

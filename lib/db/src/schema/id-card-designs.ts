@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { eventsTable } from "./events";
@@ -12,11 +12,15 @@ export const idCardDesignsTable = pgTable(
       .references(() => eventsTable.id, { onDelete: "cascade" }),
     cardType: text("card_type").notNull().default("preregistered"), // 'preregistered' | 'onspot'
     templateImageUrl: text("template_image_url"),
-    widthInches: text("width_inches").notNull().default("5.51"),
-    heightInches: text("height_inches").notNull().default("3.46"),
+    backTemplateImageUrl: text("back_template_image_url"),
+    widthInches: text("width_inches").notNull().default("3.46"),
+    heightInches: text("height_inches").notNull().default("5.51"),
     dpi: integer("dpi").notNull().default(300),
-    orientation: text("orientation").notNull().default("landscape"), // 'landscape' | 'portrait'
+    orientation: text("orientation").notNull().default("portrait"), // 'portrait' | 'landscape'
+    isDoubleSided: boolean("is_double_sided").notNull().default(false),
+    printSideMode: text("print_side_mode").notNull().default("duplex"), // 'single' | 'duplex' | 'side_by_side'
     placeholdersJson: text("placeholders_json"),
+    backPlaceholdersJson: text("back_placeholders_json"),
     sheetConfigJson: text("sheet_config_json"),
     status: text("status").notNull().default("draft"), // 'draft' | 'published' | 'not_configured'
     version: integer("version").notNull().default(1),

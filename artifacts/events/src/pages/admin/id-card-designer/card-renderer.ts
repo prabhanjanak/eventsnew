@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
-import type { IdCardDesignData, PlaceholderConfig, CardAttendee, SheetLayoutConfig } from "./types";
+import type { IdCardDesignData, PlaceholderConfig, CardAttendee, SheetLayoutConfig, CardSide } from "./types";
 
 /**
  * Calculates physical pixel dimensions at given DPI
@@ -48,16 +48,17 @@ async function generateQrDataUrl(
 }
 
 /**
- * Renders a complete high-resolution ID card onto an HTMLCanvasElement
+ * Renders a complete high-resolution ID card (Front or Back side) onto an HTMLCanvasElement
  */
 export async function renderCardToCanvas(
   design: IdCardDesignData,
   attendee: Partial<CardAttendee>,
   targetCanvas: HTMLCanvasElement,
-  dpi: number = 300
+  dpi: number = 300,
+  side: CardSide = "front"
 ): Promise<void> {
-  const widthInches = parseFloat(design.widthInches) || 5.51;
-  const heightInches = parseFloat(design.heightInches) || 3.46;
+  const widthInches = parseFloat(design.widthInches) || 3.46;
+  const heightInches = parseFloat(design.heightInches) || 5.51;
   const { widthPx, heightPx } = getCardPixelDimensions(widthInches, heightInches, dpi);
 
   targetCanvas.width = widthPx;
@@ -66,20 +67,23 @@ export async function renderCardToCanvas(
   const ctx = targetCanvas.getContext("2d");
   if (!ctx) throw new Error("Could not get 2D rendering context");
 
+  const templateImgUrl = side === "back" ? design.backTemplateImageUrl : design.templateImageUrl;
+  const placeholdersToRender = side === "back" ? (design.backPlaceholders || []) : (design.placeholders || []);
+
   // 1. Draw Template Image or Default Backdrop
-  if (design.templateImageUrl) {
+  if (templateImgUrl) {
     try {
-      const img = await loadImage(design.templateImageUrl);
+      const img = await loadImage(templateImgUrl);
       ctx.drawImage(img, 0, 0, widthPx, heightPx);
     } catch {
-      drawFallbackBackground(ctx, widthPx, heightPx);
+      drawFallbackBackground(ctx, widthPx, heightPx, side);
     }
   } else {
-    drawFallbackBackground(ctx, widthPx, heightPx);
+    drawFallbackBackground(ctx, widthPx, heightPx, side);
   }
 
-  // 2. Render Placeholders
-  for (const ph of design.placeholders) {
+  // 2. Render Placeholders for this side
+  for (const ph of placeholdersToRender) {
     const x = (ph.xPercent / 100) * widthPx;
     const y = (ph.yPercent / 100) * heightPx;
     const w = (ph.widthPercent / 100) * widthPx;
@@ -134,7 +138,7 @@ export async function renderCardToCanvas(
       const fontFamily = ph.fontFamily || "Inter, system-ui, sans-serif";
 
       ctx.font = `${weight} ${fontPx}px ${fontFamily}`;
-      ctx.fillStyle = ph.color || "#000000";
+      ctx.fillStyle = ph.color || (templateImgUrl ? "#000000" : "#FFFFFF");
       ctx.textBaseline = "middle";
 
       let textX = x;
@@ -166,11 +170,16 @@ export async function renderCardToCanvas(
   }
 }
 
-function drawFallbackBackground(ctx: CanvasRenderingContext2D, widthPx: number, heightPx: number) {
+function drawFallbackBackground(ctx: CanvasRenderingContext2D, widthPx: number, heightPx: number, side: CardSide) {
   // Gradient Slate / Navy
   const grad = ctx.createLinearGradient(0, 0, widthPx, heightPx);
-  grad.addColorStop(0, "#18181B");
-  grad.addColorStop(1, "#09090B");
+  if (side === "back") {
+    grad.addColorStop(0, "#16161B");
+    grad.addColorStop(1, "#0D0D10");
+  } else {
+    grad.addColorStop(0, "#18181B");
+    grad.addColorStop(1, "#09090B");
+  }
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, widthPx, heightPx);
 
@@ -181,31 +190,32 @@ function drawFallbackBackground(ctx: CanvasRenderingContext2D, widthPx: number, 
 }
 
 /**
- * Downloads a single high-resolution PNG file for an attendee card
+ * Downloads a single high-resolution PNG file for an attendee card (Front or Back)
  */
-export async function downloadSingleCardPng(design: IdCardDesignData, attendee: Partial<CardAttendee>): Promise<void> {
+export async function downloadSingleCardPng(
+  design: IdCardDesignData,
+  attendee: Partial<CardAttendee>,
+  side: CardSide = "front"
+): Promise<void> {
   const canvas = document.createElement("canvas");
-  await renderCardToCanvas(design, attendee, canvas, 300);
+  await renderCardToCanvas(design, attendee, canvas, 300, side);
 
   const dataUrl = canvas.toDataURL("image/png");
   const link = document.createElement("a");
   const regNo = attendee.registrationNumber || "ID-Card";
-  link.download = `ID_Card_${regNo}.png`;
+  link.download = `ID_Card_${regNo}_${side}.png`;
   link.href = dataUrl;
   link.click();
 }
 
 /**
  * Downloads a single print-ready PDF at exact physical dimensions (300 DPI)
+ * If double-sided is enabled, creates a 2-page PDF (Page 1 = Front, Page 2 = Back).
  */
 export async function downloadSingleCardPdf(design: IdCardDesignData, attendee: Partial<CardAttendee>): Promise<void> {
-  const widthInches = parseFloat(design.widthInches) || 5.51;
-  const heightInches = parseFloat(design.heightInches) || 3.46;
+  const widthInches = parseFloat(design.widthInches) || 3.46;
+  const heightInches = parseFloat(design.heightInches) || 5.51;
   const orientation = widthInches >= heightInches ? "landscape" : "portrait";
-
-  const canvas = document.createElement("canvas");
-  await renderCardToCanvas(design, attendee, canvas, 300);
-  const imgData = canvas.toDataURL("image/png");
 
   const pdf = new jsPDF({
     orientation,
@@ -213,13 +223,27 @@ export async function downloadSingleCardPdf(design: IdCardDesignData, attendee: 
     format: [widthInches, heightInches],
   });
 
-  pdf.addImage(imgData, "PNG", 0, 0, widthInches, heightInches);
+  // 1. Render Front Side (Page 1)
+  const frontCanvas = document.createElement("canvas");
+  await renderCardToCanvas(design, attendee, frontCanvas, 300, "front");
+  const frontImg = frontCanvas.toDataURL("image/png");
+  pdf.addImage(frontImg, "PNG", 0, 0, widthInches, heightInches);
+
+  // 2. Render Back Side (Page 2) if double-sided
+  if (design.isDoubleSided) {
+    pdf.addPage([widthInches, heightInches], orientation);
+    const backCanvas = document.createElement("canvas");
+    await renderCardToCanvas(design, attendee, backCanvas, 300, "back");
+    const backImg = backCanvas.toDataURL("image/png");
+    pdf.addImage(backImg, "PNG", 0, 0, widthInches, heightInches);
+  }
+
   const regNo = attendee.registrationNumber || "ID-Card";
-  pdf.save(`ID_Card_${regNo}.pdf`);
+  pdf.save(`ID_Card_${regNo}_${design.isDoubleSided ? "2Sided" : "1Sided"}.pdf`);
 }
 
 /**
- * Generates and downloads a multi-page Print-Ready Sheet PDF (e.g. A4 with 2x3 or 2x4 layout & cut marks)
+ * Generates and downloads a multi-page Print-Ready Sheet PDF (A4/A3 with 1-Sided, Duplex, or Side-by-Side Folding)
  */
 export async function generateBatchPrintPdf(
   design: IdCardDesignData,
@@ -227,8 +251,8 @@ export async function generateBatchPrintPdf(
   sheetConfig: SheetLayoutConfig,
   onProgress?: (current: number, total: number) => void
 ): Promise<void> {
-  const cardWidthInches = parseFloat(design.widthInches) || 5.51;
-  const cardHeightInches = parseFloat(design.heightInches) || 3.46;
+  const cardWidthInches = parseFloat(design.widthInches) || 3.46;
+  const cardHeightInches = parseFloat(design.heightInches) || 5.51;
 
   // Paper measurements in Millimeters
   const paperFormat = sheetConfig.paperSize === "A3" ? "a3" : sheetConfig.paperSize === "Letter" ? "letter" : "a4";
@@ -241,7 +265,10 @@ export async function generateBatchPrintPdf(
   const cardWidthMm = cardWidthInches * 25.4;
   const cardHeightMm = cardHeightInches * 25.4;
 
-  const rows = sheetConfig.cardsPerCol || 3;
+  const isDoubleSided = Boolean(design.isDoubleSided);
+  const printMode = isDoubleSided ? (sheetConfig.printSideMode || "duplex") : "single";
+
+  const rows = sheetConfig.cardsPerCol || (cardHeightInches > cardWidthInches ? 2 : 3);
   const cols = sheetConfig.cardsPerRow || 2;
   const cardsPerPage = rows * cols;
 
@@ -251,50 +278,140 @@ export async function generateBatchPrintPdf(
   const gapYmm = sheetConfig.gapYmm ?? 5;
 
   const total = attendees.length;
-  const tempCanvas = document.createElement("canvas");
+  const tempFrontCanvas = document.createElement("canvas");
+  const tempBackCanvas = document.createElement("canvas");
 
-  for (let i = 0; i < total; i++) {
-    const pageIndex = Math.floor(i / cardsPerPage);
-    const slotOnPage = i % cardsPerPage;
+  if (printMode === "side_by_side") {
+    // Mode: Side-by-Side (Front card in Col 0, Back card in Col 1 for each attendee with center folding dashed line)
+    const pairsPerPage = rows;
+    for (let i = 0; i < total; i++) {
+      const pageIndex = Math.floor(i / pairsPerPage);
+      const slotOnPage = i % pairsPerPage;
 
-    if (slotOnPage === 0 && pageIndex > 0) {
+      if (slotOnPage === 0 && pageIndex > 0) {
+        pdf.addPage(paperFormat, sheetConfig.pageOrientation || "portrait");
+      }
+
+      const attendee = attendees[i];
+      const yMm = marginTopMm + slotOnPage * (cardHeightMm + gapYmm);
+
+      // Col 0: Front
+      const xFrontMm = marginLeftMm;
+      await renderCardToCanvas(design, attendee, tempFrontCanvas, 300, "front");
+      pdf.addImage(tempFrontCanvas.toDataURL("image/png"), "PNG", xFrontMm, yMm, cardWidthMm, cardHeightMm);
+
+      // Col 1: Back
+      const xBackMm = marginLeftMm + cardWidthMm + gapXmm;
+      await renderCardToCanvas(design, attendee, tempBackCanvas, 300, "back");
+      pdf.addImage(tempBackCanvas.toDataURL("image/png"), "PNG", xBackMm, yMm, cardWidthMm, cardHeightMm);
+
+      // Fold Center Dashed Line
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineDashPattern([2, 2], 0);
+      pdf.line(marginLeftMm + cardWidthMm + gapXmm / 2, yMm - 2, marginLeftMm + cardWidthMm + gapXmm / 2, yMm + cardHeightMm + 2);
+      pdf.setLineDashPattern([], 0); // reset
+
+      // Cut marks
+      if (sheetConfig.showCutMarks) {
+        drawSheetCutMarks(pdf, xFrontMm, yMm, cardWidthMm, cardHeightMm);
+        drawSheetCutMarks(pdf, xBackMm, yMm, cardWidthMm, cardHeightMm);
+      }
+
+      if (onProgress) onProgress(i + 1, total);
+    }
+  } else if (printMode === "duplex") {
+    // Mode: Duplex (Page 1 = Front Cards, Page 2 = Back Cards with mirrored columns for exact backing alignment)
+    const totalPages = Math.ceil(total / cardsPerPage);
+
+    for (let p = 0; p < totalPages; p++) {
+      if (p > 0) pdf.addPage(paperFormat, sheetConfig.pageOrientation || "portrait");
+
+      const pageAttendees = attendees.slice(p * cardsPerPage, (p + 1) * cardsPerPage);
+
+      // ── FRONT SHEET ──
+      for (let i = 0; i < pageAttendees.length; i++) {
+        const attendee = pageAttendees[i];
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+
+        const xMm = marginLeftMm + col * (cardWidthMm + gapXmm);
+        const yMm = marginTopMm + row * (cardHeightMm + gapYmm);
+
+        await renderCardToCanvas(design, attendee, tempFrontCanvas, 300, "front");
+        pdf.addImage(tempFrontCanvas.toDataURL("image/png"), "PNG", xMm, yMm, cardWidthMm, cardHeightMm);
+
+        if (sheetConfig.showCutMarks) {
+          drawSheetCutMarks(pdf, xMm, yMm, cardWidthMm, cardHeightMm);
+        }
+      }
+
+      // ── BACK SHEET (Duplex Backing) ──
       pdf.addPage(paperFormat, sheetConfig.pageOrientation || "portrait");
+      for (let i = 0; i < pageAttendees.length; i++) {
+        const attendee = pageAttendees[i];
+        const row = Math.floor(i / cols);
+        // Mirror column so back aligns with front when printed duplex: col 0 -> col (cols - 1 - col)
+        const mirroredCol = cols - 1 - (i % cols);
+
+        const xMm = marginLeftMm + mirroredCol * (cardWidthMm + gapXmm);
+        const yMm = marginTopMm + row * (cardHeightMm + gapYmm);
+
+        await renderCardToCanvas(design, attendee, tempBackCanvas, 300, "back");
+        pdf.addImage(tempBackCanvas.toDataURL("image/png"), "PNG", xMm, yMm, cardWidthMm, cardHeightMm);
+
+        if (sheetConfig.showCutMarks) {
+          drawSheetCutMarks(pdf, xMm, yMm, cardWidthMm, cardHeightMm);
+        }
+      }
+
+      if (onProgress) {
+        onProgress(Math.min(total, (p + 1) * cardsPerPage), total);
+      }
     }
+  } else {
+    // Mode: Single-Sided
+    for (let i = 0; i < total; i++) {
+      const pageIndex = Math.floor(i / cardsPerPage);
+      const slotOnPage = i % cardsPerPage;
 
-    const row = Math.floor(slotOnPage / cols);
-    const col = slotOnPage % cols;
+      if (slotOnPage === 0 && pageIndex > 0) {
+        pdf.addPage(paperFormat, sheetConfig.pageOrientation || "portrait");
+      }
 
-    const xMm = marginLeftMm + col * (cardWidthMm + gapXmm);
-    const yMm = marginTopMm + row * (cardHeightMm + gapYmm);
+      const row = Math.floor(slotOnPage / cols);
+      const col = slotOnPage % cols;
 
-    const attendee = attendees[i];
-    await renderCardToCanvas(design, attendee, tempCanvas, 300);
-    const imgData = tempCanvas.toDataURL("image/png");
+      const xMm = marginLeftMm + col * (cardWidthMm + gapXmm);
+      const yMm = marginTopMm + row * (cardHeightMm + gapYmm);
 
-    pdf.addImage(imgData, "PNG", xMm, yMm, cardWidthMm, cardHeightMm);
+      const attendee = attendees[i];
+      await renderCardToCanvas(design, attendee, tempFrontCanvas, 300, "front");
+      pdf.addImage(tempFrontCanvas.toDataURL("image/png"), "PNG", xMm, yMm, cardWidthMm, cardHeightMm);
 
-    // Optional Cut Marks around cards
-    if (sheetConfig.showCutMarks) {
-      pdf.setDrawColor(180, 180, 180);
-      pdf.setLineWidth(0.15);
-      // Top-Left Corner Cut Marks
-      pdf.line(xMm - 3, yMm, xMm, yMm);
-      pdf.line(xMm, yMm - 3, xMm, yMm);
-      // Top-Right Corner Cut Marks
-      pdf.line(xMm + cardWidthMm, yMm, xMm + cardWidthMm + 3, yMm);
-      pdf.line(xMm + cardWidthMm, yMm - 3, xMm + cardWidthMm, yMm);
-      // Bottom-Left Corner Cut Marks
-      pdf.line(xMm - 3, yMm + cardHeightMm, xMm, yMm + cardHeightMm);
-      pdf.line(xMm, yMm + cardHeightMm, xMm, yMm + cardHeightMm + 3);
-      // Bottom-Right Corner Cut Marks
-      pdf.line(xMm + cardWidthMm, yMm + cardHeightMm, xMm + cardWidthMm + 3, yMm + cardHeightMm);
-      pdf.line(xMm + cardWidthMm, yMm + cardHeightMm, xMm + cardWidthMm, yMm + cardHeightMm + 3);
-    }
+      if (sheetConfig.showCutMarks) {
+        drawSheetCutMarks(pdf, xMm, yMm, cardWidthMm, cardHeightMm);
+      }
 
-    if (onProgress) {
-      onProgress(i + 1, total);
+      if (onProgress) onProgress(i + 1, total);
     }
   }
 
-  pdf.save(`Batch_ID_Cards_${design.cardType}_${total}_attendees.pdf`);
+  pdf.save(`Batch_ID_Cards_${design.cardType}_${isDoubleSided ? "2Sided" : "1Sided"}_${total}_cards.pdf`);
+}
+
+function drawSheetCutMarks(pdf: jsPDF, xMm: number, yMm: number, cardWidthMm: number, cardHeightMm: number) {
+  pdf.setDrawColor(180, 180, 180);
+  pdf.setLineWidth(0.15);
+  // Top-Left
+  pdf.line(xMm - 3, yMm, xMm, yMm);
+  pdf.line(xMm, yMm - 3, xMm, yMm);
+  // Top-Right
+  pdf.line(xMm + cardWidthMm, yMm, xMm + cardWidthMm + 3, yMm);
+  pdf.line(xMm + cardWidthMm, yMm - 3, xMm + cardWidthMm, yMm);
+  // Bottom-Left
+  pdf.line(xMm - 3, yMm + cardHeightMm, xMm, yMm + cardHeightMm);
+  pdf.line(xMm, yMm + cardHeightMm, xMm, yMm + cardHeightMm + 3);
+  // Bottom-Right
+  pdf.line(xMm + cardWidthMm, yMm + cardHeightMm, xMm + cardWidthMm + 3, yMm + cardHeightMm);
+  pdf.line(xMm + cardWidthMm, yMm + cardHeightMm, xMm + cardWidthMm, yMm + cardHeightMm + 3);
 }

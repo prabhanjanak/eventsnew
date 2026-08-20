@@ -99,20 +99,25 @@ router.get(
           eventId: event.id,
           cardType,
           templateImageUrl: null,
-          widthInches: "5.51",
-          heightInches: "3.46",
+          backTemplateImageUrl: null,
+          widthInches: "3.46",
+          heightInches: "5.51",
           dpi: 300,
-          orientation: "landscape",
+          orientation: "portrait",
+          isDoubleSided: false,
+          printSideMode: "duplex",
           placeholdersJson: JSON.stringify([]),
+          backPlaceholdersJson: JSON.stringify([]),
           sheetConfigJson: JSON.stringify({
             paperSize: "A4",
             cardsPerRow: 2,
-            cardsPerCol: 3,
+            cardsPerCol: 2,
             marginTopMm: 10,
             marginLeftMm: 10,
             gapXmm: 5,
             gapYmm: 5,
             showCutMarks: true,
+            pageOrientation: "portrait",
           }),
           status: "not_configured",
           version: 1,
@@ -146,16 +151,21 @@ router.post(
       const {
         cardType = "preregistered",
         templateImageUrl,
-        widthInches = "5.51",
-        heightInches = "3.46",
+        backTemplateImageUrl,
+        widthInches = "3.46",
+        heightInches = "5.51",
         dpi = 300,
-        orientation = "landscape",
+        orientation = "portrait",
+        isDoubleSided = false,
+        printSideMode = "duplex",
         placeholders,
+        backPlaceholders,
         sheetConfig,
         status = "draft",
       } = req.body;
 
       const placeholdersJson = typeof placeholders === "string" ? placeholders : JSON.stringify(placeholders || []);
+      const backPlaceholdersJson = typeof backPlaceholders === "string" ? backPlaceholders : JSON.stringify(backPlaceholders || []);
       const sheetConfigJson = typeof sheetConfig === "string" ? sheetConfig : JSON.stringify(sheetConfig || {});
 
       // Check existing design
@@ -181,11 +191,15 @@ router.post(
           .update(idCardDesignsTable)
           .set({
             templateImageUrl: templateImageUrl !== undefined ? templateImageUrl : existing.templateImageUrl,
+            backTemplateImageUrl: backTemplateImageUrl !== undefined ? backTemplateImageUrl : existing.backTemplateImageUrl,
             widthInches: String(widthInches),
             heightInches: String(heightInches),
             dpi: Number(dpi) || 300,
             orientation,
+            isDoubleSided: Boolean(isDoubleSided),
+            printSideMode: String(printSideMode || "duplex"),
             placeholdersJson,
+            backPlaceholdersJson,
             sheetConfigJson,
             status,
             version: nextVersion,
@@ -202,11 +216,15 @@ router.post(
             eventId: event.id,
             cardType,
             templateImageUrl,
+            backTemplateImageUrl,
             widthInches: String(widthInches),
             heightInches: String(heightInches),
             dpi: Number(dpi) || 300,
             orientation,
+            isDoubleSided: Boolean(isDoubleSided),
+            printSideMode: String(printSideMode || "duplex"),
             placeholdersJson,
+            backPlaceholdersJson,
             sheetConfigJson,
             status,
             version: 1,
@@ -246,11 +264,14 @@ router.post(
       }
 
       const fileUrl = `/uploads/${req.file.filename}`;
+      const side = (req.query.side as string) || "front";
+
       res.json({
         success: true,
         url: fileUrl,
         filename: req.file.originalname,
         size: req.file.size,
+        side,
       });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to upload template PNG" });
