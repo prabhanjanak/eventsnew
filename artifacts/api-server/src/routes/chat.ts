@@ -130,6 +130,27 @@ function generateLocalGroundedAnswer(
 ): string {
   const q = userQuery.toLowerCase().trim();
 
+  // 0. Strict Guardrail against Internal Techstack / Software Infrastructure / Off-Topic queries
+  if (
+    q.includes("techstack") ||
+    q.includes("tech stack") ||
+    q.includes("architecture") ||
+    q.includes("source code") ||
+    q.includes("docker") ||
+    q.includes("mongodb") ||
+    q.includes("nginx") ||
+    q.includes("server infra") ||
+    q.includes("backend framework") ||
+    q.includes("frontend framework") ||
+    q.includes("what is this app built with") ||
+    q.includes("how is this app built") ||
+    q.includes("how was this website built") ||
+    q.includes("codebase") ||
+    q.includes("github repo")
+  ) {
+    return `Namaste! 🙏 As **Drishti AI**, I am dedicated exclusively to assisting delegates, clinicians, and visitors with **Sankara Eye Foundation India**, our upcoming medical conferences, CME registrations, delegate passes, scientific agendas, hospital Google Maps locations, and eye care initiatives.\n\nPlease feel free to explore our [Events Directory](/events) or check our [Academic Calendar](/calendar)!`;
+  }
+
   // 1. Photos & Media Gallery
   if (q.includes("photo") || q.includes("gallery") || q.includes("samaro") || q.includes("picture") || q.includes("media") || q.includes("download photos") || q.includes("video")) {
     return `📸 **Sankara Event Photographs & AI Media Gallery**\n\nYou can view, search using AI facial recognition, and download high-resolution event photographs directly on **Samaro.ai**:\n\n👉 **[Access Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)**\n\nAll delegates can search by their selfie or browse by conference hall and session dates!`;
@@ -259,12 +280,12 @@ function generateLocalGroundedAnswer(
   // 8. General Greetings / Conversational Questions
   if (q.includes("who are you") || q.includes("what can you do") || q.includes("help") || q.includes("hello") || q.includes("namaste") || q.includes("hi")) {
     const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
-    return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India 👁️\n\nYou can ask me **anything** — whether about clinical eye care, our hospital network, or our core focus on:\n- 📅 **Conferences & CME Registrations**: [Event Directory](/events) | [Academic Calendar](/calendar)\n- 🗺️ **Hospital Google Maps Locations**: 14 Hospitals across India (+1 in Patna, Bihar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n\n**Featured Events:**\n${featured}\n\nHow may I help you today?`;
+    return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India 👁️\n\nI can assist you with:\n- 📅 **Conferences & CME Registrations**: [Event Directory](/events) | [Academic Calendar](/calendar)\n- 🗺️ **Hospital Google Maps Locations**: 14 Hospitals across India (+1 in Patna, Bihar)\n- 📸 **Event Photos & Media**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Admission Passes & QR Badges**: [My Registrations](/my-registrations)\n\n**Featured Events:**\n${featured}\n\nHow may I help you today?`;
   }
 
   // Default helpful overview
   const featured = events.slice(0, 3).map((e) => `• **[${e.title}](/events/${e.slug})** (${e.startDate})`).join("\n");
-  return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nI can answer questions on general medical & eye topics, hospital Google Maps locations, or our primary focus on **Sankara Conferences & CMEs**:\n- 📅 **Explore Events**: [Directory](/events) | [Calendar](/calendar)\n- 📸 **Event Photographs**: [Samaro AI Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- 🎟️ **Delegate Passes**: [My Registrations](/my-registrations)\n\n**Upcoming Conclaves:**\n${featured}\n\nFeel free to ask me anything!`;
+  return `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the official AI assistant for Sankara Eye Foundation India.\n\nI specialize strictly in **Sankara Eye Foundation India**, our medical conferences, CME registrations, delegate passes, scientific agendas, hospital network, Google Maps locations, and clinical eye care.\n\n**Upcoming Conclaves:**\n${featured}\n\nHow may I assist you with Sankara events today?`;
 }
 
 // ── 1. POST /api/chat — Public Conversational AI Endpoint ─────────────────────
@@ -379,9 +400,16 @@ ${focusedEventDetails}
 
     const systemPrompt = `You are Drishti AI (दृष्टि • "Divine Vision & Insight"), the official AI assistant for Sankara Eye Foundation India (Sri Kanchi Kamakoti Medical Trust).
 
-CAPABILITIES & SCOPE:
-- You have comprehensive intelligence powered by NVIDIA Nemotron 70B and can answer ANY question the user asks — including ophthalmology, medical science, eye health tips, general questions, greetings, or conversational queries.
-- YOUR PRIMARY CORE SPECIALTY is Sankara Events & Institutional Knowledge: Academic conferences, CMEs, workshops, registration passes, fee tiers, scientific agendas, keynote speakers, pure vegetarian catering, Samaro AI photo galleries, and Google Maps hospital locations across India.
+STRICT DOMAIN GUARDRAIL & SCOPE RESTRICTION:
+- You must ONLY answer queries that are directly relevant to Sankara Eye Foundation India:
+  1. Sankara academic conferences, CMEs, workshops, registration passes, fee tiers, scientific schedules, speakers, halls, agendas.
+  2. Sankara Hospital Network (14 hospitals + 1 upcoming in Patna, Bihar), Google Maps navigation links, NABH accreditations, surgical statistics (1,500+ free surgeries/day, 3,000,000+ lifetime free surgeries), founders (Dr. R.V. Ramani & Dr. Radha Ramani), and pure vegetarian catering.
+  3. Samaro AI event photo galleries, digital QR passes on /my-registrations, and academic calendar sync on /calendar.
+  4. Clinical ophthalmology and eye care procedures (cataract, phaco, IOL, cornea, glaucoma, retina, refractive surgery) as practiced and taught at Sankara Eye Hospitals.
+- STRICT PROHIBITION: You MUST NEVER discuss internal software tech stacks (e.g. servers, docker, databases, mongodb, nginx, linux, coding, internal architecture, programming languages, or backend/frontend infrastructure).
+- STRICT PROHIBITION: You MUST NEVER answer generic off-topic questions (e.g. general coding, unrelated politics, general IT, gaming, etc.).
+- IF ASKED ABOUT TECH STACK OR OFF-TOPIC SUBJECTS, DECLINE POLITELY WITH:
+  "Namaste! As **Drishti AI**, I specialize exclusively in **Sankara Eye Foundation India**, our medical conferences, CME registrations, delegate passes, scientific agendas, hospital network, Google Maps locations, and clinical eye care. Please let me know how I can assist you with any of our upcoming events or hospital branches across India!"
 
 ${SANKARA_HOSPITAL_KNOWLEDGE}
 
@@ -391,16 +419,17 @@ ${browserContextSection}
 ${eventsContext}
 
 === INSTRUCTIONS & RULES ===
-1. Directly and thoroughly answer the user's specific request using live browser context, database details, or medical knowledge.
-2. If the user is on an event page or asks about an event, prioritize answering about that event with specific timings, venues, speaker details, pricing tiers, and registration instructions.
-3. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clickable markdown links).
-4. When mentioning an event, always link to its page using format: [Event Title](/events/slug).
-5. If asked about event photographs, always provide the Samaro AI link: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
-6. If asked about hospital locations or maps, provide Google Maps links from the institutional directory.
-7. If asked about academic dates or schedule, link to [/calendar](/calendar).
-8. If asked about passes, tickets, or QR badges, link to [/my-registrations](/my-registrations).
-9. Always state institutional numbers accurately: 14 Hospitals (+1 Upcoming in Patna, Bihar), 1500+ free surgeries/day, 3M+ free surgeries done, NABH accredited.
-10. Keep responses warm, respectful, concise, clear, and easy to read.`;
+1. Only answer queries relevant to Sankara Eye Foundation India and its events/hospitals/ophthalmology.
+2. Directly answer the user's specific request using live browser context and database details.
+3. If the user is on an event page, prioritize answering about that event with specific timings, venues, speaker details, pricing tiers, and registration instructions.
+4. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clickable markdown links).
+5. When mentioning an event, always link to its page using format: [Event Title](/events/slug).
+6. If asked about event photographs, always provide the Samaro AI link: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
+7. If asked about hospital locations or maps, provide Google Maps links from the institutional directory.
+8. If asked about academic dates or schedule, link to [/calendar](/calendar).
+9. If asked about passes, tickets, or QR badges, link to [/my-registrations](/my-registrations).
+10. Always state institutional numbers accurately: 14 Hospitals (+1 Upcoming in Patna, Bihar), 1500+ free surgeries/day, 3M+ free surgeries done, NABH accredited.
+11. Keep responses warm, respectful, concise, clear, and easy to read.`;
 
     const conversationMessages = [
       { role: "system", content: systemPrompt },
