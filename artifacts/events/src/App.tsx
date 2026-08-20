@@ -186,24 +186,28 @@ function Router() {
   );
 }
 
+import { ErrorBoundary } from "@/components/error-boundary";
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
-          <AuthProvider>
-            <EventProvider>
-              <Router />
-            </EventProvider>
-          </AuthProvider>
-        </WouterRouter>
-        <Toaster />
-        {/* Originkit Ambient Circle Cursor Follower */}
-        <div className="hidden lg:block fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-          <CircleCursor />
-        </div>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL?.replace(/\/$/, "") || ""}>
+            <AuthProvider>
+              <EventProvider>
+                <Router />
+              </EventProvider>
+            </AuthProvider>
+          </WouterRouter>
+          <Toaster />
+          {/* Originkit Ambient Circle Cursor Follower */}
+          <div className="hidden lg:block fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
+            <CircleCursor />
+          </div>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
