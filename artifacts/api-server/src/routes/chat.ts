@@ -161,7 +161,43 @@ function generateLocalGroundedAnswer(
     return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **14 Hospitals** across India (+ 1 Upcoming Super-Specialty Hospital in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
   }
 
-  // 3. Current Event on User's Screen (Browser Context)
+  // 3. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across all events
+  if (
+    q.includes("student") ||
+    q.includes("pg") ||
+    q.includes("resident") ||
+    q.includes("fellow") ||
+    q.includes("prices") ||
+    q.includes("pricing") ||
+    q.includes("fees") ||
+    q.includes("how much") ||
+    (q.includes("cost") && !focusedEvent) ||
+    (q.includes("fee") && !focusedEvent) ||
+    (q.includes("price") && !focusedEvent)
+  ) {
+    const isStudentQuery = q.includes("student") || q.includes("pg") || q.includes("resident") || q.includes("fellow");
+    const activeEventsList = events.slice(0, 5);
+    const eventCards = activeEventsList.map((e) => {
+      let tierSummary = "";
+      if (e.pricingTiersJson) {
+        try {
+          const tiers = JSON.parse(e.pricingTiersJson);
+          if (Array.isArray(tiers) && tiers.length > 0) {
+            tierSummary = tiers.map((t: any) => `    - **${t.name}**: ₹${t.price.toLocaleString("en-IN")}${t.earlyBirdPrice ? ` *(Early Bird: ₹${t.earlyBirdPrice})*` : ""}`).join("\n");
+          }
+        } catch {}
+      }
+      return `• **[${e.title}](/events/${e.slug})**\n  🗓️ **Dates**: ${e.startDate} to ${e.endDate} | 📍 ${e.venue || e.city || "Coimbatore"}\n  🎟️ **Base Fee**: ${e.isPaid ? `**₹${e.registrationFee.toLocaleString("en-IN")}**` : "**Free Pass**"}\n${tierSummary ? tierSummary + "\n" : ""}  👉 **[Register Here](/events/${e.slug}/register)**`;
+    }).join("\n\n");
+
+    const header = isStudentQuery
+      ? `🎓 **Sankara Conferences & Student / PG Delegate Pricing**\n\nHere are the upcoming academic medical conclaves and their delegate/student pricing categories:`
+      : `🎟️ **Upcoming Sankara Events & Registration Pricing**\n\nHere is the fee schedule for our upcoming academic conferences:`;
+
+    return `${header}\n\n${eventCards}\n\n👉 **[Open Interactive Calendar](/calendar)** | **[All Events Directory](/events)**`;
+  }
+
+  // 4. Current Event on User's Screen (Browser Context)
   const targetEvent = focusedEvent || events.find((e) =>
     q.includes(e.title.toLowerCase()) ||
     q.includes(e.slug.toLowerCase()) ||
