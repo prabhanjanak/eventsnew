@@ -14,7 +14,11 @@ const FALLBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 const SANKARA_HOSPITAL_KNOWLEDGE = `
 === SANKARA EYE FOUNDATION INDIA INSTITUTIONAL KNOWLEDGE ===
 - Organization: Sankara Eye Foundation India (a unit of Sri Kanchi Kamakoti Medical Trust, established 1977).
-- Founder: Dr. R.V. Ramani and Dr. Radha Ramani.
+- Founder: Dr. R.V. Ramani and Dr. Radha Ramani (Founding Trustees).
+- Key Administrative & Event Contacts:
+  - Senior Administrator & Event Operations Head: Mr. Saravanan D (Employee ID: 000038 • Email: events@sankaraeye.com • Helpline: +91 89515 68286).
+  - General Event Secretariat & Registrations: events@sankaraeye.com / +91 89515 68286.
+  - Central Hospital Board & Enquiries (HQ Coimbatore): +91 422 423 6789 / info@sankaraeye.com.
 - Network: 14 Super-Specialty Eye Hospitals across India (+ 1 Upcoming Super-Specialty Hospital in Patna, Bihar).
 - Surgeries Per Day: 1,500+ Free Surgeries for the Blind / Visually Impaired.
 - Historical Impact: 3,000,000+ (3 Million+) Free Surgeries Completed to date.
@@ -324,7 +328,28 @@ function generateLocalGroundedAnswer(
     return `🏥 **${matchedBranch.name}**\n\n- 📍 **Address**: ${matchedBranch.address}\n- 🗺️ **Google Maps Navigation**: [Click to Open Google Maps](${matchedBranch.maps})\n- 🔬 **Clinical Super-Specialties**: ${matchedBranch.specialties}\n- ℹ️ **About Branch**: ${matchedBranch.description}\n- 🥗 **Hospital Ethos**: **100% Pure Vegetarian** dietary service & 80:20 community cross-subsidization model.\n- 🌐 **Official Website**: [sankaraeye.com](https://sankaraeye.com)\n\n👉 **[Explore Upcoming Conferences & CMEs](/events)** | **[Academic Calendar](/calendar)**`;
   }
 
-  // 3. Hospital Network & Institutional Facts Overview
+  // 3. Contact, Staff, Organizers, Administration & Helpline Inquiries (e.g. Saravanan D, Helpdesk, Support, Phone)
+  if (
+    q.includes("contact") ||
+    q.includes("phone") ||
+    q.includes("email") ||
+    q.includes("call") ||
+    q.includes("saravanan") ||
+    q.includes("helpdesk") ||
+    q.includes("helpline") ||
+    q.includes("organizer") ||
+    q.includes("coordinator") ||
+    q.includes("reach out") ||
+    q.includes("support")
+  ) {
+    if (q.includes("saravanan")) {
+      return `📞 **Contact Details for Mr. Saravanan D**\n\n- **Role**: Senior Administrator & Event Operations Head, Sankara Eye Hospital (Coimbatore HQ)\n- 📧 **Official Email**: \`events@sankaraeye.com\` | \`info@sankaraeye.com\`\n- 📱 **Event Helpline**: **+91 89515 68286**\n- 🏥 **Hospital HQ Board**: **+91 422 423 6789**\n- 📍 **Office Location**: Sankara Eye Hospital, Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\nFor official event administration, faculty coordination, or delegate assistance, you can also reach the event secretariat through any active [Event Page](/events).`;
+    }
+
+    return `📞 **Sankara Eye Foundation India — Contact & Support Channels**\n\n- 📧 **Event Secretariat & Registrations**: \`events@sankaraeye.com\`\n- 📱 **Event Operations Helpline**: **+91 89515 68286**\n- 🏥 **Coimbatore HQ Hospital Board**: **+91 422 423 6789**\n- 🌐 **Official Web Portal**: [sankaraeye.com](https://sankaraeye.com)\n- 📍 **Headquarters**: Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\n👉 **[Browse Upcoming Events](/events)** | **[Academic Calendar](/calendar)** | **[Hospital Directory](https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore)**`;
+  }
+
+  // 4. Hospital Network & Institutional Facts Overview
   if (q.includes("hospital") || q.includes("network") || q.includes("surgery") || q.includes("surgeries") || q.includes("about") || q.includes("trust") || q.includes("nabh") || q.includes("founder") || q.includes("ramani")) {
     return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **14 Hospitals** across India (+ 1 Upcoming Super-Specialty Hospital in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
   }
