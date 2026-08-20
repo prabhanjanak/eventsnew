@@ -1144,21 +1144,28 @@ export default function EventsDirectory() {
               </p>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-1">
-                  <p className="text-lg font-black text-white">10+</p>
-                  <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Hospitals Across India</p>
+                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-0.5">
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-lg font-black text-white">14</p>
+                    <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.2 rounded border border-amber-400/20">+1 Upcoming</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Hospitals Across India</p>
+                  <p className="text-[9px] text-zinc-500">14 Operating • 1 Upcoming in Patna, Bihar</p>
                 </div>
-                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-1">
+                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-0.5">
                   <p className="text-lg font-black text-white">1500+</p>
-                  <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Surgeries Per Day</p>
+                  <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Surgeries Per Day</p>
+                  <p className="text-[9px] text-zinc-500">Free Surgeries for the Curable Blind</p>
                 </div>
-                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-1">
+                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-0.5">
                   <p className="text-lg font-black text-white">3M+</p>
-                  <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Free Surgeries Done</p>
+                  <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Free Surgeries Done</p>
+                  <p className="text-[9px] text-zinc-500">Restoring Vision Across Rural India</p>
                 </div>
-                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-1">
-                  <p className="text-lg font-black text-white">NABH</p>
-                  <p className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider">Accredited Hospitals</p>
+                <div className="bg-[#111114] rounded-xl border border-[#1C1C20] p-3 space-y-0.5">
+                  <p className="text-lg font-black text-white">NABH &amp; Other</p>
+                  <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Accredited Hospitals</p>
+                  <p className="text-[9px] text-zinc-500">National Healthcare Quality Standards</p>
                 </div>
               </div>
 
