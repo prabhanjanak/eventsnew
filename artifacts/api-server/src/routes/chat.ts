@@ -339,8 +339,10 @@ function generateLocalGroundedAnswer(
     return `🏥 **${matchedBranch.name}**\n\n- 📍 **Address**: ${matchedBranch.address}\n- 🗺️ **Google Maps Navigation**: [Click to Open Google Maps](${matchedBranch.maps})\n- 🔬 **Clinical Super-Specialties**: ${matchedBranch.specialties}\n- ℹ️ **About Branch**: ${matchedBranch.description}\n- 🥗 **Hospital Ethos**: **100% Pure Vegetarian** dietary service & 80:20 community cross-subsidization model.\n- 🌐 **Official Website**: [sankaraeye.com](https://sankaraeye.com)\n\n👉 **[Explore Upcoming Conferences & CMEs](/events)** | **[Academic Calendar](/calendar)**`;
   }
 
-  // 3. Contact, Staff, Organizers, Administration & Helpline Inquiries (e.g. Saravanan D, Helpdesk, Support, Phone)
+  // 3. Contact, Staff, Organizers, Secretariat & Helpline Inquiries (e.g. Saravanan D, Secretariat, Helpdesk, Support, Phone)
   if (
+    q.includes("secretariat") ||
+    q.includes("secretary") ||
     q.includes("contact") ||
     q.includes("phone") ||
     q.includes("email") ||
@@ -351,13 +353,15 @@ function generateLocalGroundedAnswer(
     q.includes("organizer") ||
     q.includes("coordinator") ||
     q.includes("reach out") ||
-    q.includes("support")
+    q.includes("support") ||
+    q.includes("talk to human") ||
+    q.includes("ask secretariat")
   ) {
     if (q.includes("saravanan")) {
       return `📞 **Contact Details for Mr. Saravanan D**\n\n- **Role**: Senior Administrator & Event Operations Head, Sankara Eye Hospital (Coimbatore HQ)\n- 📧 **Official Email**: \`events@sankaraeye.com\` | \`info@sankaraeye.com\`\n- 📱 **Event Helpline**: **+91 89515 68286**\n- 🏥 **Hospital HQ Board**: **+91 422 423 6789**\n- 📍 **Office Location**: Sankara Eye Hospital, Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\nFor official event administration, faculty coordination, or delegate assistance, you can also reach the event secretariat through any active [Event Page](/events).`;
     }
 
-    return `📞 **Sankara Eye Foundation India — Contact & Support Channels**\n\n- 📧 **Event Secretariat & Registrations**: \`events@sankaraeye.com\`\n- 📱 **Event Operations Helpline**: **+91 89515 68286**\n- 🏥 **Coimbatore HQ Hospital Board**: **+91 422 423 6789**\n- 🌐 **Official Web Portal**: [sankaraeye.com](https://sankaraeye.com)\n- 📍 **Headquarters**: Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\n👉 **[Browse Upcoming Events](/events)** | **[Academic Calendar](/calendar)** | **[Hospital Directory](https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore)**`;
+    return `📞 **Sankara Event Secretariat & Support Desk**\n\n- 👤 **Operations & Secretariat Head**: Mr. Saravanan D (Senior Administrator)\n- 📧 **Event Secretariat & Registrations**: \`events@sankaraeye.com\`\n- 📱 **Event Operations Helpline**: **+91 89515 68286**\n- 🏥 **Coimbatore HQ Hospital Board**: **+91 422 423 6789**\n- 🌐 **Official Web Portal**: [sankaraeye.com](https://sankaraeye.com)\n- 📍 **Headquarters**: Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\n💡 *Tip: You can use the **Ask Secretariat** button at the top right of this chat to log an inquiry ticket and receive an official verified reply directly to your email!*`;
   }
 
   // 4. All Hospitals Directory / List of all units

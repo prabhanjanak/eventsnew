@@ -30,6 +30,7 @@ interface ChatMessage {
 }
 
 const QUICK_PROMPTS = [
+  { label: "Ask Secretariat", text: "How can I contact the Event Secretariat?", icon: Sparkles },
   { label: "Hospital Maps", text: "Show me the locations and Google Maps links of Sankara Eye Hospitals across India.", icon: MapPin },
   { label: "Upcoming CMEs", text: "What are the upcoming medical conferences and CMEs?", icon: Calendar },
   { label: "Event Photos", text: "Where can I access and download event photos?", icon: Camera },
