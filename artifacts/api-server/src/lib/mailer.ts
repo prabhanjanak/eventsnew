@@ -1332,20 +1332,14 @@ export async function sendUnresolvedQueryUserConfirmationEmail(params: {
             </div>
 
             <p style="margin:0 0 20px;font-size:14px;color:#D4D4D8;line-height:1.6;">
-              An administrator will email an official, verified response directly to <strong>${userEmail}</strong> shortly.
+              Our Event Secretariat will review your inquiry and revert back directly to your email address from <strong>events@sankaraeye.com</strong>.
             </p>
 
             <!-- Secretariat Contact Card -->
-            <div style="background:#0F172A;border:1px solid #1E293B;border-radius:16px;padding:20px;margin-bottom:24px;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:800;color:#38BDF8;text-transform:uppercase;letter-spacing:1px;">Need Immediate Assistance?</p>
-              <p style="margin:0 0 6px;font-size:13px;color:#CBD5E1;">
-                👤 <strong>Head of Operations</strong>: Mr. Saravanan D
-              </p>
-              <p style="margin:0 0 6px;font-size:13px;color:#CBD5E1;">
-                📱 <strong>Event Helpline & WhatsApp</strong>: <strong>+91 89515 68286</strong>
-              </p>
-              <p style="margin:0;font-size:13px;color:#CBD5E1;">
-                📧 <strong>Email Desk</strong>: <a href="mailto:events@sankaraeye.com" style="color:#38BDF8;text-decoration:none;">events@sankaraeye.com</a>
+            <div style="background:#0F172A;border:1px solid #1E293B;border-radius:16px;padding:20px;margin-bottom:24px;text-align:center;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:800;color:#38BDF8;text-transform:uppercase;letter-spacing:1px;">Event Secretariat Desk</p>
+              <p style="margin:0;font-size:15px;font-weight:700;color:#FFFFFF;">
+                <a href="mailto:events@sankaraeye.com" style="color:#38BDF8;text-decoration:none;">events@sankaraeye.com</a>
               </p>
             </div>
           </td>
