@@ -2,7 +2,11 @@ import { Router } from "express";
 import { db, eventsTable, chatLogsTable, unresolvedQueriesTable, aiKnowledgeBaseTable } from "@workspace/db";
 import { desc, eq, sql, like, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
-import { sendUnresolvedQueryAdminAlertEmail, sendResolvedQueryUserEmail } from "../lib/mailer";
+import {
+  sendUnresolvedQueryAdminAlertEmail,
+  sendUnresolvedQueryUserConfirmationEmail,
+  sendResolvedQueryUserEmail,
+} from "../lib/mailer";
 
 const router = Router();
 
@@ -880,7 +884,18 @@ ${eventsContext}
         })
         .returning();
 
-      // Trigger instant email alert to Super Admins via Zoho SMTP
+      // 1. Dispatch Instant Confirmation Receipt Email to the Delegate
+      sendUnresolvedQueryUserConfirmationEmail({
+        ticketNumber,
+        userIdentifier: userIdentifier || "Anonymous Delegate",
+        userEmail: userEmail.trim(),
+        userPhone: userPhone || null,
+        userMessage: userMessage.trim(),
+      }).catch((mailErr: any) => {
+        logger.error({ err: mailErr.message }, "Failed to dispatch user ticket confirmation email");
+      });
+
+      // 2. Dispatch Instant Alert Email to Super Admins via Zoho SMTP
       const host = req.get("host") || "localhost:3000";
       const protocol = req.protocol || "http";
       const adminDashboardUrl = `${protocol}://${host}/admin/unresolved-queries?ticket=${ticketNumber}`;
