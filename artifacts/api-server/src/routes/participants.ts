@@ -482,119 +482,132 @@ router.post(
 
 // GET /participants/public-lookup/:regNumber — public, no auth required
 router.get("/participants/public-lookup/:regNumber", async (req, res): Promise<void> => {
-  const regNumber = (req.params.regNumber as string)?.toUpperCase();
-  if (!regNumber) {
-    res.status(400).json({ error: "Registration number is required" });
-    return;
+  try {
+    const regNumber = (req.params.regNumber as string)?.toUpperCase();
+    if (!regNumber) {
+      res.status(400).json({ error: "Registration number is required" });
+      return;
+    }
+    const [participant] = await db
+      .select({
+        id: participantsTable.id,
+        eventId: participantsTable.eventId,
+        name: participantsTable.name,
+        registrationNumber: participantsTable.registrationNumber,
+        institution: participantsTable.institution,
+        designation: participantsTable.designation,
+        email: participantsTable.email,
+        mobile: participantsTable.mobile,
+        isPaid: participantsTable.isPaid,
+        approvalStatus: participantsTable.approvalStatus,
+        isOnSpot: participantsTable.isOnSpot,
+        isOnSpotLinked: participantsTable.isOnSpotLinked,
+        isOnSpotOnboarded: participantsTable.isOnSpotOnboarded,
+        delegateType: participantsTable.delegateType,
+      })
+      .from(participantsTable)
+      .where(eq(participantsTable.registrationNumber, regNumber));
+
+    if (!participant) {
+      res.status(404).json({ error: "Participant not found" });
+      return;
+    }
+
+    // Load associated event details
+    let event = null;
+    if (participant.eventId) {
+      [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, participant.eventId));
+    }
+
+    // Check if they have faculty assignments
+    let isFaculty = false;
+    try {
+      const assignments = await db
+        .select({ role: assignmentsTable.role })
+        .from(assignmentsTable)
+        .where(eq(assignmentsTable.participantId, participant.id));
+
+      const facultyRoles = ["Speaker", "Presenter", "Poster", "Panelist", "Moderator", "Judge", "Chair", "CoChair"];
+      isFaculty = assignments.some((a) => facultyRoles.includes(a.role));
+    } catch {
+      // Ignore assignment lookup failure
+    }
+
+    // Load food sessions and collected logs for this participant
+    let foodStatusList: any[] = [];
+    if (participant.eventId) {
+      try {
+        const sessions = await db
+          .select()
+          .from(foodSessionsTable)
+          .where(eq(foodSessionsTable.eventId, participant.eventId));
+
+        const logs = await db
+          .select()
+          .from(foodLogsTable)
+          .where(eq(foodLogsTable.participantId, participant.id));
+
+        const loggedSessionIds = new Set(logs.map((l) => l.foodSessionId));
+        const logMap = new Map(logs.map((l) => [l.foodSessionId, l.collectedAt]));
+
+        foodStatusList = sessions.map((s) => ({
+          id: s.id,
+          name: s.name,
+          date: s.date,
+          startTime: s.startTime,
+          endTime: s.endTime,
+          enabled: s.enabled,
+          isRedeemed: loggedSessionIds.has(s.id),
+          collectedAt: logMap.get(s.id) || null,
+        }));
+      } catch {
+        // Ignore food sessions lookup failure
+      }
+    }
+
+    res.json({
+      id: participant.id,
+      eventId: participant.eventId,
+      name: participant.name,
+      registrationNumber: participant.registrationNumber,
+      institution: participant.institution,
+      designation: participant.designation,
+      email: participant.email,
+      mobile: participant.mobile,
+      isPaid: participant.isPaid,
+      approvalStatus: participant.approvalStatus,
+      isOnSpot: participant.isOnSpot,
+      isOnSpotLinked: participant.isOnSpotLinked,
+      isOnSpotOnboarded: participant.isOnSpotOnboarded,
+      delegateType: participant.delegateType || "delegate",
+      isFaculty,
+      foodSessions: foodStatusList,
+      event: event ? {
+        id: event.id,
+        slug: event.slug,
+        title: event.title,
+        eventType: event.eventType,
+        venue: event.venue,
+        city: event.city,
+        startDate: event.startDate,
+        endDate: event.endDate,
+        themeColor: event.themeColor,
+        accentColor: event.accentColor,
+        logoUrl: event.logoUrl,
+        bannerUrl: event.bannerUrl,
+        badgeSubtitle: event.badgeSubtitle,
+        badgeFooterText: event.badgeFooterText,
+        agendaPdfUrl: event.agendaPdfUrl,
+        agendaPdfButtonText: event.agendaPdfButtonText || "Download Event Agenda (PDF)",
+        customPdfUrl: event.customPdfUrl,
+        customPdfButtonText: event.customPdfButtonText || "View Document (PDF)",
+        pdfAttachmentsJson: event.pdfAttachmentsJson,
+      } : null,
+    });
+  } catch (err: any) {
+    req.log.error(err, "Error in public-lookup");
+    res.status(500).json({ error: "Failed to look up participant" });
   }
-  const [participant] = await db
-    .select({
-      id: participantsTable.id,
-      eventId: participantsTable.eventId,
-      name: participantsTable.name,
-      registrationNumber: participantsTable.registrationNumber,
-      institution: participantsTable.institution,
-      designation: participantsTable.designation,
-      email: participantsTable.email,
-      mobile: participantsTable.mobile,
-      isPaid: participantsTable.isPaid,
-      approvalStatus: participantsTable.approvalStatus,
-      isOnSpot: participantsTable.isOnSpot,
-      isOnSpotLinked: participantsTable.isOnSpotLinked,
-      isOnSpotOnboarded: participantsTable.isOnSpotOnboarded,
-      delegateType: participantsTable.delegateType,
-    })
-    .from(participantsTable)
-    .where(eq(participantsTable.registrationNumber, regNumber));
-
-  if (!participant) {
-    res.status(404).json({ error: "Participant not found" });
-    return;
-  }
-
-  // Load associated event details
-  let event = null;
-  if (participant.eventId) {
-    [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, participant.eventId));
-  }
-
-  // Check if they have faculty assignments
-  const assignments = await db
-    .select({ role: assignmentsTable.role })
-    .from(assignmentsTable)
-    .where(eq(assignmentsTable.participantId, participant.id));
-
-  const facultyRoles = ["Speaker", "Presenter", "Poster", "Panelist", "Moderator", "Judge", "Chair", "CoChair"];
-  const isFaculty = assignments.some((a) => facultyRoles.includes(a.role));
-
-  // Load food sessions and collected logs for this participant
-  let foodStatusList: any[] = [];
-  if (participant.eventId) {
-    const sessions = await db
-      .select()
-      .from(foodSessionsTable)
-      .where(eq(foodSessionsTable.eventId, participant.eventId))
-      .orderBy(foodSessionsTable.date, foodSessionsTable.startTime);
-
-    const logs = await db
-      .select()
-      .from(foodLogsTable)
-      .where(eq(foodLogsTable.participantId, participant.id));
-
-    const loggedSessionIds = new Set(logs.map((l) => l.foodSessionId));
-    const logMap = new Map(logs.map((l) => [l.foodSessionId, l.collectedAt]));
-
-    foodStatusList = sessions.map((s) => ({
-      id: s.id,
-      name: s.name,
-      date: s.date,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      enabled: s.enabled,
-      isRedeemed: loggedSessionIds.has(s.id),
-      collectedAt: logMap.get(s.id) || null,
-    }));
-  }
-
-  res.json({
-    id: participant.id,
-    eventId: participant.eventId,
-    name: participant.name,
-    registrationNumber: participant.registrationNumber,
-    institution: participant.institution,
-    designation: participant.designation,
-    email: participant.email,
-    mobile: participant.mobile,
-    isPaid: participant.isPaid,
-    approvalStatus: participant.approvalStatus,
-    isOnSpot: participant.isOnSpot,
-    isOnSpotLinked: participant.isOnSpotLinked,
-    isOnSpotOnboarded: participant.isOnSpotOnboarded,
-    delegateType: participant.delegateType || "delegate",
-    isFaculty,
-    foodSessions: foodStatusList,
-    event: event ? {
-      id: event.id,
-      slug: event.slug,
-      title: event.title,
-      eventType: event.eventType,
-      venue: event.venue,
-      city: event.city,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      themeColor: event.themeColor,
-      accentColor: event.accentColor,
-      logoUrl: event.logoUrl,
-      bannerUrl: event.bannerUrl,
-      badgeSubtitle: event.badgeSubtitle,
-      badgeFooterText: event.badgeFooterText,
-      agendaPdfUrl: event.agendaPdfUrl,
-      agendaPdfButtonText: event.agendaPdfButtonText || "Download Event Agenda (PDF)",
-      customPdfUrl: event.customPdfUrl,
-      customPdfButtonText: event.customPdfButtonText || "View Document (PDF)",
-      pdfAttachmentsJson: event.pdfAttachmentsJson,
-    } : null,
-  });
 });
 
 // GET /participants/lookup/:regNumber — SECURED, auth required

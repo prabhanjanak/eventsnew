@@ -8,13 +8,13 @@ import { eventsTable } from "./events";
 export const foodSessionsTable = pgTable("food_sessions", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").references(() => eventsTable.id, { onDelete: "cascade" }),
+  sessionCode: text("session_code"),
   name: text("name").notNull(),
   date: text("date").notNull(), // YYYY-MM-DD
   startTime: text("start_time").notNull(),
   endTime: text("end_time").notNull(),
-  enabled: boolean("enabled").notNull().default(false),
+  enabled: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => {
   return {
     eventIdIdx: index("food_sessions_event_id_idx").on(table.eventId),
