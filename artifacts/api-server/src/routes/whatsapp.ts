@@ -4,12 +4,13 @@ import { db, participantsTable, assignmentsTable, eventsTable } from "@workspace
 import { eq, inArray, and } from "drizzle-orm";
 import { sendWhatsappMessage, sendWhatsappDocument } from "../lib/mailer";
 import { getClientBaseUrl } from "../lib/ip-helper";
+import { generateParticipantQrToken } from "./participants";
 
 const router = Router();
 
 // Helper function to process broadcast in the background
 async function processBroadcast(
-  targets: { name: string; mobile: string | null; registrationNumber: string; delegateType?: string | null }[],
+  targets: { name: string; mobile: string | null; registrationNumber: string; qrToken?: string | null; delegateType?: string | null }[],
   event: any,
   templateType: "welcome" | "agenda" | "custom",
   customMessageTemplate?: string,
@@ -24,7 +25,8 @@ async function processBroadcast(
     const cleanMob = p.mobile.replace(/[^0-9]/g, "").slice(-10);
     if (!cleanMob || cleanMob.length < 10) continue;
 
-    const passUrl = `${baseUrl}/q/${p.registrationNumber}`;
+    const tokenCode = p.qrToken || generateParticipantQrToken(p.registrationNumber);
+    const passUrl = `${baseUrl}/q/${tokenCode}`;
     const agendaUrl = event.agendaPdfUrl || `${baseUrl}/agenda/${p.registrationNumber}`;
     const roleLabel = p.delegateType === "team_sankara"
       ? "Team Sankara"

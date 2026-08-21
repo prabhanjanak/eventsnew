@@ -22,10 +22,16 @@ import { getClientBaseUrl } from "../lib/ip-helper";
 import { ZipArchive } from "archiver";
 import { getGoogleAuthClient, getSpreadsheetRows, updateSpreadsheetParticipant } from "../lib/googleSheets";
 import { sendRegistrationConfirmationEmail } from "../lib/mailer";
+import crypto from "crypto";
 
 const router = Router();
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Helper to generate a secure, non-guessable 10-character hexadecimal QR token
+export function generateParticipantQrToken(regNumber: string): string {
+  return crypto.createHash("sha256").update("sankara_pass_salt_" + regNumber).digest("hex").slice(0, 10).toUpperCase();
+}
 
 // Helper to generate a unique registration number for an event
 async function generateEventRegNumber(eventId?: number, eventSlug?: string): Promise<string> {
@@ -494,6 +500,7 @@ router.get("/participants/public-lookup/:regNumber", async (req, res): Promise<v
         eventId: participantsTable.eventId,
         name: participantsTable.name,
         registrationNumber: participantsTable.registrationNumber,
+        qrToken: participantsTable.qrToken,
         institution: participantsTable.institution,
         designation: participantsTable.designation,
         email: participantsTable.email,
@@ -506,12 +513,19 @@ router.get("/participants/public-lookup/:regNumber", async (req, res): Promise<v
         delegateType: participantsTable.delegateType,
       })
       .from(participantsTable)
-      .where(eq(participantsTable.registrationNumber, regNumber));
+      .where(
+        or(
+          eq(participantsTable.qrToken, regNumber),
+          eq(participantsTable.registrationNumber, regNumber)
+        )
+      );
 
     if (!participant) {
       res.status(404).json({ error: "Participant not found" });
       return;
     }
+
+    const effectiveQrToken = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
 
     // Load associated event details
     let event = null;
@@ -570,6 +584,7 @@ router.get("/participants/public-lookup/:regNumber", async (req, res): Promise<v
       eventId: participant.eventId,
       name: participant.name,
       registrationNumber: participant.registrationNumber,
+      qrToken: effectiveQrToken,
       institution: participant.institution,
       designation: participant.designation,
       email: participant.email,
@@ -919,7 +934,8 @@ router.get(
           .replace(/[^a-zA-Z0-9]+/g, "_")
           .replace(/^_+|_+$/g, "");
 
-        const qrUrl = `${baseUrl}/q/${participant.registrationNumber}`;
+        const tokenCode = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
+        const qrUrl = `${baseUrl}/q/${tokenCode}`;
         const qrBuffer = await QRCode.toBuffer(qrUrl, { width: 300, margin: 2 });
         
         archive.append(qrBuffer, { name: `${cleanName}_${cleanReg}_${cleanRole}.png` });
@@ -2495,7 +2511,8 @@ router.get(
           cleanRole = "TEAM_SANKARA";
         }
 
-        const qrUrl = `${baseUrl}/q/${pass.registrationNumber}`;
+        const tokenCode = pass.qrToken || generateParticipantQrToken(pass.registrationNumber);
+        const qrUrl = `${baseUrl}/q/${tokenCode}`;
         const qrBuffer = await QRCode.toBuffer(qrUrl, { width: 300, margin: 2 });
         
         archive.append(qrBuffer, { name: `${cleanName}_${cleanReg}_${cleanRole}.png` });
@@ -2543,7 +2560,8 @@ router.get(
         const roles = (assignMap[p.id] || []).map((a) => a.role).join(", ");
         const tracks = [...new Set((assignMap[p.id] || []).map((a) => a.track))].join(", ");
         const sessions = (assignMap[p.id] || []).map((a) => a.sessionName).filter(Boolean).join("; ");
-        const qrUrl = `${baseUrl}/q/${p.registrationNumber}`;
+        const qrToken = p.qrToken || generateParticipantQrToken(p.registrationNumber);
+        const qrUrl = `${baseUrl}/q/${qrToken}`;
 
         const paymentStatus = p.isPaid ? "Paid" : (p.isSponsored ? "Sponsored" : "Unpaid");
 
@@ -2646,7 +2664,7 @@ router.get(
         "Gender": p.gender || "",
         "Age": p.age || "",
         "Address": p.address || "",
-        "QR URL": `${baseUrl}/q/${p.registrationNumber}`,
+        "QR URL": `${baseUrl}/q/${p.qrToken || generateParticipantQrToken(p.registrationNumber)}`,
         "Registered On": p.createdAt ? new Date(p.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : "",
       }));
       const ws1 = xlsx.utils.json_to_sheet(partRows);
@@ -3155,9 +3173,10 @@ router.get(
 
     const baseUrl = getClientBaseUrl(req);
 
+    const tokenCode = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
     const [qr1DataUrl, qr2DataUrl] = await Promise.all([
-      // QR1 encodes the smart landing URL — works for both attendee (agenda) and staff (scan actions)
-      QRCode.toDataURL(`${baseUrl}/q/${participant.registrationNumber}`, { width: 300, margin: 2 }),
+      // QR1 encodes the smart landing URL with un-guessable 10-char hex token
+      QRCode.toDataURL(`${baseUrl}/q/${tokenCode}`, { width: 300, margin: 2 }),
       // QR2 encodes the general agenda portal landing page (common for all ID holders)
       QRCode.toDataURL(`${baseUrl}`, { width: 300, margin: 2 }),
     ]);

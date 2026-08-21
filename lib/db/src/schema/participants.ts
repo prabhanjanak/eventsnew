@@ -7,6 +7,7 @@ export const participantsTable = pgTable("participants", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id").references(() => eventsTable.id, { onDelete: "cascade" }),
   registrationNumber: text("registration_number").notNull().unique(),
+  qrToken: text("qr_token").unique(),
   name: text("name").notNull(),
   cleanName: text("clean_name"),
   email: text("email"),

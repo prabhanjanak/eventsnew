@@ -8,6 +8,7 @@ import { ZipArchive } from "archiver";
 import QRCode from "qrcode";
 import { getClientBaseUrl } from "../lib/ip-helper";
 import { parseDevice } from "../lib/parseDevice";
+import { generateParticipantQrToken } from "./participants";
 
 function getClientIp(req: any): string {
   const forwarded = req.headers["x-forwarded-for"];
@@ -567,7 +568,8 @@ router.get("/onspot/export", requireAuth(["admin"]), async (req, res): Promise<v
     const baseUrl = getClientBaseUrl(req);
 
     const exportData = list.map((item, index) => {
-      const qrUrl = `${baseUrl}/q/${item.registrationNumber}`;
+      const tokenCode = item.qrToken || generateParticipantQrToken(item.registrationNumber);
+      const qrUrl = `${baseUrl}/q/${tokenCode}`;
       return {
         "S.No": index + 1,
         "Registration Number": item.registrationNumber,

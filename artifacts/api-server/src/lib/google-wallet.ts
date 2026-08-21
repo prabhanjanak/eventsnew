@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { google } from "googleapis";
 import type { Event, Participant } from "@workspace/db";
+import { generateParticipantQrToken } from "../routes/participants";
 
 export interface GoogleWalletConfig {
   issuerId: string;
@@ -133,8 +134,9 @@ export async function generateGoogleWalletPass(
     },
   };
 
-  // Canonical QR code string matching existing scanners
-  const qrValue = `https://events.sankaraeye.in/q/${participant.registrationNumber}`;
+  // Canonical QR code string with unguessable 10-char hex token
+  const tokenCode = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
+  const qrValue = `https://events.sankaraeye.in/q/${tokenCode}`;
 
   // Build the EventTicketObject payload (Strict Google Wallet v1 schema)
   const eventTicketObject: Record<string, any> = {

@@ -497,7 +497,7 @@ export default function MyRegistrationsPage() {
 
                           <div className="p-1 bg-white rounded-lg border border-zinc-200">
                             <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=4&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${reg.registrationNumber}`)}`}
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=4&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`)}`}
                               alt={`QR for ${reg.registrationNumber}`}
                               className="w-16 h-16 object-contain"
                             />

@@ -51,6 +51,7 @@ type Participant = {
   eventId?: number;
   name: string;
   registrationNumber: string;
+  qrToken?: string;
   institution: string;
   designation?: string;
   isFaculty: boolean;
@@ -255,7 +256,8 @@ export default function SmartQRLanding() {
   // Generate Scannable QR Pass
   useEffect(() => {
     if (!participant?.registrationNumber) return;
-    const url = `${window.location.origin}/q/${participant.registrationNumber}`;
+    const tokenCode = participant.qrToken || participant.registrationNumber;
+    const url = `${window.location.origin}/q/${tokenCode}`;
     QRCode.toDataURL(url, {
       width: 340,
       margin: 2,
@@ -266,7 +268,7 @@ export default function SmartQRLanding() {
     })
       .then(setQrDataUrl)
       .catch(() => null);
-  }, [participant?.registrationNumber]);
+  }, [participant?.registrationNumber, participant?.qrToken]);
 
   // Staff Quick Action Handler
   async function doAction(action: "attendance" | "goodies" | "food") {
