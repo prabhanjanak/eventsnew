@@ -37,10 +37,12 @@ import {
   Ticket,
   Clock,
   ChevronRight,
+  QrCode,
 } from "lucide-react";
 import { getCache, setCache } from "@/lib/indexeddb-cache";
 import { OtpInput } from "@/components/ui/otp-input";
 import GlitterWrap from "@/components/originkit/ui/glitter-wrap";
+import QRCode from "qrcode";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -118,6 +120,8 @@ export default function SmartQRLanding() {
   const [pLoading, setPLoading] = useState(true);
   const [pError, setPError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   const [currentParticipantUser, setCurrentParticipantUser] = useState<any>(null);
   const [emailInput, setEmailInput] = useState("");
@@ -247,6 +251,22 @@ export default function SmartQRLanding() {
     toast({ title: "Registration ID Copied", description: participant.registrationNumber });
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Generate Scannable QR Pass
+  useEffect(() => {
+    if (!participant?.registrationNumber) return;
+    const url = `${window.location.origin}/q/${participant.registrationNumber}`;
+    QRCode.toDataURL(url, {
+      width: 340,
+      margin: 2,
+      color: {
+        dark: "#000000",
+        light: "#ffffff",
+      },
+    })
+      .then(setQrDataUrl)
+      .catch(() => null);
+  }, [participant?.registrationNumber]);
 
   // Staff Quick Action Handler
   async function doAction(action: "attendance" | "goodies" | "food") {
@@ -758,6 +778,51 @@ export default function SmartQRLanding() {
                 </p>
               </div>
 
+              {/* Show / Hide QR Code Toggle Button */}
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  onClick={() => setShowQrCode(!showQrCode)}
+                  className="w-full h-11 bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-400/50 text-cyan-300 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-cyan-950/40 active:scale-[0.98]"
+                >
+                  <QrCode className="w-4 h-4 text-cyan-400" />
+                  <span>{showQrCode ? "Hide Digital QR Pass ▲" : "Show My Digital QR Code for Scanning ▼"}</span>
+                </Button>
+              </div>
+
+              {/* Dynamic Expandable QR Code Container */}
+              {showQrCode && (
+                <div className="p-5 rounded-2xl bg-white text-zinc-950 text-center space-y-3 shadow-2xl border border-zinc-200 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between border-b border-zinc-200 pb-2 px-1">
+                    <div className="text-left">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-cyan-700 block">Sankara Official Pass</span>
+                      <span className="text-xs font-black text-zinc-900">{participant.name}</span>
+                    </div>
+                    <Badge className="bg-zinc-900 text-white text-[10px] font-mono font-bold">
+                      {participant.registrationNumber}
+                    </Badge>
+                  </div>
+
+                  {qrDataUrl ? (
+                    <div className="p-2.5 bg-white rounded-2xl inline-block shadow-inner mx-auto border border-zinc-200">
+                      <img
+                        src={qrDataUrl}
+                        alt={`Digital Pass QR - ${participant.registrationNumber}`}
+                        className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-56 h-56 flex items-center justify-center mx-auto">
+                      <Loader2 className="w-8 h-8 animate-spin text-cyan-600" />
+                    </div>
+                  )}
+
+                  <p className="text-[11px] font-semibold text-zinc-600 max-w-xs mx-auto leading-tight">
+                    Present this digital QR pass at hall check-ins, attendance counters, and dining sessions.
+                  </p>
+                </div>
+              )}
+
               {/* Event Context Pill */}
               <div className="p-3.5 rounded-2xl bg-[#09090D]/90 border border-white/10 flex items-center justify-between gap-3 text-xs">
                 <div className="space-y-0.5 min-w-0">
@@ -990,15 +1055,15 @@ export default function SmartQRLanding() {
                 </Link>
               </div>
 
-              {/* Coordinator & Staff Portal Link */}
+              {/* Log in to Your Dashboard Link */}
               <div className="pt-3 border-t border-white/10">
                 <Button
                   variant="outline"
                   onClick={() => setLocation("/login")}
-                  className="w-full h-11 border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full h-11 border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 cursor-pointer transition-all"
                 >
-                  <Shield className="w-4 h-4 text-cyan-400" />
-                  <span>Coordinator &amp; Staff Login Portal →</span>
+                  <User className="w-4 h-4 text-cyan-400" />
+                  <span>Log in to Your Dashboard →</span>
                 </Button>
               </div>
             </div>

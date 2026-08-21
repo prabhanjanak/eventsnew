@@ -275,35 +275,26 @@ export function SankaraAIChatbot() {
 
   return (
     <>
-      {/* ── 1. FLOATING CHAT BUTTON (Bottom Right) ─────────────────────────── */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center select-none">
+      {/* ── 1. COMPACT CIRCULAR FLOATING CHAT BUTTON (Bottom Right) ─────────── */}
+      <div className="fixed bottom-5 right-5 z-50 flex items-center select-none">
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
           onClick={() => setIsOpen(!isOpen)}
-          className="group relative flex items-center gap-3 px-6 py-4 rounded-full bg-gradient-to-r from-[#14141A] via-[#1E1E28] to-[#14141A] border border-cyan-500/50 hover:border-cyan-400 text-white shadow-[0_12px_40px_rgba(0,0,0,0.9),0_0_30px_rgba(6,182,212,0.35)] transition-all cursor-pointer"
+          aria-label="Open Drishti AI"
+          className="relative w-12 h-12 sm:w-13 sm:h-13 rounded-full bg-gradient-to-tr from-[#0B0F19] via-[#1A2234] to-[#0B0F19] border-2 border-cyan-400/80 hover:border-cyan-300 text-white shadow-[0_10px_35px_rgba(0,0,0,0.85),0_0_20px_rgba(6,182,212,0.4)] flex items-center justify-center cursor-pointer transition-all group"
         >
-          {/* Glowing Aura Ring */}
-          <div className="w-9 h-9 rounded-full bg-black/70 border border-cyan-400/60 flex items-center justify-center shrink-0 overflow-hidden shadow-[0_0_15px_rgba(6,182,212,0.7)]">
+          {/* Logo */}
+          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full overflow-hidden flex items-center justify-center">
             <img
               src="/sankara-eye-logo.png"
               alt="Drishti AI"
-              className="w-5.5 h-5.5 object-contain filter drop-shadow"
+              className="w-full h-full object-contain filter drop-shadow group-hover:scale-110 transition-transform"
             />
           </div>
 
-          <div className="flex flex-col text-left">
-            <span className="text-base font-black tracking-tight text-white flex items-center gap-2">
-              <span>Drishti AI</span>
-              <span className="text-sm text-cyan-400 font-serif font-bold">दृष्टि</span>
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-            </span>
-            <span className="text-xs text-zinc-300 font-semibold">Sankara Intelligence</span>
-          </div>
-
-          <div className="pl-1 text-cyan-400 group-hover:rotate-12 transition-transform">
-            <Sparkles className="w-4.5 h-4.5" />
-          </div>
+          {/* Active Pulse Status Ring */}
+          <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-400 border-2 border-[#0B0F19] animate-pulse" />
         </motion.button>
       </div>
 
