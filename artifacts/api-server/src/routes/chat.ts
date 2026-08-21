@@ -27,7 +27,7 @@ const SANKARA_HOSPITAL_KNOWLEDGE = `
 - Philosophy: 80:20 Model (Cross-subsidized care providing free surgical care to rural and underprivileged citizens).
 - Catering & Hospitality: All conferences, workshops, and hospital events strictly adhere to Pure Vegetarian culinary traditions with highest standards of hygiene.
 - Official Website: https://sankaraeye.com
-- Photo Gallery & Media: Event attendees can access and search high-resolution photographs with AI facial recognition on Samaro.ai: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
+- Photo Gallery & Media: Event photographs are published per conference. For the 20th Annual National Ophthalmology Conference (Vision 2020), delegates can search high-resolution photographs using AI facial recognition on Samaro.ai: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media. For other events, photographs are available on each event's dedicated page.
 - Navigation Links:
   - Event Directory: /events
   - Interactive Academic Calendar: /calendar
@@ -317,7 +317,17 @@ function generateLocalGroundedAnswer(
 
   // 1. Photos & Media Gallery
   if (q.includes("photo") || q.includes("gallery") || q.includes("samaro") || q.includes("picture") || q.includes("media") || q.includes("download photos") || q.includes("video")) {
-    return `📸 **Sankara Event Photographs & AI Media Gallery**\n\nYou can view, search using AI facial recognition, and download high-resolution event photographs directly on **Samaro.ai**:\n\n👉 **[Access Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)**\n\nAll delegates can search by their selfie or browse by conference hall and session dates!`;
+    const isVision2020 = q.includes("20th") || q.includes("vision 2020") || q.includes("vision2020") || q.includes("samaro") || q.includes("annual ophthalmology") || (focusedEvent && (focusedEvent.slug.includes("annual-ophthalmology") || focusedEvent.slug.includes("vision-2020")));
+
+    if (isVision2020) {
+      return `📸 **20th Annual National Ophthalmology Conference (Vision 2020) — AI Photo Gallery**\n\nPhotographs for the **20th Annual National Ophthalmology Conference** are hosted on **Samaro.ai** with AI facial recognition search:\n\n👉 **[Access Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)**\n\nDelegates can upload a selfie to instantly find all their conference photos or browse by session halls!`;
+    }
+
+    if (focusedEvent) {
+      return `📸 **Photographs & Media for ${focusedEvent.title}**\n\nEvent photographs and session media for this conference are available on its dedicated event overview:\n\n👉 **[View ${focusedEvent.title} Page](/events/${focusedEvent.slug})**`;
+    }
+
+    return `📸 **Sankara Event Photographs & Media Galleries**\n\nEvent photographs are published individually per conference:\n\n- **20th Annual National Ophthalmology Conference (Vision 2020)**: [Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- **Other Conferences & CMEs**: Available on each respective [Event Details Page](/events).\n\n👉 **[Browse Events Directory](/events)**`;
   }
 
   // 2. Specific Hospital Branch Matcher (e.g. Ludhiana, Coimbatore, Bangalore, Guntur, etc.)
@@ -347,26 +357,29 @@ function generateLocalGroundedAnswer(
       return `📞 **Contact Details for Mr. Saravanan D**\n\n- **Role**: Senior Administrator & Event Operations Head, Sankara Eye Hospital (Coimbatore HQ)\n- 📧 **Official Email**: \`events@sankaraeye.com\` | \`info@sankaraeye.com\`\n- 📱 **Event Helpline**: **+91 89515 68286**\n- 🏥 **Hospital HQ Board**: **+91 422 423 6789**\n- 📍 **Office Location**: Sankara Eye Hospital, Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\nFor official event administration, faculty coordination, or delegate assistance, you can also reach the event secretariat through any active [Event Page](/events).`;
     }
 
-    // 4. All Hospitals Directory / List of all units
-    if (
-      q.includes("all hospitals") ||
-      q.includes("all branches") ||
-      q.includes("list of hospitals") ||
-      q.includes("where are the hospitals") ||
-      q.includes("locations") ||
-      q.includes("hospital list")
-    ) {
-      const list = SANKARA_BRANCHES.map((b, i) =>
-        `${i + 1}. **${b.name}**\n   📍 ${b.address} | [🗺️ Open Maps](${b.maps})`
-      ).join("\n\n");
+    return `📞 **Sankara Eye Foundation India — Contact & Support Channels**\n\n- 📧 **Event Secretariat & Registrations**: \`events@sankaraeye.com\`\n- 📱 **Event Operations Helpline**: **+91 89515 68286**\n- 🏥 **Coimbatore HQ Hospital Board**: **+91 422 423 6789**\n- 🌐 **Official Web Portal**: [sankaraeye.com](https://sankaraeye.com)\n- 📍 **Headquarters**: Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035\n\n👉 **[Browse Upcoming Events](/events)** | **[Academic Calendar](/calendar)** | **[Hospital Directory](https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore)**`;
+  }
 
-      return `🏥 **Sankara Eye Foundation India — 15 Hospital Locations Across India**\n\n${list}\n\n👉 **[Official Website](https://sankaraeye.com)** | **[Upcoming Academic Conferences](/events)**`;
-    }
+  // 4. All Hospitals Directory / List of all units
+  if (
+    q.includes("all hospitals") ||
+    q.includes("all branches") ||
+    q.includes("list of hospitals") ||
+    q.includes("where are the hospitals") ||
+    q.includes("locations") ||
+    q.includes("hospital list")
+  ) {
+    const list = SANKARA_BRANCHES.map((b, i) =>
+      `${i + 1}. **${b.name}**\n   📍 ${b.address} | [🗺️ Open Maps](${b.maps})`
+    ).join("\n\n");
 
-    // 5. Hospital Network & Institutional Facts Overview
-    if (q.includes("hospital") || q.includes("network") || q.includes("surgery") || q.includes("surgeries") || q.includes("about") || q.includes("trust") || q.includes("nabh") || q.includes("founder") || q.includes("ramani")) {
-      return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **15 Hospital Units** across India (14 Operational + 1 Upcoming Super-Specialty Unit in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
-    }
+    return `🏥 **Sankara Eye Foundation India — 15 Hospital Locations Across India**\n\n${list}\n\n👉 **[Official Website](https://sankaraeye.com)** | **[Upcoming Academic Conferences](/events)**`;
+  }
+
+  // 5. Hospital Network & Institutional Facts Overview
+  if (q.includes("hospital") || q.includes("network") || q.includes("surgery") || q.includes("surgeries") || q.includes("about") || q.includes("trust") || q.includes("nabh") || q.includes("founder") || q.includes("ramani")) {
+    return `🏥 **About Sankara Eye Foundation India**\n\n- **Super-Specialty Network**: **15 Hospital Units** across India (14 Operational + 1 Upcoming Super-Specialty Unit in **Patna, Bihar**).\n- **Daily Free Surgeries**: **1,500+ Free Surgeries** performed daily for visually impaired & rural patients.\n- **Lifetime Impact**: Over **3,000,000+ (3 Million+) Free Surgeries** completed to date.\n- **Accreditation**: **NABH** (National Accreditation Board for Hospitals) and national healthcare quality certifications.\n- **Trust**: Unit of **Sri Kanchi Kamakoti Medical Trust** (Established 1977 by Dr. R.V. Ramani & Dr. Radha Ramani).\n- **Ethos**: 80:20 cross-subsidization model & **100% Pure Vegetarian** culinary hospitality across all hospital locations and conferences.`;
+  }
 
     // 4. General Multi-Event Pricing, Fees, or Student/PG Concessions Query across UPCOMING events only
     if (
@@ -408,9 +421,14 @@ function generateLocalGroundedAnswer(
       if (pastEvents.length === 0) {
         return `All currently listed conferences are active and upcoming! You can explore them in our [Events Directory](/events).`;
       }
-      const pastCards = pastEvents.map((e) =>
-        `• **[${e.title}](/events/${e.slug})** *(🔴 Concluded)*\n  🗓️ **Conducted on**: ${e.startDate} to ${e.endDate} | 📍 ${e.venue}, ${e.city}\n  📸 **Event Gallery**: [View Photos on Samaro AI](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)`
-      ).join("\n\n");
+      const pastCards = pastEvents.map((e) => {
+        const isVision2020 = e.slug.includes("annual-ophthalmology") || e.slug.includes("vision-2020");
+        const galleryLink = isVision2020
+          ? `\n  📸 **Event Gallery**: [View Photos on Samaro AI](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)`
+          : `\n  📸 **Event Summary**: [View Event Details](/events/${e.slug})`;
+
+        return `• **[${e.title}](/events/${e.slug})** *(🔴 Concluded)*\n  🗓️ **Conducted on**: ${e.startDate} to ${e.endDate} | 📍 ${e.venue}, ${e.city}${galleryLink}`;
+      }).join("\n\n");
 
       return `🏛️ **Past & Concluded Sankara Academic Conferences**\n\n${pastCards}\n\n👉 **[Browse Upcoming Events](/events)** | **[Academic Calendar](/calendar)**`;
     }
@@ -758,7 +776,7 @@ ${eventsContext}
 3. If the user is on an event page, prioritize answering about that event with specific timings, venues, speaker details, pricing tiers, and registration instructions.
 4. Always format responses with clean GitHub Markdown (bold titles, bullet points, and clean relative links like [Event Title](/events/slug)). Never output raw localhost or IP address URLs.
 5. When mentioning an event, always link to its page using format: [Event Title](/events/slug).
-6. If asked about event photographs, always provide the Samaro AI link: https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media
+6. Photo Galleries & Media: The Samaro AI gallery link (https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media) is EXCLUSIVELY for the 20th Annual National Ophthalmology Conference (Vision 2020). For other conferences, direct delegates to that event's own page (/events/slug).
 7. If asked about hospital locations or maps, provide Google Maps links from the institutional directory.
 8. If asked about academic dates or schedule, link to [/calendar](/calendar).
 9. If asked about passes, tickets, or QR badges, link to [/my-registrations](/my-registrations).

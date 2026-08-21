@@ -82,7 +82,7 @@ export function SankaraAIChatbot() {
       {
         id: "welcome-1",
         sender: "bot",
-        text: `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nYou can ask me **anything** — whether about our **Conferences & CMEs**, delegate registrations, event agendas, **Hospital Google Maps locations**, **Samaro AI photo galleries**, or general eye care and medical topics.\n\nHow can I help you today?`,
+        text: `Namaste! 🙏 I am **Drishti AI** (दृष्टि), the AI assistant for Sankara Eye Foundation India.\n\nYou can ask me **anything** — whether about our **Conferences & CMEs**, delegate registrations, event agendas, **Hospital Google Maps locations**, event photo galleries, or general eye care and medical topics.\n\nHow can I help you today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         model: "Google Gemini 2.0 Flash",
       },
