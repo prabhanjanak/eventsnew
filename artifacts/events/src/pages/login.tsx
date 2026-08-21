@@ -209,6 +209,20 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Consent for Official Communications */}
+            <div className="pt-1 flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                id="login-consent"
+                required
+                defaultChecked={true}
+                className="w-4 h-4 rounded border-white/20 bg-black/40 text-indigo-500 focus:ring-0 mt-0.5 cursor-pointer"
+              />
+              <Label htmlFor="login-consent" className="text-[11px] text-zinc-400 font-normal leading-tight cursor-pointer">
+                I consent to Sankara Eye Foundation India collecting and using my contact details for official event operations, CME updates, and institutional communications.
+              </Label>
+            </div>
+
             {/* Submit Button */}
             <div className="pt-2">
               <Button

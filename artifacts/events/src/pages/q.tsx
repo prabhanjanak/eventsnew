@@ -681,6 +681,20 @@ export default function SmartQRLanding() {
                 />
               </div>
 
+              {/* Consent for communication */}
+              <div className="pt-1 flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  id="ob-consent"
+                  required
+                  defaultChecked={true}
+                  className="w-4 h-4 rounded border-white/20 bg-black/40 text-cyan-500 focus:ring-0 mt-0.5 cursor-pointer"
+                />
+                <Label htmlFor="ob-consent" className="text-[11px] text-zinc-400 font-normal leading-tight cursor-pointer">
+                  I consent to Sankara Eye Foundation India collecting my email ID and contact details for official event updates, certificates, and future CME communications.
+                </Label>
+              </div>
+
               <div className="pt-2">
                 <Button
                   type="submit"
@@ -976,70 +990,16 @@ export default function SmartQRLanding() {
                 </Link>
               </div>
 
-              {/* Delegate Personal Dashboard Login */}
-              <div className="pt-2 border-t border-white/10">
-                {currentParticipantUser ? (
-                  <Button
-                    onClick={() => setLocation("/participant/dashboard")}
-                    className="w-full h-11 bg-white hover:bg-zinc-200 text-zinc-950 font-bold rounded-2xl text-xs shadow-md cursor-pointer"
-                  >
-                    Go to My Faculty / Delegate Dashboard →
-                  </Button>
-                ) : quickOtpStep === "email" ? (
-                  <form onSubmit={handleQuickEmailSubmit} className="space-y-2.5">
-                    <Label className="text-xs font-bold text-zinc-300 block">
-                      Access Personal Dashboard &amp; Slide Uploads:
-                    </Label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
-                        <Input
-                          type="email"
-                          required
-                          placeholder="Registered Email ID"
-                          value={emailInput}
-                          onChange={(e) => setEmailInput(e.target.value)}
-                          className="pl-9 h-10 rounded-xl bg-[#09090D] border-white/15 text-white text-xs placeholder:text-zinc-600 focus:border-cyan-400"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={loggingIn || !emailInput.trim()}
-                        className="h-10 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs shrink-0 cursor-pointer"
-                      >
-                        {loggingIn ? "Accessing..." : "Sign In →"}
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <form onSubmit={handleQuickOtpVerify} className="space-y-3 text-center">
-                    <p className="text-xs font-bold text-white">Enter 6-Digit Verification Code</p>
-                    <p className="text-[10px] text-zinc-400">{quickOtpSentMessage}</p>
-                    <div className="py-1 flex justify-center">
-                      <OtpInput value={quickOtpValue} onChange={setQuickOtpValue} />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          setQuickOtpStep("email");
-                          setQuickOtpValue("");
-                        }}
-                        className="flex-1 h-9 rounded-xl text-xs border-white/15 bg-white/5 text-zinc-300"
-                      >
-                        Back
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={loggingIn || quickOtpValue.length !== 6}
-                        className="flex-[2] h-9 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl text-xs"
-                      >
-                        {loggingIn ? "Verifying..." : "Verify & Log In →"}
-                      </Button>
-                    </div>
-                  </form>
-                )}
+              {/* Coordinator & Staff Portal Link */}
+              <div className="pt-3 border-t border-white/10">
+                <Button
+                  variant="outline"
+                  onClick={() => setLocation("/login")}
+                  className="w-full h-11 border-white/15 bg-white/5 hover:bg-white/10 text-zinc-200 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Shield className="w-4 h-4 text-cyan-400" />
+                  <span>Coordinator &amp; Staff Login Portal →</span>
+                </Button>
               </div>
             </div>
           </div>
