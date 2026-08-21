@@ -869,7 +869,7 @@ ${eventsContext}
         return;
       }
 
-      const ticketNumber = `SNK-${Math.floor(100000 + Math.random() * 900000)}`;
+      const ticketNumber = `SEFI-${Math.floor(100000 + Math.random() * 900000)}`;
 
       const [ticket] = await db
         .insert(unresolvedQueriesTable)
