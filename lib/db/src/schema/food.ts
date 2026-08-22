@@ -40,7 +40,6 @@ export const foodLogsTable = pgTable("food_logs", {
 export const insertFoodSessionSchema = createInsertSchema(foodSessionsTable).omit({
   id: true,
   createdAt: true,
-  updatedAt: true,
 });
 export const insertFoodLogSchema = createInsertSchema(foodLogsTable).omit({
   id: true,

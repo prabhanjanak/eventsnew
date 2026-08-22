@@ -89,7 +89,7 @@ async function queryGemini(systemInstruction: string, messages: Array<{ role: st
       });
 
       if (resp.ok) {
-        const data = await resp.json();
+        const data = (await resp.json()) as any;
         if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
           return data.candidates[0].content.parts.map((p: any) => p.text).join("").trim();
         }
@@ -128,7 +128,7 @@ async function queryLlama(messages: Array<{ role: string; content: string }>): P
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const data = (await response.json()) as any;
         if (data.choices && data.choices[0] && data.choices[0].message) {
           return data.choices[0].message.content.trim();
         }
@@ -144,126 +144,350 @@ async function queryLlama(messages: Array<{ role: string; content: string }>): P
   throw new Error("All AI inference models exhausted or rate-limited.");
 }
 
-// Complete 15 Hospital Branch Location Profiles of Sankara Eye Foundation India
+// Complete 15 Hospital Branch Location Profiles of Sankara Eye Foundation India (parsed from sankaraeye.com)
 const SANKARA_BRANCHES = [
   {
+    name: "Sankara Eye Hospital, Bengaluru (Varthur / Kundalahalli)",
+    keywords: ["bengaluru", "bangalore", "kundalahalli", "varthur", "whitefield", "karnataka bangalore", "banglore"],
+    address: "Varthur Main Road, Kundalahalli Gate, Bengaluru, Karnataka - 560037",
+    maps: "https://goo.gl/maps/5i2wXK9Uqg72",
+    phone: "080-69038900 to 080-69038999",
+    mobile: "+91 97392 70477",
+    eyeBankPhone: "+91 76195 19555",
+    email: "bangalore@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: 09:00 to 13:00 (Emergency Services 24/7)",
+    cmo: "Dr. Y. Umesh (MBBS, DOMS, DNB - Cataract & Refractive Services)",
+    doctors: [
+      "Dr. Y. Umesh (CMO, Cataract & Refractive)",
+      "Dr. Anand Balasubramaniam (Cataract, Cornea & Refractive)",
+      "Dr. Kaushik Murali (Paediatric Ophthalmology)",
+      "Dr. Mahesh Shanmugham P (VR Ocular Oncology, Vitreoretinal)",
+      "Dr. Meena G Menon (Cataract, Glaucoma)",
+      "Dr. Divyansh K Mishra (VR Ocular Oncology, Vitreoretinal)",
+      "Dr. Minija C K (Cataract, Medical Retina, Uvea)",
+      "Dr. Lalitha K J (Glaucoma)",
+      "Dr. Pallavi Joshi (Cornea, Ocular Surface & Refractive)",
+      "Dr. Rajesh R (VR Ocular Oncology, Vitreoretinal)",
+      "Dr. Shashidhar V S (Orbit & Oculoplasty, Ocular Oncology)",
+      "Dr. Sowmya R & Dr. Vidhya C (Paediatric Ophthalmology & Neuro-Ophthalmology)",
+    ],
+    specialties: "Cataract & Premium IOLs, Cornea & Refractive (LASIK, SMILE, Contoura), Glaucoma, Lasik Laser Vision Corrections, Ocular Oncology, Orbit & Oculoplasty, Paediatric Ophthalmology, Uvea, Vision Enhancement & Rehabilitation, Vitreoretinal Surgery, Neuro Vision Rehabilitation, Ocularistry (Artificial Eye), Autism Milestone Clinic, Low Vision Clinic",
+    description: "Our 90,000 sq.ft Bengaluru super-specialty hospital is equipped with Diode & YAG laser therapy, ultrasonography, ICG & angiography, electro-retinography, visual fields & corneal topography suites.",
+  },
+  {
     name: "Sankara Eye Hospital, Coimbatore (Headquarters & Tertiary Institute)",
-    keywords: ["coimbatore", "saravanampatti", "sivanandapuram", "headquarters", "hq"],
-    address: "Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Coimbatore",
-    specialties: "Tertiary Eye Institute, High-Volume Micro-incision Cataract, LASIK/Contoura Vision, Corneal Transplants (PK/DMEK), Vitreo-Retinal Surgeries, Ocular Oncology",
-    description: "The founding flagship tertiary eye hospital of Sri Kanchi Kamakoti Medical Trust, established in 1977.",
+    keywords: ["coimbatore", "saravanampatti", "sivanandapuram", "headquarters", "hq", "tamil nadu hq"],
+    address: "Sathy Road, Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu - 641035",
+    maps: "https://goo.gl/maps/9fzPcoMD9k12",
+    phone: "0422-3116789 / 0422-3500897 / 0422-3500898 / 0422-3500899",
+    mobile: "+91 99424 26000",
+    eyeBankPhone: "+91 99655 11174",
+    email: "coimbatore@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: 09:00 to 18:00",
+    cmo: "Dr. V. Devi Priya (MBBS, MS, FICO, FRCS - Vitreoretinal Services)",
+    doctors: [
+      "Dr. V. Devi Priya (CMO, Vitreoretinal Services)",
+      "Dr. Prabhu Vijayaraghavan (Cornea Services)",
+      "Dr. M. Prabhu Shanker (Vitreoretinal Services)",
+      "Dr. Rajesh Prabu (Paediatric Ophthalmology)",
+      "Dr. Mugundan Thulasiraman (Retinal Services)",
+      "Dr. S. Ajita (Cataract, Glaucoma)",
+      "Dr. Shruthi Tara (Orbit & Oculoplasty)",
+      "Dr. Nishitha P (Glaucoma)",
+      "Dr. Geetha G (Medical Retina)",
+    ],
+    specialties: "Flagship 500-bed Tertiary Institute, Micro-incision Cataract, Cornea Transplants (PK/DMEK), Glaucoma, Orbit & Oculoplasty, Vitreoretinal Services, Paediatric Ophthalmology, Uvea Services",
+    description: "Established in 1985 on 5 acres land. Employs over 36 doctors, 17 DNB fellows, and 244 healthcare staff.",
   },
   {
-    name: "Sankara Eye Hospital, R.S. Puram / Coimbatore City Hospital",
-    keywords: ["rs puram", "r.s. puram", "coimbatore city", "city hospital"],
-    address: "DB Road, R.S. Puram, Coimbatore, Tamil Nadu - 641002",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+RS+Puram+Coimbatore",
-    specialties: "Comprehensive Specialist Eye Care, Cataract Clinic, Glaucoma Diagnostics, Pediatric Consultations, Optical Center",
-    description: "Urban central branch of Sankara Eye Hospital providing outpatient consultations and diagnostic services in the heart of Coimbatore.",
-  },
-  {
-    name: "Sankara Eye Hospital, Krishnankoil (Tamil Nadu)",
-    keywords: ["krishnankoil", "srivilliputhur", "virudhunagar"],
-    address: "Srivilliputhur Taluk, Krishnankoil, Tamil Nadu - 626126",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Krishnankoil",
-    specialties: "High-Volume Rural Cataract Surgeries, Community Outreach Base, Pediatric Vision Screening",
-    description: "Dedicated community surgical base serving Southern Tamil Nadu with world-class free and subsidized eye care.",
+    name: "Sankara Eye Hospital, Coimbatore City (RS Puram)",
+    keywords: ["rs puram", "r.s. puram", "coimbatore city", "city hospital", "kikani"],
+    address: "2nd Floor, Srivari Kikani Centre, Dr. Krishnasamy Mudaliyar Road, Next to Chinthamani Super Market, RS Puram, Coimbatore, Tamil Nadu - 641002",
+    maps: "https://goo.gl/maps/xjQJZ56fGpF2",
+    phone: "0422-3106789",
+    mobile: "+91 99655 11130",
+    eyeBankPhone: "+91 99655 11174",
+    email: "coimbatorecity@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 20:00 | Sunday: 09:00 to 13:30",
+    cmo: "Dr. Shruthi Tara (MBBS, DO - Orbit & Oculoplasty)",
+    doctors: [
+      "Dr. Shruthi Tara (CMO, Orbit and Oculoplasty)",
+      "Dr. Jagadeesh Kumar Reddy K (Cataract, Cornea, Refractive)",
+      "Dr. Prabhu Shankar M (Vitreoretinal)",
+      "Dr. Ajitha S (Cataract, Glaucoma)",
+      "Dr. Rajesh Prabu (Paediatric Ophthalmology)",
+      "Dr. Prabhu Vijayaraghavan (Cornea)",
+    ],
+    specialties: "Day Care Surgery, State-of-the-Art OT Complex, Cataract, Cornea, Glaucoma, Lasik Laser Vision Corrections, Orbit & Oculoplasty, Paediatric Ophthalmology, iWellness Clinic (Vision Therapy & Myopia)",
+    description: "Established in 2011 performing day care eye surgery with outpatient clinics and optical services in downtown Coimbatore.",
   },
   {
     name: "Sankara Eye Hospital, Guntur (Andhra Pradesh)",
-    keywords: ["guntur", "andhra", "pedakakani", "vijayawada"],
+    keywords: ["guntur", "andhra", "pedakakani", "vijayawada", "andhra pradesh"],
     address: "Vijayawada-Guntur Expressway, Pedakakani, Guntur, Andhra Pradesh - 522509",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Guntur",
-    specialties: "NABH Accredited Super-Specialty, High-Volume Free & Subsidized Cataract Surgeries, Glaucoma, Diabetic Retinopathy Clinics",
-    description: "Premier ophthalmic referral centre on the Vijayawada-Guntur Highway serving coastal Andhra Pradesh.",
-  },
-  {
-    name: "Sankara Eye Hospital, Bengaluru (Kundalahalli & Jayanagar)",
-    keywords: ["bengaluru", "bangalore", "kundalahalli", "jayanagar", "whitefield", "varthur"],
-    address: "Varthur Main Road, Kundalahalli Gate, Bengaluru, Karnataka - 560037 (& 8th Block, Jayanagar)",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Kundalahalli+Bangalore",
-    specialties: "SMILE, Contoura Vision & Blade-Free LASIK, Micro-incision Cataract with Premium IOLs, Glaucoma, Cornea, Oculoplasty, Vitreo-Retina",
-    description: "State-of-the-art super-specialty eye institute catering to IT corridor delegates and community outreach across Karnataka.",
-  },
-  {
-    name: "Sankara Eye Hospital, Shivamogga (Shimoga, Karnataka)",
-    keywords: ["shivamogga", "shimoga", "karnataka shivamogga"],
-    address: "Harakere, Honnali Road, Shivamogga, Karnataka - 577202",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Shimoga",
-    specialties: "Comprehensive Cataract (Phaco), Glaucoma Screening, Diabetic Retinopathy, Rural Community Eye Camps",
-    description: "Serving the Malnad region of Karnataka with world-class eye care services and community outreach.",
-  },
-  {
-    name: "Sankara Eye Hospital, Anand (Mogar, Gujarat)",
-    keywords: ["anand", "gujarat", "mogar"],
-    address: "NH 48, Mogar, Anand, Gujarat - 388340",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Anand+Gujarat",
-    specialties: "Super-Specialty Tertiary Eye Hospital, Advanced Phaco, Glaucoma Management, Cornea, Vitreo-Retina",
-    description: "NABH Accredited super-specialty hospital on NH 48 serving central Gujarat.",
-  },
-  {
-    name: "Sankara Eye Hospital, Ludhiana (Punjab)",
-    keywords: ["ludhiana", "punjab", "dhandari kalan"],
-    address: "VPO Dhandari Kalan, Ludhiana, Punjab - 141102",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Ludhiana",
-    specialties: "Comprehensive Cataract (Phacoemulsification), Cornea & Refractive Services, Glaucoma Clinic, Vitreo-Retina, Pediatric Ophthalmology, 24/7 Eye Trauma Care",
-    description: "Serving North India with high-quality super-specialty ophthalmic care, dedicated paying & subsidized community outreach wings.",
-  },
-  {
-    name: "Sankara Eye Hospital, Kanpur (Uttar Pradesh)",
-    keywords: ["kanpur", "panki", "uttar pradesh", "up"],
-    address: "Panki Industrial Area, Kanpur, Uttar Pradesh - 208020",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Kanpur",
-    specialties: "Comprehensive Phacoemulsification, Glaucoma, Cornea, Retina, Rural Outreach Programs",
-    description: "Leading eye care institution in Central UP providing subsidized and world-class private eye care.",
+    maps: "https://goo.gl/maps/vQpqReyeamp",
+    phone: "0863-2347800",
+    mobile: "+91 96666 77504",
+    eyeBankPhone: "0863-2594100 / +91 99516 04126",
+    email: "guntur@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: 09:00 to 13:30",
+    cmo: "Dr. Sudhakar Potti (MBBS, MS - Cornea & Refractive Services)",
+    doctors: [
+      "Dr. Sudhakar Potti (CMO, Cornea & Refractive)",
+      "Dr. Ashok Kanakamedala (Vitreoretinal Services)",
+      "Dr. Madhu Kumar R (Vitreoretinal Services)",
+      "Dr. Malleswari Medikonda (Glaucoma)",
+      "Dr. Madhuri V (Cataract, Cornea & Refractive)",
+      "Dr. Shashidhar Banigallapati (Cataract, Cornea)",
+      "Dr. Sowjanya Yerra (Orbit & Oculoplasty)",
+      "Dr. Srilakshmi Sikhakoli (Cataract & Glaucoma)",
+      "Dr. Nambula Srinivasa Rao (Paediatric Ophthalmology)",
+    ],
+    specialties: "225-Bed Capacity Super-Specialty, Cataract Clinic, Cornea and Refractive Services, Glaucoma, Orbit & Oculoplasty, Lasik, Paediatric & Squint, Vitreoretinal, Vision Rehabilitation",
+    description: "Established in 2004 across 4.35 acres land on the Vijayawada-Guntur highway.",
   },
   {
     name: "Sankara Eye Hospital, Jaipur (Rajasthan)",
-    keywords: ["jaipur", "rajasthan", "kukas"],
-    address: "Delhi-Jaipur Express Highway, Kukas, Jaipur, Rajasthan - 302028",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Jaipur",
-    specialties: "State-of-the-Art Ophthalmic Hospital, Free & Paid Wings, Cataract, Lasik, Retina",
-    description: "Serving Rajasthan and North-Western India with NABH-accredited ophthalmic infrastructure.",
+    keywords: ["jaipur", "rajasthan", "vidhyadhar nagar", "kukas"],
+    address: "Plot No: 6, Sector 6, Near Cinestar Cinema, Central Spine, Vidhyadhar Nagar, Jaipur, Rajasthan - 302039",
+    maps: "https://goo.gl/maps/HPKkFSxejYo",
+    phone: "0141-2256900",
+    mobile: "+91 73574 44473",
+    eyeBankPhone: "+91 93589 20080",
+    email: "jaipur@sankaraeye.com",
+    timings: "Monday to Saturday: 08:00 to 19:00 | Sunday: 09:00 to 17:00",
+    cmo: "Dr. Neeraj Shah (MBBS, DNB - Cataract, Cornea & Refractive Services)",
+    doctors: [
+      "Dr. Neeraj Shah (CMO, Cataract, Cornea & Refractive)",
+      "Dr. Gulshan Barwar (Vitreoretinal Services)",
+      "Dr. Jaswant Singh (Glaucoma & Cataract)",
+      "Dr. Visweswaran (Paediatric Ophthalmology)",
+      "Dr. Amit Mohan (Cataract, Paediatric Ophthalmology)",
+      "Dr. Nidhi Gupta (Glaucoma)",
+      "Dr. Priyanka Saini (Orbit & Oculoplasty)",
+      "Dr. Shreya Chandra (Cornea)",
+      "Dr. Ayushi Verma (Vitreo Retina)",
+    ],
+    specialties: "Centre of Excellence in Rajasthan, Cataract, Cornea, Glaucoma, Lasik & Laser Corrections, Paediatric & Strabismus, Uvea, Vitreoretinal, Vision Therapy, Milestone Autism Clinic, Retinopathy of Prematurity (ROP), VEP/ERG",
+    description: "Opened in December 2017 with cutting-edge surgical suites serving Rajasthan and North-Western India.",
+  },
+  {
+    name: "Sankara Eye Hospital, Kanpur (Uttar Pradesh)",
+    keywords: ["kanpur", "panki", "uttar pradesh", "amiliha", "tatiyaganj"],
+    address: "Village Panau Purwa, Amiliha, Post Tatiyaganj, Kanpur Nagar, Uttar Pradesh - 209217",
+    maps: "https://goo.gl/maps/KjaXaZCCPzL2",
+    phone: "0512-3500890",
+    mobile: "+91 80049 38219",
+    eyeBankPhone: "+91 80049 38219",
+    email: "kanpur@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: Holiday",
+    cmo: "Dr. Puneet Johri (MBBS, MS - Paediatric Ophthalmology)",
+    doctors: [
+      "Dr. Puneet Johri (CMO, Paediatric Ophthalmology)",
+      "Dr. Sharad Kumar Mishra (General Ophthalmology)",
+      "Dr. Akanksha Sinha (Cornea Services)",
+      "Dr. Atul Thadani (Vitreo Retina)",
+      "Dr. Gaurav Verma (Cornea & Refractive)",
+    ],
+    specialties: "Comprehensive Cataract, Cornea, Glaucoma, Orbit & Oculoplasty, Paediatric Ophthalmology, Uvea, Vision Enhancement & Rehabilitation, Vitreoretinal Services",
+    description: "Leading eye care institution in Central UP delivering high-quality ophthalmic care and rural blindness eradication.",
+  },
+  {
+    name: "Sankara Eye Hospital, Ludhiana (Punjab)",
+    keywords: ["ludhiana", "punjab", "ferozepur road", "bhanohar", "dhandari kalan"],
+    address: "Vipul World, Village Bhanohar, Post Dhaka Near Wadi Haveli, Ferozepur Road, Ludhiana, Punjab - 141101",
+    maps: "https://goo.gl/maps/PQ4kLNU4Xwm",
+    phone: "0161-5000289",
+    mobile: "+91 87250 00279 / +91 87250 00289",
+    eyeBankPhone: "+91 87250 00279",
+    email: "ludhiana@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: Closed",
+    cmo: "Dr. Manmeet Singh (Cornea & Refractive)",
+    doctors: [
+      "Dr. Manmeet Singh (CMO, Cornea)",
+      "Dr. Manoj Gupta (Cornea, Refractive & Eye Banking)",
+      "Dr. Ruminder Kaur (Vitreo Retinal, FAICO)",
+      "Dr. Ruchi Singh (Cataract)",
+      "Dr. Mannu Rampal (Glaucoma)",
+    ],
+    specialties: "125-Bed Hospital (100 Free / 25 Paid), Cataract Phacoemulsification, Cornea Transplants, Glaucoma, Orbit & Oculoplasty, Paediatric Ophthalmology, Vitreoretinal Services, 24/7 Eye Trauma Care",
+    description: "Established in 2012 across 2 acres serving Punjab and Northern India with high-quality subsidized and private eye care.",
+  },
+  {
+    name: "Sankara Eye Hospital, Shivamogga (Shimoga, Karnataka)",
+    keywords: ["shivamogga", "shimoga", "harakere", "thirthahalli", "malnad"],
+    address: "Thirthahalli Road, Harakere, Shivamogga, Karnataka - 577202",
+    maps: "https://goo.gl/maps/uvvwR77VdUn",
+    phone: "08182-222099 / 08182-222100",
+    mobile: "+91 90085 00116",
+    eyeBankPhone: "08182-222123 / +91 96111 67158",
+    email: "shimoga@sankaraeye.com",
+    timings: "Monday to Saturday: 08:00 to 18:00 | Sunday: 09:00 to 13:00",
+    cmo: "Dr. Mallikarjun M H (MBBS, DO, DNB - Cornea & Refractive Surgery)",
+    doctors: [
+      "Dr. Mallikarjun M H (CMO, Cornea & Refractive)",
+      "Dr. Mahesha S (Cataract & Trauma)",
+      "Dr. Ravi Shankar H N (Vitreo Retina)",
+      "Dr. Kavitha V (Paediatric Ophthalmology)",
+      "Dr. Kamala S (Glaucoma)",
+      "Dr. Rajashekar J (Cornea)",
+      "Dr. Roopasree B V (Cornea)",
+      "Dr. Pradeep Sagar B K (Vitreo Retina)",
+      "Dr. Usha M (Oculoplasty)",
+      "Dr. Suchitra Kumari Biswal (Medical Retina)",
+    ],
+    specialties: "225-Bed Malnad Regional Hub, Cataract, Cornea, Trauma, Glaucoma, Lasik, Orbit & Oculoplasty, Paediatric, Keratoconus Clinic, Vitreo Retina, Ocular Oncology, Myopia Clinic, Vision Therapy",
+    description: "Established in October 2008 in lush Malnad region serving Western Ghats and Central Karnataka districts.",
+  },
+  {
+    name: "Sankara Eye Hospital, Anand (Mogar, Gujarat)",
+    keywords: ["anand", "gujarat", "mogar", "nh 8"],
+    address: "National Highway No. 8, Mogar, Anand, Gujarat - 388340",
+    maps: "https://goo.gl/maps/KmF2Tbpz92G2",
+    phone: "02692-280450 / 02692-280460",
+    mobile: "+91 90990 45217",
+    eyeBankPhone: "1800 233 1214 (Toll Free)",
+    email: "anand@sankaraeye.com",
+    timings: "Monday to Saturday: 08:00 to 18:00 | Sunday: Emergency Services Only",
+    cmo: "Dr. Nisha Ahuja (MBBS, DOMS, FCRS - Cataract, Cornea & Refractive)",
+    doctors: [
+      "Dr. Nisha Ahuja (CMO, Cataract, Cornea & Refractive)",
+      "Dr. Ridhi Upadhyay (Paediatric Ophthalmology & Strabismus)",
+      "Dr. Hitendrasinh Parmar (General Ophthalmology)",
+      "Dr. Birva Dave (Vitreo-Retina Surgeon, MRCS)",
+    ],
+    specialties: "NABH Accredited Super-Specialty, Cataract, Cornea Transplants, Glaucoma, Orbit & Oculoplasty, Paediatric Ophthalmology, Uvea, Vitreoretinal Services, Neuro Vision Rehab, Low Vision Clinic",
+    description: "Established in 2008 on NH 8 Mogar, built with active support from NRI Gujarati families to eradicate blindness in Gujarat.",
   },
   {
     name: "Sankara Eye Hospital, Indore (Madhya Pradesh)",
-    keywords: ["indore", "madhya pradesh", "mp", "vijay nagar"],
-    address: "Scheme No. 78, Part II, Vijay Nagar, Indore, Madhya Pradesh - 452010",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Indore",
-    specialties: "NABH Accredited Super-Specialty, Micro-incision Cataract, Glaucoma, Pediatric Ophthalmology & Retina",
-    description: "Modern eye hospital in Vijay Nagar, Indore catering to Central India.",
+    keywords: ["indore", "madhya pradesh", "mp", "vijay nagar", "scheme 74c"],
+    address: "Scheme No 74C, Vijay Nagar, Indore, Madhya Pradesh - 452010",
+    maps: "https://goo.gl/maps/UjFKJfnRRzgqfcJT6",
+    phone: "0731-4744747",
+    mobile: "+91 98545 98445",
+    eyeBankPhone: "+91 62329 06013",
+    email: "indore@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: 09:00 to 17:00",
+    cmo: "Dr. Ankit Deokar (MBBS, MS, FCRS, MRCSED UK - Cornea & Cataract)",
+    doctors: [
+      "Dr. Ankit Deokar (CMO, Cornea & Cataract)",
+      "Dr. Ruchi Verma (General Ophthalmology)",
+      "Dr. Keshav Lahoti (Retina Consultant, FVRS)",
+      "Dr. Anu Litoria (Glaucoma)",
+      "Dr. Divya Dubey (Paediatric Ophthalmology & Strabismus)",
+      "Dr. Jaishree Lilani (Cornea)",
+      "Dr. Aditya Hemant Sane (Medical Retina)",
+      "Dr. Riya Bramhapurikar (Oculoplasty)",
+      "Dr. Sheetal Malviya (Glaucoma)",
+    ],
+    specialties: "NABH Accredited Centre, Micro-incision Cataract, Cornea & Keratoplasty (Transplants), Glaucoma, Lasik & Laser Vision, Orbit & Oculoplasty, Paediatric, Uvea, Vitreoretinal Services",
+    description: "Modern super-specialty eye centre in Vijay Nagar Indore serving Madhya Pradesh and Central India.",
   },
   {
-    name: "Sankara Eye Hospital, Varanasi (Uttar Pradesh)",
-    keywords: ["varanasi", "kashi", "banaras", "shivpur"],
-    address: "Shivpur / Rishi Valley Road, Varanasi, Uttar Pradesh",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Varanasi",
-    specialties: "Comprehensive Ophthalmology, High-Volume Cataract Surgeries, Diabetic Retinopathy, Rural Eye Camps",
-    description: "Serving Eastern Uttar Pradesh and Bihar border districts with super-specialty eye care.",
+    name: "RJ Sankara Eye Hospital, Panvel (Navi Mumbai, Maharashtra)",
+    keywords: ["panvel", "mumbai", "navi mumbai", "maharashtra", "rj sankara panvel"],
+    address: "Plot No: 13, Sector 5A, New Panvel East, Navi Mumbai, Maharashtra - 410206",
+    maps: "https://goo.gl/maps/GdHzq1i2py4i2ZBW6",
+    phone: "022-65454300",
+    mobile: "+91 77387 73914 / +91 72089 34916",
+    eyeBankPhone: "+91 88284 34354",
+    email: "panvel@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 20:00 | Sunday & Holidays: 09:00 to 18:00",
+    cmo: "Dr. Girish Shankar Budhrani (MBBS, DOMS, DNB, FCRS - Cornea)",
+    doctors: [
+      "Dr. Girish Shankar Budhrani (CMO, Cornea)",
+      "Dr. Akshay Gopinathan Nair (Ocular Oncology)",
+      "Dr. Ashwini Raut (Oculoplasty)",
+      "Dr. Priyadarshini (Paediatric Ophthalmology)",
+      "Dr. Snehal Vijaysinh Phalke (Vitreo Retinal)",
+    ],
+    specialties: "Tertiary Multi-Specialty Hospital, Advanced Cataract, Cornea & Refractive, Orbit & Oculoplasty, Paediatric Ophthalmology, Vitreoretinal, Ocular Oncology, Glaucoma, Orthoptics, Vision Therapy",
+    description: "Established in June 2021 with state-of-the-art operation theatres serving Navi Mumbai, Mumbai, and Konkan Maharashtra.",
   },
   {
     name: "Sankara Eye Hospital, Hyderabad (Telangana)",
-    keywords: ["hyderabad", "telangana", "gachibowli", "nanakramguda"],
-    address: "Financial District / Gachibowli, Hyderabad, Telangana",
-    maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Hyderabad",
-    specialties: "Super-Specialty Laser Vision Correction, Advanced Cataract & Retinal Consultations",
-    description: "Serving Telangana and Hyderabad with precision ophthalmic care.",
+    keywords: ["hyderabad", "telangana", "financial district", "gachibowli", "narsingi", "ranga reddy"],
+    address: "Syno: 188/2, Rajendra Nagar Financial District, Narsingi Village, Ranga Reddy, Hyderabad, Telangana - 500089",
+    maps: "https://goo.gl/maps/K5eHSp1VBSzvkixr9",
+    phone: "040-23456600",
+    mobile: "+91 78458 78423",
+    eyeBankPhone: "+91 78458 78423",
+    email: "hyderabad@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 20:00 | Sunday: 09:00 to 18:00",
+    cmo: "Dr. Simakurthy Sriram (MBBS, FRCS, MD AIIMS, DNB, FICO UK - Vitreo Retina & Ocular Oncology)",
+    doctors: [
+      "Dr. Simakurthy Sriram (CMO, Vitreo Retina & Ocular Oncology)",
+      "Dr. Prabhakar G V (Cataract, Cornea, Lasik)",
+      "Dr. M P Deepika (Medical Retina & Uvea)",
+      "Dr. Sirisha Polkampally (Orbit, Oculoplasty & Ocular Oncology)",
+      "Dr. Macwana Palak Niranjan (Paediatric Ophthalmology & Strabismus)",
+      "Dr. Vinti Sreedurga Kiranmayi (Vitreo Retina)",
+      "Dr. Balam Pradeep (Glaucoma)",
+    ],
+    specialties: "Super-Specialty Laser Vision Correction, Cataract, Retina, Cornea & Keratoplasty, Glaucoma, Paediatric & Strabismus, Orbit & Oculoplasty, Vision Therapy, Optical & Contact Lens",
+    description: "Modern tertiary hospital in Hyderabad's Financial District providing comprehensive clinical care and community outreach in Telangana.",
   },
   {
-    name: "RJ Sankara Eye Hospital, Panvel, Maharashtra",
-    keywords: ["panvel", "mumbai", "navi mumbai", "maharashtra", "rj sankara panvel"],
-    address: "Plot 1, Sector 5A, New Panvel East, Navi Mumbai, Maharashtra - 410206",
-    maps: "https://maps.google.com/?q=RJ+Sankara+Eye+Hospital+Panvel",
-    specialties: "Tertiary Multi-Specialty Eye Care, Laser Vision, Cataract, Cornea Transplants, Vitreo-Retina",
-    description: "State-of-the-art tertiary eye institute catering to Mumbai, Navi Mumbai, and the Konkan belt.",
+    name: "Sankara Eye Hospital, Varanasi (Uttar Pradesh)",
+    keywords: ["varanasi", "kashi", "banaras", "shivpur", "rishi valley"],
+    address: "Shivpur / Rishi Valley Road, Varanasi, Uttar Pradesh - 221003",
+    maps: "https://goo.gl/maps/QHDJPATBG22EiLYw8",
+    phone: "0542-3506789",
+    mobile: "+91 80049 38219",
+    eyeBankPhone: "0542-3506789",
+    email: "varanasi@sankaraeye.com",
+    timings: "Monday to Saturday: 09:00 to 18:00 | Sunday: 09:00 to 13:00",
+    cmo: "Dr. Saptagirish Rambhatla (MBBS, DO, DNB, MBA - Cataract, Oculoplasty & Anterior Segment)",
+    doctors: [
+      "Dr. Saptagirish Rambhatla (CMO, Cataract & Oculoplasty)",
+      "Dr. Sandeep Patiram Pal (Oculoplasty, Ocular Oncology)",
+      "Dr. Riddhi Arya (Vitreo-Retina)",
+      "Dr. Divya Bhargavi (Paediatrics, Squint & Cataract)",
+      "Dr. Rahul Kumar Jangid (Glaucoma)",
+      "Dr. Vibha Singh (Cornea & Anterior Segment)",
+      "Dr. Arun Kumar Singh (Cataract)",
+      "Dr. Swati Shokeen (Cataract)",
+      "Dr. Atish Kumar (Cataract)",
+    ],
+    specialties: "Comprehensive Ophthalmology, Cataract, Cornea & External Eye Diseases, Glaucoma, Paediatric & Strabismus, Orbit & Oculoplasty, Vitreoretinal, Computer Vision Clinic, Assistive Vision",
+    description: "Serving Eastern Uttar Pradesh and Bihar border regions with advanced surgical eye care and rural screening programs.",
+  },
+  {
+    name: "Sankara Eye Hospital, Krishnankoil (Tamil Nadu)",
+    keywords: ["krishnankoil", "srivilliputhur", "virudhunagar", "kunnur"],
+    address: "Kunnur PO, Srivilliputhur Taluk, Virudhunagar Dist, Krishnankoil, Tamil Nadu - 626190",
+    maps: "https://goo.gl/maps/Y4TXjZKYWrL2",
+    phone: "04563-289029",
+    mobile: "+91 99655 11183",
+    eyeBankPhone: "+91 99655 11183",
+    email: "krishnankoil@sankaraeye.com",
+    timings: "Monday to Sunday: 09:00 to 18:00",
+    cmo: "Dr. Sudha N (MBBS, DO - Cataract)",
+    doctors: [
+      "Dr. Sudha N (CMO, Cataract)",
+      "Dr. Banu Pavitra K (Cataract)",
+      "Dr. Manisha Paresh Agiwal (Cataract)",
+      "Dr. Meera Nasrin (Cataract & Glaucoma)",
+      "Dr. Sarabanu M (Cataract)",
+      "Dr. Tatabhatla Venkata Subhash Sagar (Cataract)",
+    ],
+    specialties: "6.1 Acres, 225-Bed Community Surgical Hospital, High-Volume Micro-incision Cataract, Cornea, Glaucoma, Paediatric Ophthalmology, Vitreoretinal Clinics",
+    description: "Handed over in 2004, serving Southern Tamil Nadu districts with rural surgical care.",
   },
   {
     name: "RJ Sankara Eye Hospital, Patna, Bihar (Upcoming 15th Unit)",
     keywords: ["patna", "bihar", "upcoming 15th", "rj sankara patna", "patna hospital"],
     address: "Patna, Bihar",
     maps: "https://maps.google.com/?q=Sankara+Eye+Hospital+Patna",
-    specialties: "Upcoming 15th Super-Specialty Eye Hospital of Sankara Eye Foundation India with high-volume surgical suites, Cornea, Retina, and Glaucoma clinics",
+    phone: "1800 233 1214",
+    mobile: "+91 89515 68286",
+    eyeBankPhone: "+91 89515 68286",
+    email: "patna@sankaraeye.com",
+    timings: "Upcoming Hospital Project / Foundation Office Open Mon-Sat 09:00 to 18:00",
+    cmo: "Central Medical Directorate, Sankara Eye Foundation India",
+    doctors: ["Senior Faculty & Surgical Specialists from Coimbatore HQ & Bangalore"],
+    specialties: "Upcoming 15th Super-Specialty Eye Hospital with high-volume surgical suites, Cornea Transplants, Retina, Paediatric, and Glaucoma clinics",
     description: "The 15th Sankara Eye Hospital bringing world-class ophthalmic care and community blindness eradication to Bihar and Eastern India.",
   },
 ];
@@ -334,13 +558,32 @@ function generateLocalGroundedAnswer(
     return `📸 **Sankara Event Photographs & Media Galleries**\n\nEvent photographs are published individually per conference:\n\n- **20th Annual National Ophthalmology Conference (Vision 2020)**: [Samaro AI Photo Gallery](https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media)\n- **Other Conferences & CMEs**: Available on each respective [Event Details Page](/events).\n\n👉 **[Browse Events Directory](/events)**`;
   }
 
-  // 2. Specific Hospital Branch Matcher (e.g. Ludhiana, Coimbatore, Bangalore, Guntur, etc.)
+  // 2. Specific Hospital Branch Matcher (e.g. Bangalore, Coimbatore, Guntur, Jaipur, Kanpur, Ludhiana, Shimoga, etc.)
   const matchedBranch = SANKARA_BRANCHES.find((b) =>
     b.keywords.some((k) => q.includes(k))
   );
 
   if (matchedBranch) {
-    return `🏥 **${matchedBranch.name}**\n\n- 📍 **Address**: ${matchedBranch.address}\n- 🗺️ **Google Maps Navigation**: [Click to Open Google Maps](${matchedBranch.maps})\n- 🔬 **Clinical Super-Specialties**: ${matchedBranch.specialties}\n- ℹ️ **About Branch**: ${matchedBranch.description}\n- 🥗 **Hospital Ethos**: **100% Pure Vegetarian** dietary service & 80:20 community cross-subsidization model.\n- 🌐 **Official Website**: [sankaraeye.com](https://sankaraeye.com)\n\n👉 **[Explore Upcoming Conferences & CMEs](/events)** | **[Academic Calendar](/calendar)**`;
+    const doctorsList = matchedBranch.doctors && matchedBranch.doctors.length > 0
+      ? `\n- 👨‍⚕️ **Key Doctors & Specialists**:\n${matchedBranch.doctors.map((d: string) => `  • ${d}`).join("\n")}`
+      : "";
+
+    return `🏥 **${matchedBranch.name}**
+
+- 📍 **Address**: ${matchedBranch.address}
+- 🗺️ **Google Maps Navigation**: [Click to Open Live Google Maps](${matchedBranch.maps})
+- 🕒 **Working Hours & OPD**: ${matchedBranch.timings}
+- 📞 **Landline / Board**: \`${matchedBranch.phone}\`
+- 📱 **Helpline / Mobile**: \`${matchedBranch.mobile}\`
+- 👁️ **Eye Bank Helpline**: \`${matchedBranch.eyeBankPhone}\`
+- 📧 **Official Email**: \`${matchedBranch.email}\`
+- 👨‍⚕️ **Chief Medical Officer (CMO)**: **${matchedBranch.cmo}**${doctorsList}
+- 🔬 **Clinical Super-Specialties**: ${matchedBranch.specialties}
+- ℹ️ **About Branch**: ${matchedBranch.description}
+- 🥗 **Hospital Ethos**: **100% Pure Vegetarian** dietary service & 80:20 community cross-subsidization model.
+- 🌐 **Official Website**: [sankaraeye.com](https://sankaraeye.com)
+
+👉 **[Browse Upcoming Medical Conferences & CMEs](/events)** | **[Open Interactive Calendar](/calendar)**`;
   }
 
   // 3. Contact, Staff, Organizers, Secretariat & Helpline Inquiries (e.g. Saravanan D, Secretariat, Helpdesk, Support, Phone)
@@ -695,13 +938,14 @@ ${parsedAgenda ? `- Detailed Schedule & Sessions:\n${parsedAgenda}` : ""}
               });
             } catch { }
 
-            return res.json({
+            res.json({
               response: kbAnswer,
               sessionId,
               modelUsed: "Sankara-Verified-KnowledgeBase",
               latencyMs,
               timestamp: new Date().toISOString(),
             });
+            return;
           }
         }
 
@@ -862,7 +1106,16 @@ ${eventsContext}
   // ── 2. POST /api/chat/escalate — Escalate Unresolved Query to Human Secretariat ──
   router.post("/chat/escalate", async (req, res): Promise<void> => {
     try {
-      const { userEmail, userPhone, userMessage, userIdentifier, botDraftResponse } = req.body;
+      const {
+        userEmail,
+        userPhone,
+        userMessage,
+        userIdentifier,
+        userName,
+        unit,
+        category,
+        botDraftResponse,
+      } = req.body;
 
       if (!userEmail || !userMessage) {
         res.status(400).json({ error: "userEmail and userMessage are required to log an escalation ticket." });
@@ -870,15 +1123,21 @@ ${eventsContext}
       }
 
       const ticketNumber = `SEFI-${Math.floor(100000 + Math.random() * 900000)}`;
+      const prefixParts = [];
+      if (unit && unit !== "All / Central Secretariat") prefixParts.push(`[Unit: ${unit}]`);
+      if (category) prefixParts.push(`[Category: ${category}]`);
+      const formattedMessage = prefixParts.length > 0 ? `${prefixParts.join(" ")} ${userMessage.trim()}` : userMessage.trim();
+
+      const finalUserIdentifier = userName?.trim() || userIdentifier || "Anonymous Delegate";
 
       const [ticket] = await db
         .insert(unresolvedQueriesTable)
         .values({
           ticketNumber,
-          userIdentifier: userIdentifier || "Anonymous Delegate",
+          userIdentifier: finalUserIdentifier,
           userEmail: userEmail.trim().toLowerCase(),
           userPhone: userPhone ? userPhone.trim() : null,
-          userMessage: userMessage.trim(),
+          userMessage: formattedMessage,
           botDraftResponse: botDraftResponse ? String(botDraftResponse).trim() : null,
           status: "pending",
         })

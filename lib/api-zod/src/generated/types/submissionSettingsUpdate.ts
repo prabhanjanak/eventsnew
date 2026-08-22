@@ -20,8 +20,11 @@ export interface SubmissionSettingsUpdate {
   smtpFromEmail?: string;
   smtpFromName?: string;
   smtpSecure?: boolean;
+  razorpayKeyId?: string;
+  razorpayKeySecret?: string;
   sessionTimeoutMinutes?: number;
   googleSheetUrl?: string;
   liveTvUrl?: string;
   conferenceMapUrl?: string;
+  supportTicketCcEmails?: string;
 }

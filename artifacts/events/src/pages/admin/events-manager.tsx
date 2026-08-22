@@ -42,9 +42,150 @@ import {
   Filter,
   Check,
   TrendingUp,
-  Globe,
-  FileText,
 } from "lucide-react";
+import { formatDateDDMMYYYY, formatDateRange24h, formatTime24h } from "@/lib/date-utils";
+
+export interface PricingTier {
+  id: string;
+  name: string;
+  role: string;
+  price: number;
+  earlyBirdPrice?: number;
+  earlyBirdDeadline?: string;
+  description?: string;
+  inclusions?: string[];
+  badgeLabel?: string;
+  popular?: boolean;
+}
+
+export const ROLE_OPTIONS = [
+  { id: "delegate", label: "Official CME Delegate" },
+  { id: "student", label: "PG Resident / Fellow / Student" },
+  { id: "member", label: "Sankara / AIOS Member" },
+  { id: "non_member", label: "Non-Member Physician" },
+  { id: "faculty", label: "Faculty / Speaker" },
+  { id: "attendee", label: "General Attendee / Observer" },
+  { id: "international", label: "International / Overseas Delegate" },
+  { id: "accompanying", label: "Accompanying Person" },
+  { id: "vip", label: "VIP / Dignitary" },
+  { id: "sponsor", label: "Exhibitor / Sponsor Representative" },
+];
+
+export const PRESET_PRICING_CME_5_TIERS: PricingTier[] = [
+  {
+    id: "attendee",
+    name: "General Attendee",
+    role: "attendee",
+    price: 1500,
+    earlyBirdPrice: 1200,
+    description: "Ideal for observers, hospital visitors, and general delegates.",
+    inclusions: ["Access to Keynote & Main Stage", "Digital QR Pass", "E-Certificate of Attendance", "Conference Lunch & Refreshments"],
+    badgeLabel: "Early Bird 20% OFF",
+    popular: false,
+  },
+  {
+    id: "delegate",
+    name: "Official CME Delegate",
+    role: "delegate",
+    price: 3000,
+    earlyBirdPrice: 2400,
+    description: "Full clinical conference delegation with accredited CME points.",
+    inclusions: ["Priority Seating in Auditorium", "Accredited CME Credits", "Hands-on Workshops", "Delegate Goodie Bag", "Lunch & Dining"],
+    badgeLabel: "Most Popular",
+    popular: true,
+  },
+  {
+    id: "member",
+    name: "Sankara / AIOS Member",
+    role: "member",
+    price: 2000,
+    earlyBirdPrice: 1600,
+    description: "Exclusive subsidized tariff for active institutional and society members.",
+    inclusions: ["Subsidized Member Tariff", "Member Lounge Access", "All CME Tracks", "Member Badge & Certificate"],
+    badgeLabel: "Member Tariff",
+    popular: false,
+  },
+  {
+    id: "non_member",
+    name: "Non-Member Physician",
+    role: "non_member",
+    price: 2800,
+    earlyBirdPrice: 2200,
+    description: "Standard registration for non-member practicing clinicians and surgeons.",
+    inclusions: ["Full Scientific Conference Access", "CME Credit Certificate", "Delegate Welcome Kit", "All-Days Refreshments & Lunch"],
+    badgeLabel: "Standard",
+    popular: false,
+  },
+  {
+    id: "student_pg",
+    name: "PG Resident / Fellow",
+    role: "student",
+    price: 999,
+    earlyBirdPrice: 799,
+    description: "Special subsidized rate for post-graduate students, residents, and research fellows.",
+    inclusions: ["Heavy Subsidized Student Fee", "Poster & Paper Presentation Eligibility", "Resident Masterclass Access", "Student Lunch"],
+    badgeLabel: "Student Rate",
+    popular: false,
+  },
+];
+
+export const PRESET_PRICING_WORKSHOP_3_TIERS: PricingTier[] = [
+  {
+    id: "hands_on_trainee",
+    name: "Hands-on Wet Lab Trainee",
+    role: "delegate",
+    price: 5000,
+    earlyBirdPrice: 4000,
+    description: "Full hands-on wet-lab workstation and 1-on-1 surgical mentoring.",
+    inclusions: ["Dedicated Surgical Simulator/Station", "Mentorship from Chief Surgeons", "Certificate of Competence", "Full Workshop Catering"],
+    badgeLabel: "Hands-on",
+    popular: true,
+  },
+  {
+    id: "observer",
+    name: "Workshop Observer",
+    role: "attendee",
+    price: 2500,
+    earlyBirdPrice: 2000,
+    description: "Access to observation gallery, video relay, and interactive Q&A.",
+    inclusions: ["Observation Suite Access", "Video Relays & Discussion", "Participant Certificate", "Workshop Lunch"],
+    badgeLabel: "Observer",
+    popular: false,
+  },
+  {
+    id: "faculty_mentor",
+    name: "Faculty / Instructor",
+    role: "faculty",
+    price: 0,
+    earlyBirdPrice: 0,
+    description: "Complimentary masterclass instructor badge.",
+    inclusions: ["Faculty Lounge", "Instructor Honors", "All Sessions & VIP Hospitality"],
+    popular: false,
+  },
+];
+
+export const PRESET_PRICING_FREE: PricingTier[] = [
+  {
+    id: "attendee",
+    name: "General Attendee",
+    role: "attendee",
+    price: 0,
+    earlyBirdPrice: 0,
+    description: "Complimentary general admission pass for registered attendees.",
+    inclusions: ["Access to General Sessions", "Digital QR Pass", "E-Certificate of Participation"],
+    popular: false,
+  },
+  {
+    id: "delegate",
+    name: "Official Delegate",
+    role: "delegate",
+    price: 0,
+    earlyBirdPrice: 0,
+    description: "Full clinical delegation pass for doctors, optometrists and hospital staff.",
+    inclusions: ["Priority Hall Seating", "All Academic Tracks & CME", "Delegate Goodie Bag", "Catering & Lunch"],
+    popular: true,
+  },
+];
 
 export interface AgendaSlot {
   id: string;
@@ -180,11 +321,43 @@ export default function EventsManager() {
   const [timeFrom, setTimeFrom] = useState("09:00 AM");
   const [timeTo, setTimeTo] = useState("05:00 PM");
   
-  // Payment & Razorpay
+  // Payment & Razorpay & Multi-Role Pricing Tiers
   const [isPaid, setIsPaid] = useState(false);
   const [registrationFee, setRegistrationFee] = useState(0);
   const [razorpayKeyId, setRazorpayKeyId] = useState("");
   const [razorpayKeySecret, setRazorpayKeySecret] = useState("");
+  const [pricingTiers, setPricingTiers] = useState<PricingTier[]>(PRESET_PRICING_FREE);
+
+  const addPricingTier = () => {
+    const newTier: PricingTier = {
+      id: `tier-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name: "Special Role Delegate",
+      role: "delegate",
+      price: isPaid ? 2000 : 0,
+      earlyBirdPrice: isPaid ? 1600 : 0,
+      description: "Custom role-based delegation pass.",
+      inclusions: ["Main Auditorium Seating", "E-Badge & Pass", "Event Dining"],
+      badgeLabel: "",
+      popular: false,
+    };
+    setPricingTiers((prev) => [...prev, newTier]);
+  };
+
+  const updatePricingTier = (index: number, updates: Partial<PricingTier>) => {
+    setPricingTiers((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], ...updates };
+      return copy;
+    });
+  };
+
+  const removePricingTier = (index: number) => {
+    setPricingTiers((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const applyPricingPreset = (preset: PricingTier[]) => {
+    setPricingTiers(preset.map((t) => ({ ...t, id: `tier-${Date.now()}-${Math.random().toString(36).substr(2, 4)}` })));
+  };
 
   // Approvals & Limits
   const [requiresApproval, setRequiresApproval] = useState(false);
@@ -430,6 +603,7 @@ export default function EventsManager() {
     setTimeTo("05:00 PM");
     setIsPaid(false);
     setRegistrationFee(0);
+    setPricingTiers(PRESET_PRICING_FREE);
     setRazorpayKeyId("");
     setRazorpayKeySecret("");
     setRequiresApproval(false);
@@ -470,6 +644,18 @@ export default function EventsManager() {
     setRegistrationFee(ev.registrationFee || 0);
     setRazorpayKeyId(ev.razorpayKeyId || "");
     setRazorpayKeySecret(ev.razorpayKeySecret || "");
+
+    try {
+      const parsedTiers = ev.pricingTiersJson ? JSON.parse(ev.pricingTiersJson) : (ev.pricingTiers || []);
+      setPricingTiers(
+        Array.isArray(parsedTiers) && parsedTiers.length > 0
+          ? parsedTiers
+          : (ev.isPaid ? PRESET_PRICING_CME_5_TIERS : PRESET_PRICING_FREE)
+      );
+    } catch {
+      setPricingTiers(ev.isPaid ? PRESET_PRICING_CME_5_TIERS : PRESET_PRICING_FREE);
+    }
+
     setRequiresApproval(Boolean(ev.requiresApproval));
     setRegistrationOpen(ev.registrationOpen !== false);
     setMaxCapacity(ev.maxCapacity ? String(ev.maxCapacity) : "");
@@ -610,7 +796,8 @@ export default function EventsManager() {
         timeFrom,
         timeTo,
         isPaid,
-        registrationFee: isPaid ? Number(registrationFee) : 0,
+        registrationFee: isPaid ? (pricingTiers[0]?.price || Number(registrationFee) || 0) : 0,
+        pricingTiersJson: JSON.stringify(pricingTiers),
         razorpayKeyId: razorpayKeyId.trim() || null,
         razorpayKeySecret: razorpayKeySecret.trim() || null,
         requiresApproval,
@@ -1215,55 +1402,211 @@ export default function EventsManager() {
               </div>
             </div>
 
-            {/* 3. Pricing & Razorpay Gateway */}
+            {/* 3. Multi-Role Pricing & Razorpay Gateway */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">3. Pricing &amp; Razorpay Gateway</h3>
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-[#09090B] border border-[#2B2B32]">
-                <div className="space-y-0.5">
-                  <span className="font-bold text-xs text-white">Paid Registration Event</span>
-                  <p className="text-[11px] text-zinc-400">Collect delegate entry fee via integrated Razorpay gateway</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">3. Multi-Role Pricing &amp; Registration Tiers</h3>
+                  <p className="text-[11px] text-zinc-500">Configure role-specific registration fees (e.g. PG Students, Delegates, Faculty, Members)</p>
                 </div>
-                <Switch checked={isPaid} onCheckedChange={setIsPaid} />
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-zinc-300">Paid Event:</span>
+                  <Switch
+                    checked={isPaid}
+                    onCheckedChange={(checked) => {
+                      setIsPaid(checked);
+                      if (checked && pricingTiers.every((t) => t.price === 0)) {
+                        setPricingTiers(PRESET_PRICING_CME_5_TIERS);
+                      }
+                    }}
+                  />
+                </div>
               </div>
 
-              {isPaid && (
-                <div className="space-y-3 p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32]">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs font-bold text-zinc-300">Registration Fee (₹ INR) *</Label>
-                    <Input
-                      type="number"
-                      required
-                      min={1}
-                      placeholder="e.g. 2000"
-                      value={registrationFee}
-                      onChange={(e) => setRegistrationFee(Number(e.target.value))}
-                      className="rounded-xl bg-[#141417] border-[#2B2B32] text-white"
-                    />
+              {/* Tiers Management Controls */}
+              <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#202026] pb-3">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[11px] font-bold text-zinc-400">Apply Presets:</span>
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset(PRESET_PRICING_CME_5_TIERS)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#14141A] hover:bg-[#1E1E28] text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
+                    >
+                      5-Tier CME Conference
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset(PRESET_PRICING_WORKSHOP_3_TIERS)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#14141A] hover:bg-[#1E1E28] text-cyan-300 border border-cyan-500/30 transition-colors cursor-pointer"
+                    >
+                      3-Tier Workshop
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyPricingPreset(PRESET_PRICING_FREE)}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#14141A] hover:bg-[#1E1E28] text-emerald-300 border border-emerald-500/30 transition-colors cursor-pointer"
+                    >
+                      Complimentary Free
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-zinc-300">Razorpay Key ID (Optional override)</Label>
-                      <Input
-                        placeholder="rzp_live_..."
-                        value={razorpayKeyId}
-                        onChange={(e) => setRazorpayKeyId(e.target.value)}
-                        className="rounded-xl bg-[#141417] border-[#2B2B32] font-mono text-xs text-white"
-                      />
+                  <Button
+                    type="button"
+                    onClick={addPricingTier}
+                    size="sm"
+                    className="h-7 px-2.5 rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 text-xs font-bold gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Tier</span>
+                  </Button>
+                </div>
+
+                {/* Tiers List */}
+                <div className="space-y-3">
+                  {pricingTiers.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-zinc-500">
+                      No pricing tiers configured. Click "Add Tier" or choose a preset above.
                     </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-bold text-zinc-300">Razorpay Key Secret</Label>
-                      <Input
-                        type="password"
-                        placeholder="••••••••••••"
-                        value={razorpayKeySecret}
-                        onChange={(e) => setRazorpayKeySecret(e.target.value)}
-                        className="rounded-xl bg-[#141417] border-[#2B2B32] font-mono text-xs text-white"
-                      />
+                  ) : (
+                    pricingTiers.map((tier, idx) => (
+                      <div
+                        key={tier.id || idx}
+                        className="p-3.5 rounded-xl bg-[#121217] border border-[#23232C] space-y-3 relative group"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-zinc-800 text-zinc-300 flex items-center justify-center text-[10px] font-bold font-mono">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-black text-white">{tier.name}</span>
+                            {tier.popular && (
+                              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[9px] font-bold uppercase">
+                                Popular
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => updatePricingTier(idx, { popular: !tier.popular })}
+                              className={`text-[10px] px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer ${
+                                tier.popular
+                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                  : "bg-[#1A1A22] text-zinc-400 hover:text-zinc-200 border border-[#2B2B38]"
+                              }`}
+                            >
+                              ★ {tier.popular ? "Highlighted" : "Highlight"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removePricingTier(idx)}
+                              className="p-1 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                              title="Delete Tier"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                          <div className="sm:col-span-2 space-y-1">
+                            <Label className="text-[10px] font-bold text-zinc-400">Tier Display Name</Label>
+                            <Input
+                              value={tier.name}
+                              onChange={(e) => updatePricingTier(idx, { name: e.target.value })}
+                              placeholder="e.g. PG Resident / Fellow"
+                              className="h-8 rounded-lg text-xs bg-[#09090C] border-[#2B2B35] text-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-zinc-400">Target Role / Category</Label>
+                            <Select
+                              value={tier.role || "delegate"}
+                              onValueChange={(val) => updatePricingTier(idx, { role: val })}
+                            >
+                              <SelectTrigger className="h-8 rounded-lg text-xs bg-[#09090C] border-[#2B2B35] text-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className="bg-[#18181F] border-[#2A2A35] text-white">
+                                {ROLE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.id} value={opt.id} className="text-xs">
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-zinc-400">Standard Price (₹)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={tier.price}
+                              onChange={(e) => updatePricingTier(idx, { price: Number(e.target.value) })}
+                              placeholder="₹ 2000"
+                              className="h-8 rounded-lg text-xs bg-[#09090C] border-[#2B2B35] text-white font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-zinc-400">Early Bird Price (₹ Optional)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={tier.earlyBirdPrice !== undefined ? tier.earlyBirdPrice : ""}
+                              onChange={(e) => updatePricingTier(idx, { earlyBirdPrice: e.target.value === "" ? undefined : Number(e.target.value) })}
+                              placeholder="e.g. 1600"
+                              className="h-8 rounded-lg text-xs bg-[#09090C] border-[#2B2B35] text-white font-mono"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <Label className="text-[10px] font-bold text-zinc-400">Short Description</Label>
+                            <Input
+                              value={tier.description || ""}
+                              onChange={(e) => updatePricingTier(idx, { description: e.target.value })}
+                              placeholder="e.g. Subsidized rate for clinical residents"
+                              className="h-8 rounded-lg text-xs bg-[#09090C] border-[#2B2B35] text-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {isPaid && (
+                  <div className="pt-3 border-t border-[#202026] space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-zinc-300">Razorpay Key ID (Optional override)</Label>
+                        <Input
+                          placeholder="rzp_live_..."
+                          value={razorpayKeyId}
+                          onChange={(e) => setRazorpayKeyId(e.target.value)}
+                          className="rounded-xl bg-[#141417] border-[#2B2B32] font-mono text-xs text-white"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-zinc-300">Razorpay Key Secret</Label>
+                        <Input
+                          type="password"
+                          placeholder="••••••••••••"
+                          value={razorpayKeySecret}
+                          onChange={(e) => setRazorpayKeySecret(e.target.value)}
+                          className="rounded-xl bg-[#141417] border-[#2B2B32] font-mono text-xs text-white"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* 4. Feature Toggles & Scanner Logistics */}

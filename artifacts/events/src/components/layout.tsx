@@ -80,6 +80,7 @@ export function AppLayout({ children }: LayoutProps) {
 
           items.push(
             { label: "Agenda & PDF Editor", href: `/admin/event-sessions?eventId=${eid}`, icon: CalendarDays },
+            { label: "Google Sheets Sync", href: `/admin/sync-sessions?eventId=${eid}`, icon: RefreshCw },
             { label: "WhatsApp Broadcast", href: `/admin/whatsapp?eventId=${eid}`, icon: MessageSquare },
             { label: "AI Escalations & KB", href: `/admin/unresolved-queries`, icon: HelpCircle },
             { label: "AI Chatbot Logs", href: `/admin/chat-logs`, icon: Bot }
@@ -93,7 +94,6 @@ export function AppLayout({ children }: LayoutProps) {
           { label: "Events Directory", href: "/admin/events", icon: Layers },
           { label: "Staff & Coordinators", href: "/admin/system-users", icon: Database },
           { label: "Staff Active Sessions", href: "/admin/sessions", icon: Shield },
-          { label: "Session Sync Engine", href: "/admin/sync-sessions", icon: RefreshCw },
           { label: "Traffic Telemetry", href: "/admin/traffic", icon: BarChart2 },
           { label: "AI Escalations & KB", href: "/admin/unresolved-queries", icon: HelpCircle },
           { label: "AI Chatbot Logs", href: "/admin/chat-logs", icon: MessageSquare },

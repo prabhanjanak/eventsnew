@@ -192,6 +192,7 @@ export async function ensureSuperAdmin() {
           updated_at timestamp with time zone DEFAULT now()
         )`,
         `CREATE INDEX IF NOT EXISTS ai_knowledge_base_active_idx ON ai_knowledge_base(is_active)`,
+        `ALTER TABLE submission_settings ADD COLUMN IF NOT EXISTS support_ticket_cc_emails text DEFAULT 'saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com'`,
       ];
 
       for (const statement of ddlStatements) {

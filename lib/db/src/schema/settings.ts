@@ -25,6 +25,7 @@ export const submissionSettingsTable = pgTable("submission_settings", {
   liveTvUrl: text("live_tv_url"),
   googleServiceAccountEmail: text("google_service_account_email"),
   googleServiceAccountKey: text("google_service_account_key"),
+  supportTicketCcEmails: text("support_ticket_cc_emails").default("saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

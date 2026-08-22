@@ -454,120 +454,146 @@ export default function AdminSyncSessions() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Session Sync Manager</h1>
-          <p className="text-gray-500 mt-1">Configure raw Google Sheet IDs, location details, and field mappings per session</p>
+    <div className="space-y-8 max-w-7xl mx-auto text-zinc-100 animate-in fade-in duration-300">
+      {/* ── HEADER ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#222228] pb-6">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase font-mono tracking-wider">
+              Google Sheets Live Sync Engine
+            </span>
+            <span className="text-zinc-600">•</span>
+            <span className="text-xs text-zinc-400 font-medium">Bidirectional Cloud Integration</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
+            <RefreshCw className="w-7 h-7 text-emerald-400" />
+            <span>Session Sync Manager</span>
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-400 max-w-3xl">
+            Configure Google Sheet IDs, location mappings, and column schemas for automated delegate, faculty, and session synchronizations.
+          </p>
         </div>
+
         <Button
           onClick={openCreateDialog}
-          className="bg-[#F58220] hover:bg-[#e07010] text-white shadow-sm font-semibold gap-2"
+          className="bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider h-11 px-5 rounded-2xl gap-2 shadow-lg shadow-white/5 cursor-pointer shrink-0"
         >
-          <Plus className="w-4 h-4" /> New Session Config
+          <Plus className="w-4 h-4 text-zinc-950" />
+          <span>New Session Config</span>
         </Button>
       </div>
 
-      <Card className="border border-slate-100 shadow-sm overflow-hidden bg-white/70 backdrop-blur-md">
-        <CardHeader className="pb-2">
-          <CardTitle>Configured Event Sessions</CardTitle>
-          <CardDescription>
-            Activate a session configuration to automatically route the sync scheduler and location parameters across the portal.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
+      {/* ── CONFIGURED SESSIONS TABLE ───────────────────────────────────────── */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-[#141417] border border-[#26262D] shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="space-y-1">
+            <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+              <Database className="w-5 h-5 text-violet-400" />
+              Configured Event Sessions
+            </h2>
+            <p className="text-xs text-zinc-400">
+              Active sessions automatically drive the background sync scheduler and venue location parameters.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#23232A] bg-[#0C0C0F] overflow-hidden">
           <Table>
-            <TableHeader className="bg-slate-50/50">
-              <TableRow>
-                <TableHead className="font-semibold text-slate-800">Status</TableHead>
-                <TableHead className="font-semibold text-slate-800">Session Name</TableHead>
-                <TableHead className="font-semibold text-slate-800">Google Sheet ID</TableHead>
-                <TableHead className="font-semibold text-slate-800">Location Name</TableHead>
-                <TableHead className="font-semibold text-slate-800">Fields Mapped</TableHead>
-                <TableHead className="text-right font-semibold text-slate-800">Actions</TableHead>
+            <TableHeader className="bg-[#101013]/90 border-b border-[#23232A]">
+              <TableRow className="border-none hover:bg-transparent">
+                <TableHead className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5 pl-5">Status</TableHead>
+                <TableHead className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5">Session Name</TableHead>
+                <TableHead className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5">Google Sheet ID</TableHead>
+                <TableHead className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5">Location</TableHead>
+                <TableHead className="font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5">Fields Mapped</TableHead>
+                <TableHead className="text-right font-bold text-[11px] uppercase tracking-wider text-zinc-400 py-3.5 pr-5">Actions</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody className="divide-y divide-[#1D1D24]">
               {sessions?.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-gray-400 italic">
-                    No session configurations found. Click "New Session Config" to add one.
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={6} className="h-36 text-center text-zinc-500 text-xs italic">
+                    No session configurations found. Click "New Session Config" above to add one.
                   </TableCell>
                 </TableRow>
               ) : (
                 sessions?.map((session) => {
                   const mappedCount = Object.values(session.fieldMappings || {}).filter(Boolean).length;
                   return (
-                    <TableRow key={session.id} className="hover:bg-slate-50/30 transition-colors">
-                      <TableCell>
+                    <TableRow key={session.id} className="hover:bg-[#15151B] transition-colors border-none">
+                      <TableCell className="pl-5 py-4">
                         {session.isActive ? (
-                          <Badge className="bg-green-100 hover:bg-green-150 text-green-700 border border-green-200 font-bold gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Active
+                          <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold gap-1 text-[10px] px-2.5 py-0.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> Active
                           </Badge>
                         ) : (
                           <Badge
                             variant="outline"
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 font-medium cursor-pointer"
+                            className="bg-zinc-800/60 hover:bg-zinc-700/80 text-zinc-400 hover:text-white border-zinc-700 font-medium cursor-pointer text-[10px] px-2.5 py-0.5 transition-all"
                             onClick={() => handleActivate(session.id)}
                           >
                             Activate
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="font-bold text-slate-900">{session.name}</TableCell>
-                      <TableCell className="font-mono text-xs text-gray-500 max-w-xs truncate">
+                      <TableCell className="font-bold text-white text-sm py-4">{session.name}</TableCell>
+                      <TableCell className="font-mono text-xs text-zinc-400 max-w-xs truncate py-4">
                         {session.googleSheetId}
                       </TableCell>
-                      <TableCell className="text-slate-700 gap-1.5 flex items-center pt-4">
-                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" /> {session.locationName}
+                      <TableCell className="text-zinc-300 text-xs py-4">
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" /> {session.locationName}
+                        </span>
                       </TableCell>
-                      <TableCell className="text-slate-600">
-                        <span className="font-semibold text-orange-600">{mappedCount}</span> / 11 fields
+                      <TableCell className="text-zinc-400 text-xs py-4">
+                        <span className="font-bold text-amber-400">{mappedCount}</span> / 13 fields
                       </TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 border-slate-200 hover:bg-slate-50"
-                          onClick={() => handleValidate(session.id)}
-                          disabled={validatingId !== null || syncingId !== null}
-                        >
-                          {validatingId === session.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            "Test ID"
-                          )}
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="h-8 bg-white hover:bg-zinc-200 text-zinc-950 font-bold rounded-lg cursor-pointer border-none"
-                          onClick={() => handleSync(session.id)}
-                          disabled={validatingId !== null || syncingId !== null}
-                        >
-                          {syncingId === session.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Play className="w-3.5 h-3.5 mr-1" />
-                          )}
-                          Sync
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-blue-600 border-blue-200 hover:bg-blue-50"
-                          onClick={() => openEditDialog(session)}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 border-red-200 hover:bg-red-50"
-                          onClick={() => handleDelete(session.id, session.name)}
-                          disabled={session.isActive}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                      <TableCell className="text-right pr-5 py-4">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 border-[#2E2E38] bg-[#14141A] hover:bg-[#1E1E26] text-zinc-300 text-xs font-bold rounded-xl"
+                            onClick={() => handleValidate(session.id)}
+                            disabled={validatingId !== null || syncingId !== null}
+                          >
+                            {validatingId === session.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              "Test ID"
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-sm gap-1 cursor-pointer"
+                            onClick={() => handleSync(session.id)}
+                            disabled={validatingId !== null || syncingId !== null}
+                          >
+                            {syncingId === session.id ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Play className="w-3 h-3 fill-current" />
+                            )}
+                            Sync
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 text-cyan-400 border-cyan-800/40 bg-cyan-950/20 hover:bg-cyan-900/40 rounded-xl"
+                            onClick={() => openEditDialog(session)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 text-rose-400 border-rose-800/40 bg-rose-950/20 hover:bg-rose-900/40 rounded-xl"
+                            onClick={() => handleDelete(session.id, session.name)}
+                            disabled={session.isActive}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -575,33 +601,33 @@ export default function AdminSyncSessions() {
               )}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card className="border border-slate-100 shadow-sm overflow-hidden bg-white/70 backdrop-blur-md">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-orange-500" />
-            Google API Credentials for Direct Write-back & Sync
-          </CardTitle>
-          <CardDescription>
-            Configure Google Service Account credentials to enable real-time bidirectional syncing. Edits in the app will update the sheet, and sync will use the official API.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6 space-y-4">
-          <div className="flex items-center justify-between border-b pb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Status:</span>
-              {credsData?.configured ? (
-                <Badge className="bg-green-100 text-green-700 border border-green-200 font-bold">
-                  🟢 Configured
-                </Badge>
-              ) : (
-                <Badge className="bg-red-100 text-red-700 border border-red-200 font-bold">
-                  🔴 Not configured (Public fallback active)
-                </Badge>
-              )}
-            </div>
+      {/* ── GOOGLE CREDENTIALS CARD ─────────────────────────────────────────── */}
+      <div className="p-6 sm:p-7 rounded-3xl bg-[#141417] border border-[#26262D] shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#23232A] pb-5">
+          <div className="space-y-1">
+            <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
+              <Database className="w-5 h-5 text-amber-400" />
+              Google Service Account Credentials
+            </h2>
+            <p className="text-xs text-zinc-400">
+              Configure Google Service Account credentials to enable real-time bidirectional syncing and live auto-fetches.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {credsData?.configured ? (
+              <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold px-3 py-1 text-xs">
+                🟢 Connected
+              </Badge>
+            ) : (
+              <Badge className="bg-rose-500/15 text-rose-300 border border-rose-500/30 font-bold px-3 py-1 text-xs">
+                🔴 Not Configured
+              </Badge>
+            )}
+
             {credsData?.configured && (
               <Button
                 type="button"
@@ -609,11 +635,12 @@ export default function AdminSyncSessions() {
                 size="sm"
                 onClick={handleTestConnection}
                 disabled={testingConnection}
+                className="h-9 rounded-xl border-[#2E2E38] bg-[#14141A] hover:bg-[#1E1E26] text-zinc-200 text-xs font-bold"
               >
                 {testingConnection ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" />
-                    Testing...
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    Testing Connection...
                   </>
                 ) : (
                   "Test Connection"
@@ -621,114 +648,120 @@ export default function AdminSyncSessions() {
               </Button>
             )}
           </div>
+        </div>
 
-          <form onSubmit={handleSaveCredentials} className="space-y-4">
-            <div className="space-y-2 border border-dashed border-[#F58220]/35 rounded-xl p-4 bg-orange-50/20">
-              <Label className="text-sm font-bold text-gray-700 block">Upload Credentials JSON File</Label>
-              <Input
-                type="file"
-                accept=".json"
-                onChange={handleJsonFileUpload}
-                className="cursor-pointer bg-white border-[#F58220]/25"
-              />
-              <p className="text-[11px] text-gray-500">
-                Tip: Select your downloaded Google Cloud service account JSON file to automatically fetch the Service Email and Private Key!
-              </p>
-            </div>
+        <form onSubmit={handleSaveCredentials} className="space-y-5">
+          <div className="border border-dashed border-[#2E2E38] rounded-2xl p-5 bg-[#0C0C0F] space-y-2">
+            <Label className="text-xs font-bold text-white block">Upload Credentials JSON Key File</Label>
+            <Input
+              type="file"
+              accept=".json"
+              onChange={handleJsonFileUpload}
+              className="cursor-pointer bg-[#141418] border-[#2E2E38] text-zinc-300 text-xs h-10 file:mr-4 file:py-1 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-zinc-800 file:text-zinc-200 hover:file:bg-zinc-700"
+            />
+            <p className="text-[11px] text-zinc-500">
+              Select your Google Cloud Service Account JSON file to automatically populate Email and Private Key.
+            </p>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="google-email">Service Account Email</Label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="google-email" className="text-xs font-bold text-zinc-300">Service Account Email</Label>
               <Input
                 id="google-email"
                 type="email"
-                placeholder="e.g. project-name@appspot.gserviceaccount.com"
+                placeholder="project@appspot.gserviceaccount.com"
                 value={googleEmail}
                 onChange={(e) => setGoogleEmail(e.target.value)}
-                className="font-mono text-sm"
+                className="font-mono text-xs bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11"
               />
               {credsData?.email && (
-                <p className="text-xs text-gray-500">Currently configured: <code className="font-semibold">{credsData.email}</code></p>
+                <p className="text-[11px] text-zinc-400">Currently active: <code className="text-amber-300 font-mono">{credsData.email}</code></p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="google-key">Private Key (JSON private_key value)</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="google-key" className="text-xs font-bold text-zinc-300">Private Key (PEM format)</Label>
               <textarea
                 id="google-key"
-                rows={4}
+                rows={3}
                 placeholder="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC..."
                 value={googlePrivateKey}
                 onChange={(e) => setGooglePrivateKey(e.target.value)}
-                className="w-full min-h-[100px] font-mono text-xs p-3 rounded-md border border-input bg-transparent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className="w-full font-mono text-xs p-3 rounded-xl border border-[#2B2B35] bg-[#09090C] text-white placeholder:text-zinc-600 focus:outline-none focus:border-white transition-colors"
               />
-              <p className="text-[11px] text-gray-400">Pasted private key will show masked for security when saved. Ensure Google Sheets API is enabled on your Google Cloud Console.</p>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="submit"
-                disabled={savingCredentials}
-                className="bg-white hover:bg-zinc-200 text-zinc-950 font-bold rounded-xl border-none cursor-pointer"
-              >
-                {savingCredentials ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Saving...
-                  </>
-                ) : (
-                  "Save Credentials"
-                )}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="flex justify-end pt-3 border-t border-[#23232A]">
+            <Button
+              type="submit"
+              disabled={savingCredentials}
+              className="bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider rounded-xl h-11 px-6 gap-2 cursor-pointer shadow-md"
+            >
+              {savingCredentials ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />
+                  Saving Credentials...
+                </>
+              ) : (
+                "Save Credentials"
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
 
-      {/* Dialog for Edit / Create */}
+      {/* ── DIALOG FOR EDIT / CREATE ────────────────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingSession ? "Edit Session Configuration" : "Create Session Configuration"}</DialogTitle>
-            <DialogDescription>
-              Provide event details, Google Sheet access, and configure custom field mappings.
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-[#121215] border-[#2A2A33] text-white p-6 sm:p-8 rounded-3xl shadow-2xl">
+          <DialogHeader className="space-y-1 pb-4 border-b border-[#23232A]">
+            <DialogTitle className="text-xl font-black text-white">
+              {editingSession ? "Edit Session Configuration" : "Create Session Configuration"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Provide event details, Google Sheet link, and custom field mappings.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSave} className="space-y-6">
+          <form onSubmit={handleSave} className="space-y-6 pt-2">
+            {/* Basic Settings */}
             <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-1.5 flex items-center gap-1.5">
-                <Database className="w-4 h-4 text-orange-500" /> Basic Settings
+              <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-violet-400" /> Basic Session Settings
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="session-name">Session / Event Name</Label>
+                  <Label htmlFor="session-name" className="text-xs font-bold text-zinc-300">Session / Event Name</Label>
                   <Input
                     id="session-name"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="e.g. Vision 2020 Annual Conference"
+                    placeholder="e.g. Sankara National Conference"
                     required
+                    className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="session-location">Location Name</Label>
+                  <Label htmlFor="session-location" className="text-xs font-bold text-zinc-300">Location / Venue</Label>
                   <Input
                     id="session-location"
                     value={formLocation}
                     onChange={(e) => setFormLocation(e.target.value)}
-                    placeholder="e.g. Sankara Eye Hospital"
+                    placeholder="e.g. Main Auditorium"
                     required
+                    className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs"
                   />
                 </div>
               </div>
 
               {fetchedSpreadsheets.length > 0 && (
-                <div className="space-y-1.5 border border-[#F58220]/25 rounded-xl p-3.5 bg-orange-50/10 mb-2">
-                  <Label className="text-xs font-bold text-[#F58220] flex items-center gap-1">
-                    <Database className="w-3.5 h-3.5" /> Auto-Fetch Shared Spreadsheet
+                <div className="space-y-1.5 border border-amber-900/40 rounded-2xl p-4 bg-amber-950/20">
+                  <Label className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                    <Database className="w-3.5 h-3.5 text-amber-400" /> Auto-Fetch Shared Spreadsheet
                   </Label>
                   <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+                    className="flex h-11 w-full rounded-xl border border-[#2B2B35] bg-[#09090C] text-white px-3 text-xs outline-none focus:border-amber-400 transition-colors cursor-pointer"
                     value={formSheetId}
                     onChange={(e) => {
                       const selectedId = e.target.value;
@@ -743,18 +776,17 @@ export default function AdminSyncSessions() {
                       }
                     }}
                   >
-                    <option value="">-- Select from spreadsheets shared with service account --</option>
+                    <option value="">-- Select from shared Google Spreadsheets --</option>
                     {fetchedSpreadsheets.map(s => (
                       <option key={s.id} value={s.id}>{s.name} ({s.tabs.length} tabs)</option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-slate-500 font-medium">Selecting a sheet auto-fills the Sheet ID and populates all available tabs.</p>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 space-y-1.5">
-                  <Label htmlFor="session-sheet-id">Google Sheet ID / URL</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <Label htmlFor="session-sheet-id" className="text-xs font-bold text-zinc-300">Google Sheet ID or URL</Label>
                   <div className="flex gap-2">
                     <Input
                       id="session-sheet-id"
@@ -762,46 +794,46 @@ export default function AdminSyncSessions() {
                       onChange={(e) => handleSheetIdChange(e.target.value)}
                       placeholder="Paste link or enter raw Sheet ID"
                       required
-                      className="flex-1"
+                      className="flex-1 bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs"
                     />
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={fetchSheets}
                       disabled={fetchingSheets || !formSheetId.trim()}
-                      className="flex items-center gap-1.5 h-10 px-3 whitespace-nowrap bg-slate-100 hover:bg-slate-200 border-0"
+                      className="flex items-center gap-1.5 h-11 px-4 rounded-xl bg-[#1C1C24] hover:bg-[#252530] text-white border border-[#2E2E38] text-xs font-bold shrink-0"
                     >
                       {fetchingSheets ? (
-                        <Loader2 className="w-4 h-4 animate-spin text-slate-600" />
+                        <Loader2 className="w-4 h-4 animate-spin text-zinc-300" />
                       ) : (
-                        <RefreshCw className="w-4 h-4 text-slate-600" />
+                        <RefreshCw className="w-4 h-4 text-zinc-300" />
                       )}
-                      <span className="text-xs font-semibold text-slate-700">Load Tabs</span>
+                      <span>Load Tabs</span>
                     </Button>
                   </div>
-                  <p className="text-[11px] text-gray-400">Pasting spreadsheet link automatically extracts the ID.</p>
                 </div>
+
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center h-5">
-                    <Label htmlFor="session-tab-name">Sheet / Tab Name</Label>
+                    <Label htmlFor="session-tab-name" className="text-xs font-bold text-zinc-300">Tab / Sheet Name</Label>
                     {sheetsList.length > 0 && (
                       <button
                         type="button"
                         onClick={() => setIsCustomTab(!isCustomTab)}
-                        className="text-[10px] text-purple-600 hover:underline font-semibold"
+                        className="text-[10px] text-violet-400 hover:underline font-bold"
                       >
-                        {isCustomTab ? "Select list" : "Enter custom"}
+                        {isCustomTab ? "Choose list" : "Enter custom"}
                       </button>
                     )}
                   </div>
                   {sheetsList.length > 0 && !isCustomTab ? (
                     <Select value={formTabName} onValueChange={setFormTabName}>
-                      <SelectTrigger className="w-full h-10 bg-white">
+                      <SelectTrigger className="w-full h-11 bg-[#09090C] border-[#2B2B35] text-white rounded-xl text-xs">
                         <SelectValue placeholder="Select tab" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-[#141418] border-[#2B2B35] text-white">
                         {sheetsList.map((sheet) => (
-                          <SelectItem key={sheet} value={sheet}>
+                          <SelectItem key={sheet} value={sheet} className="text-xs">
                             {sheet}
                           </SelectItem>
                         ))}
@@ -814,35 +846,39 @@ export default function AdminSyncSessions() {
                       onChange={(e) => setFormTabName(e.target.value)}
                       placeholder="Summary"
                       required
+                      className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs"
                     />
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide border-b pb-1.5 flex items-center gap-1.5">
-                <RefreshCw className="w-4 h-4 text-purple-500" /> Field Mappings (App to Sheet Columns)
-              </h3>
-              <p className="text-xs text-gray-500 leading-normal">
-                Specify the exact column header name from the Google Sheet for each application field. Multiple alternates can be defined separated by commas or pipes (e.g. <code className="bg-gray-150 px-1 rounded text-slate-800 font-mono text-[10px]">Mobile, Phone, Phone No</code>).
-              </p>
+            {/* Field Mappings */}
+            <div className="space-y-4 pt-4 border-t border-[#23232A]">
+              <div className="space-y-1">
+                <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <RefreshCw className="w-4 h-4 text-emerald-400" /> Field Mappings (App to Sheet Columns)
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Specify the column header name from the Google Sheet for each application field. Multiple alternates can be defined separated by commas (e.g. <code className="bg-[#1C1C24] px-1.5 py-0.5 rounded text-amber-300 font-mono text-[10px]">Mobile, Phone, Phone No</code>).
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                 {(Object.keys(FIELD_LABELS) as FieldMappingKeys[]).map((key) => {
                   const labelInfo = FIELD_LABELS[key];
                   return (
-                    <div key={key} className="space-y-1.5 bg-slate-50/50 p-2.5 rounded-xl border border-slate-100 flex flex-col justify-between">
+                    <div key={key} className="space-y-1.5 bg-[#0A0A0D] p-3.5 rounded-2xl border border-[#23232A] flex flex-col justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor={`map-${key}`} className="font-semibold text-slate-800">{labelInfo.label}</Label>
-                        <p className="text-[10px] text-gray-400 leading-tight">{labelInfo.desc}</p>
+                        <Label htmlFor={`map-${key}`} className="font-bold text-white text-xs">{labelInfo.label}</Label>
+                        <p className="text-[10px] text-zinc-500">{labelInfo.desc}</p>
                       </div>
                       <Input
                         id={`map-${key}`}
                         value={formMappings[key] || ""}
                         onChange={(e) => handleMappingChange(key, e.target.value)}
                         placeholder={`e.g. ${labelInfo.placeholder}`}
-                        className="mt-2 h-9 bg-white"
+                        className="mt-1.5 h-9 bg-[#101014] border-[#262630] text-zinc-200 text-xs rounded-xl"
                       />
                     </div>
                   );
@@ -850,21 +886,21 @@ export default function AdminSyncSessions() {
               </div>
             </div>
 
-            <DialogFooter className="border-t pt-4">
+            <DialogFooter className="border-t border-[#23232A] pt-5 flex items-center justify-end gap-2.5">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setModalOpen(false)}
-                className="h-10"
+                className="h-11 px-5 border-[#2A2A35] bg-[#141418] hover:bg-[#1D1D24] text-zinc-300 rounded-xl font-bold text-xs"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={saving}
-                className="bg-white hover:bg-zinc-200 text-zinc-950 font-bold h-10 gap-1 rounded-xl border-none cursor-pointer"
+                className="bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs uppercase tracking-wider h-11 px-6 rounded-xl gap-2 cursor-pointer shadow-md"
               >
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                {saving && <Loader2 className="w-4 h-4 animate-spin text-zinc-950" />}
                 Save Changes
               </Button>
             </DialogFooter>
@@ -874,3 +910,4 @@ export default function AdminSyncSessions() {
     </div>
   );
 }
+

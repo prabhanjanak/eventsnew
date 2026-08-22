@@ -546,6 +546,10 @@ export interface SubmissionSettings {
   /** @nullable */
   smtpSecure?: boolean | null;
   /** @nullable */
+  razorpayKeyId?: string | null;
+  /** @nullable */
+  razorpayKeySecret?: string | null;
+  /** @nullable */
   sessionTimeoutMinutes?: number | null;
   /** @nullable */
   googleSheetUrl?: string | null;
@@ -553,6 +557,8 @@ export interface SubmissionSettings {
   liveTvUrl?: string | null;
   /** @nullable */
   conferenceMapUrl?: string | null;
+  /** @nullable */
+  supportTicketCcEmails?: string | null;
   updatedAt: string;
 }
 
@@ -570,10 +576,13 @@ export interface SubmissionSettingsUpdate {
   smtpFromEmail?: string;
   smtpFromName?: string;
   smtpSecure?: boolean;
+  razorpayKeyId?: string;
+  razorpayKeySecret?: string;
   sessionTimeoutMinutes?: number;
   googleSheetUrl?: string;
   liveTvUrl?: string;
   conferenceMapUrl?: string;
+  supportTicketCcEmails?: string;
 }
 
 export interface SyncResult {

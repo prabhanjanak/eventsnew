@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, like, or, sql } from "drizzle-orm";
+import { eq, and, like, or, sql, ne } from "drizzle-orm";
 import { db, participantsTable, activityLogsTable, attendanceLogsTable, goodiesLogsTable, activeSessionsTable, submissionSettingsTable, getCleanName } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { checkEmailOrMobileRegistered, signToken, signLongLivedToken } from "../lib/auth";
@@ -183,7 +183,7 @@ router.post("/onspot/generate", requireAuth(["admin", "super_admin", "event_coor
 
 // GET /onspot/lookup-card/:code — Fast scan gun lookup
 router.get("/onspot/lookup-card/:code", requireAuth(["admin", "super_admin", "event_coordinator"]), async (req, res): Promise<void> => {
-  const rawCode = (req.params.code || "").trim();
+  const rawCode = String(req.params.code || "").trim();
   if (!rawCode) {
     res.status(400).json({ error: "Code is required" });
     return;

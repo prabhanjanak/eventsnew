@@ -103,7 +103,7 @@ export default function FoodCoordinatorDashboard() {
             </div>
             <div className="min-w-0">
               <div className="font-black text-base sm:text-lg text-slate-900 leading-tight truncate">Food Scanner</div>
-              <div className="text-slate-400 text-[10px] sm:text-xs truncate font-bold">Vision 2020 · Jul 2026</div>
+              <div className="text-slate-400 text-[10px] sm:text-xs truncate font-bold">Sankara Dining Portal</div>
             </div>
           </div>
           

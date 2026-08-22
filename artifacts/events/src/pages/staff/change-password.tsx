@@ -159,7 +159,7 @@ export default function StaffChangePassword() {
               </div>
 
               <div>
-                <p className="text-[#F58220] font-semibold text-sm tracking-widest uppercase mb-1">Vision 2020 · India Annual Conference</p>
+                <p className="text-[#F58220] font-semibold text-sm tracking-widest uppercase mb-1">Sankara Healthcare Events</p>
                 <h1 className="text-3xl lg:text-4xl font-extrabold leading-tight">
                   Sankara Eye<br />Foundation
                 </h1>
@@ -275,7 +275,7 @@ export default function StaffChangePassword() {
           </div>
 
           <p className="text-center text-white/25 text-xs mt-8">
-            Vision 2020 Annual Conference 2026 · Sankara Eye Foundation India
+            Sankara Eye Foundation India · Events Management Portal
           </p>
         </div>
       </div>

@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { formatDateTime24h } from "@/lib/date-utils";
 import {
   Search,
   Eye,
@@ -811,14 +812,7 @@ export default function AdminParticipants() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 font-mono text-[11px] text-zinc-400 whitespace-nowrap">
-                      {p.createdAt
-                        ? new Date(p.createdAt).toLocaleDateString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
+                      {formatDateTime24h(p.createdAt)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">

@@ -62,24 +62,22 @@ function formatFileSize(bytes: number | null | undefined): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function parseDDMMYYYY(dateStr: string | null): Date | null {
-  if (!dateStr) return null;
-  const match = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-  if (match) {
-    const d = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10) - 1; // 0-indexed
-    const y = parseInt(match[3], 10);
-    return new Date(y, m, d);
+function parseDDMMYYYY(str: string): Date | null {
+  if (!str) return null;
+  const parts = str.split(/[\/\-]/);
+  if (parts.length === 3) {
+    const d = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const y = parseInt(parts[2], 10);
+    const date = new Date(y, m, d);
+    if (!isNaN(date.getTime())) return date;
   }
-  const d = new Date(dateStr);
+  const d = new Date(str);
   return isNaN(d.getTime()) ? null : d;
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "—";
-  const d = parseDDMMYYYY(dateStr);
-  if (!d) return dateStr;
-  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(dateStr);
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -336,7 +334,7 @@ export default function ParticipantDashboard() {
               <div className="text-xl sm:text-2xl font-black font-mono text-slate-900 tracking-wider">
                 {participant?.registrationNumber}
               </div>
-              <div className="text-xs text-slate-400 font-bold mt-1">Vision 2020 · Jul 2026</div>
+              <div className="text-xs text-slate-400 font-bold mt-1">Sankara Healthcare Conference</div>
             </div>
           </div>
         </div>

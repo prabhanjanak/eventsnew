@@ -50,6 +50,8 @@ import { EventHeroBanner } from "@/components/3d/event-hero-banner";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
+import { formatDateTextual, formatDateDDMMYYYY, safeDate } from "@/lib/date-utils";
+
 export interface AgendaSlot {
   id: string;
   date: string;
@@ -63,20 +65,14 @@ export interface AgendaSlot {
 }
 
 function formatLumaDateFull(dateStr: string, timeFrom?: string, timeTo?: string) {
-  const timeDisplay = timeFrom && timeTo ? `${timeFrom} – ${timeTo} IST` : "09:00 AM – 05:00 PM IST";
+  const timeDisplay = timeFrom && timeTo ? `${timeFrom} – ${timeTo} IST` : "09:00 – 17:00 IST";
   if (!dateStr) return { formatted: "Date to be announced", weekday: "", time: timeDisplay };
-  try {
-    const d = new Date(dateStr);
-    const formatted = d.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-    return { formatted, weekday: d.toLocaleDateString("en-US", { weekday: "long" }), time: timeDisplay };
-  } catch {
-    return { formatted: dateStr, weekday: "", time: timeDisplay };
-  }
+  const d = safeDate(dateStr);
+  if (!d) return { formatted: dateStr, weekday: "", time: timeDisplay };
+  
+  const formatted = formatDateTextual(d);
+  const weekday = d.toLocaleDateString("en-IN", { weekday: "long" });
+  return { formatted, weekday, time: timeDisplay };
 }
 
 // ── 3D Randomized Cursor-Reactive Momentum Photo Gallery ────────────────────

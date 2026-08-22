@@ -53,7 +53,7 @@ export function recordScanEvent() {
 }
 
 // ── GET /metrics/traffic ─────────────────────────────────────────────────────
-router.get("/metrics/traffic", requireAuth(["super_admin"]), async (_req, res): Promise<void> => {
+router.get("/metrics/traffic", requireAuth(["super_admin", "admin"]), async (_req, res): Promise<void> => {
   // Ensure current slot is in the history view
   getOrCreateCurrentSlot();
 

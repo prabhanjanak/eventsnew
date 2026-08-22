@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   ClipboardList, Search, RefreshCw, 
   ArrowLeft, FileText, Calendar, Clock, User, UserCheck
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
+import { formatDateTimeWithSeconds24h } from "@/lib/date-utils";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -55,21 +57,26 @@ export default function AdminLogs() {
   const [activeTab, setActiveTab] = useState("backend");
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { token: authToken } = useAuth();
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("vision2020_token");
+      const activeToken = authToken || localStorage.getItem("vision2020_token") || localStorage.getItem("auth_token");
       const res = await fetch(`${BASE_URL}/api/dashboard/logs`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${activeToken}`,
         },
       });
 
       if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
+        if (res.status === 401) {
           toast({ title: "Session Expired", description: "Please log in again.", variant: "destructive" });
           setLocation("/login");
+          return;
+        }
+        if (res.status === 403) {
+          toast({ title: "Access Restricted", description: "You don't have permission to view all logs.", variant: "destructive" });
           return;
         }
         throw new Error("Failed to load logs");
@@ -86,11 +93,11 @@ export default function AdminLogs() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [authToken, toast, setLocation]);
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [fetchLogs]);
 
   const filteredBackend = logs?.backend.filter(l => 
     l.message.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -213,7 +220,7 @@ export default function AdminLogs() {
                   filteredBackend.map((log) => (
                     <tr key={log.id} className="hover:bg-[#1A1A1F]/70 transition-colors">
                       <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}
+                        {formatDateTimeWithSeconds24h(log.timestamp)}
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#202028] text-zinc-200 border border-[#2E2E38]">
@@ -238,7 +245,7 @@ export default function AdminLogs() {
             <table className="w-full text-left text-xs text-zinc-300">
               <thead className="bg-[#101013]/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400 border-b border-[#242429]">
                 <tr>
-                  <th className="px-5 py-3.5">Time</th>
+                  <th className="px-5 py-3.5">Time (24h)</th>
                   <th className="px-4 py-3.5">Participant</th>
                   <th className="px-4 py-3.5">Reg Number</th>
                   <th className="px-4 py-3.5">Activity</th>
@@ -250,7 +257,7 @@ export default function AdminLogs() {
                   filteredScanning.map((scan) => (
                     <tr key={scan.id} className="hover:bg-[#1A1A1F]/70 transition-colors">
                       <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
-                        {new Date(scan.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}
+                        {formatDateTimeWithSeconds24h(scan.timestamp)}
                       </td>
                       <td className="px-4 py-3.5 font-bold text-white">{scan.participantName}</td>
                       <td className="px-4 py-3.5 font-mono font-bold text-zinc-300">{scan.registrationNumber}</td>
@@ -277,7 +284,7 @@ export default function AdminLogs() {
             <table className="w-full text-left text-xs text-zinc-300">
               <thead className="bg-[#101013]/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400 border-b border-[#242429]">
                 <tr>
-                  <th className="px-5 py-3.5">Time</th>
+                  <th className="px-5 py-3.5">Time (24h)</th>
                   <th className="px-4 py-3.5">Faculty Presenter</th>
                   <th className="px-4 py-3.5">Reg Number</th>
                   <th className="px-4 py-3.5">File Name</th>
@@ -289,7 +296,7 @@ export default function AdminLogs() {
                   filteredUploads.map((up) => (
                     <tr key={up.id} className="hover:bg-[#1A1A1F]/70 transition-colors">
                       <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
-                        {new Date(up.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+                        {formatDateTimeWithSeconds24h(up.timestamp)}
                       </td>
                       <td className="px-4 py-3.5 font-bold text-white">{up.participantName}</td>
                       <td className="px-4 py-3.5 font-mono font-bold text-zinc-300">{up.registrationNumber}</td>

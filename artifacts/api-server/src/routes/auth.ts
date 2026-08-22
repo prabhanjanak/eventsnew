@@ -1145,7 +1145,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       }),
     });
 
-    const tokenData = await tokenResp.json();
+    const tokenData = (await tokenResp.json()) as any;
     if (!tokenResp.ok || !tokenData.access_token) {
       console.error("[Google OAuth] Token exchange error:", tokenData);
       res.redirect(`${frontendUrl}/my-registrations?error=${encodeURIComponent(tokenData.error_description || "Google authorization failed.")}`);
@@ -1157,7 +1157,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
 
-    const profile = await userinfoResp.json();
+    const profile = (await userinfoResp.json()) as any;
     const email = (profile.email || "").toLowerCase().trim();
     const name = profile.name || email.split("@")[0] || "Delegate";
 

@@ -54,7 +54,7 @@ router.get(
   requireAuth(["super_admin", "admin", "event_coordinator"]),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const event = await resolveEvent(req.params.slugOrId);
+      const event = await resolveEvent(String(req.params.slugOrId));
       if (!event) {
         res.status(404).json({ error: "Event not found" });
         return;
@@ -194,7 +194,7 @@ router.post(
   requireAuth(["super_admin", "admin", "event_coordinator"]),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const event = await resolveEvent(req.params.slugOrId);
+      const event = await resolveEvent(String(req.params.slugOrId));
       if (!event) {
         res.status(404).json({ error: "Event not found" });
         return;
@@ -304,7 +304,7 @@ router.post(
   uploadTemplate.single("template"),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const event = await resolveEvent(req.params.slugOrId);
+      const event = await resolveEvent(String(req.params.slugOrId));
       if (!event) {
         res.status(404).json({ error: "Event not found" });
         return;
@@ -337,7 +337,7 @@ router.get(
   requireAuth(["super_admin", "admin", "event_coordinator"]),
   async (req: Request, res: Response): Promise<void> => {
     try {
-      const event = await resolveEvent(req.params.slugOrId);
+      const event = await resolveEvent(String(req.params.slugOrId));
       if (!event) {
         res.status(404).json({ error: "Event not found" });
         return;

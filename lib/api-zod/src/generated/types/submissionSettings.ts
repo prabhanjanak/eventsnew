@@ -38,5 +38,7 @@ export interface SubmissionSettings {
   liveTvUrl?: string | null;
   /** @nullable */
   conferenceMapUrl?: string | null;
+  /** @nullable */
+  supportTicketCcEmails?: string | null;
   updatedAt: Date;
 }

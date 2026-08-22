@@ -97,10 +97,13 @@ router.get("/settings/submissions", requireAuth(), async (_req, res): Promise<vo
     smtpPass: settings.smtpPass,
     smtpFromEmail: settings.smtpFromEmail,
     smtpFromName: settings.smtpFromName,
+    razorpayKeyId: settings.razorpayKeyId,
+    razorpayKeySecret: settings.razorpayKeySecret,
     sessionTimeoutMinutes: settings.sessionTimeoutMinutes,
     googleSheetUrl: settings.googleSheetUrl,
     conferenceMapUrl: settings.conferenceMapUrl || null,
     liveTvUrl: settings.liveTvUrl || null,
+    supportTicketCcEmails: settings.supportTicketCcEmails || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com",
     activeSession: activeSession || null,
     updatedAt: settings.updatedAt.toISOString(),
   });
@@ -129,10 +132,13 @@ router.patch("/settings/submissions", requireAuth(["super_admin"]), async (req, 
       smtpPass: parsed.data.smtpPass || null,
       smtpFromEmail: parsed.data.smtpFromEmail || null,
       smtpFromName: parsed.data.smtpFromName || null,
+      razorpayKeyId: parsed.data.razorpayKeyId?.trim() || null,
+      razorpayKeySecret: parsed.data.razorpayKeySecret?.trim() || null,
       sessionTimeoutMinutes: parsed.data.sessionTimeoutMinutes ?? 30,
       googleSheetUrl: parsed.data.googleSheetUrl || null,
       conferenceMapUrl: (parsed.data as any).conferenceMapUrl || null,
       liveTvUrl: (parsed.data as any).liveTvUrl || null,
+      supportTicketCcEmails: (parsed.data as any).supportTicketCcEmails || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com",
     }).returning();
   } else {
     [settings] = await db
@@ -150,9 +156,12 @@ router.patch("/settings/submissions", requireAuth(["super_admin"]), async (req, 
         smtpPass: parsed.data.smtpPass || null,
         smtpFromEmail: parsed.data.smtpFromEmail || null,
         smtpFromName: parsed.data.smtpFromName || null,
+        razorpayKeyId: parsed.data.razorpayKeyId !== undefined ? (parsed.data.razorpayKeyId?.trim() || null) : settings.razorpayKeyId,
+        razorpayKeySecret: parsed.data.razorpayKeySecret !== undefined ? (parsed.data.razorpayKeySecret?.trim() || null) : settings.razorpayKeySecret,
         googleSheetUrl: parsed.data.googleSheetUrl || null,
         conferenceMapUrl: (parsed.data as any).conferenceMapUrl || null,
         liveTvUrl: (parsed.data as any).liveTvUrl || null,
+        ...((parsed.data as any).supportTicketCcEmails !== undefined ? { supportTicketCcEmails: (parsed.data as any).supportTicketCcEmails?.trim() || null } : {}),
         ...(parsed.data.smtpSecure !== undefined ? { smtpSecure: parsed.data.smtpSecure } : {}),
         ...(parsed.data.sessionTimeoutMinutes !== undefined ? { sessionTimeoutMinutes: parsed.data.sessionTimeoutMinutes } : {}),
       })
@@ -188,16 +197,59 @@ router.patch("/settings/submissions", requireAuth(["super_admin"]), async (req, 
     smtpPass: settings.smtpPass,
     smtpFromEmail: settings.smtpFromEmail,
     smtpFromName: settings.smtpFromName,
+    razorpayKeyId: settings.razorpayKeyId,
+    razorpayKeySecret: settings.razorpayKeySecret,
     sessionTimeoutMinutes: settings.sessionTimeoutMinutes,
     googleSheetUrl: settings.googleSheetUrl,
     conferenceMapUrl: settings.conferenceMapUrl || null,
+    liveTvUrl: settings.liveTvUrl || null,
+    supportTicketCcEmails: settings.supportTicketCcEmails || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com",
     activeSession: activeSession || null,
     updatedAt: settings.updatedAt.toISOString(),
   });
 });
 
+// GET /settings/support-ticket-cc - Quick endpoint for support CC list
+router.get("/settings/support-ticket-cc", requireAuth(), async (_req, res): Promise<void> => {
+  const [settings] = await db.select({ cc: submissionSettingsTable.supportTicketCcEmails }).from(submissionSettingsTable).limit(1);
+  const raw = settings?.cc || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com";
+  const emails = raw.split(",").map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+  res.json({
+    raw,
+    emails,
+  });
+});
+
+// PATCH /settings/support-ticket-cc - Quick update endpoint for support CC list
+router.patch("/settings/support-ticket-cc", requireAuth(["super_admin", "admin"]), async (req, res): Promise<void> => {
+  const { emails, raw } = req.body;
+  const ccString = Array.isArray(emails) ? emails.join(", ") : String(raw || "").trim();
+  
+  let [settings] = await db.select().from(submissionSettingsTable).limit(1);
+  if (!settings) {
+    [settings] = await db.insert(submissionSettingsTable).values({
+      supportTicketCcEmails: ccString || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com",
+    }).returning();
+  } else {
+    [settings] = await db
+      .update(submissionSettingsTable)
+      .set({ supportTicketCcEmails: ccString || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com" })
+      .where(eq(submissionSettingsTable.id, settings.id))
+      .returning();
+  }
+
+  const updatedRaw = settings.supportTicketCcEmails || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com";
+  const updatedEmails = updatedRaw.split(",").map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+  res.json({
+    success: true,
+    raw: updatedRaw,
+    emails: updatedEmails,
+    message: "Support ticket CC emails updated successfully",
+  });
+});
+
 router.post("/settings/test-email", requireAuth(["super_admin"]), async (req, res): Promise<void> => {
-  const { email, message } = req.body;
+  const { email, message, cc } = req.body;
   if (!email) {
     res.status(400).json({ error: "Email is required" });
     return;
@@ -225,7 +277,9 @@ router.post("/settings/test-email", requireAuth(["super_admin"]), async (req, re
     const result = await sendEmail(
       email,
       "SMTP Test - Vision 2020 Conference",
-      html
+      html,
+      false,
+      cc
     );
     
     if (result.success) {

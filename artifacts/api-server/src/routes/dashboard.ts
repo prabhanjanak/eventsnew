@@ -97,25 +97,41 @@ router.get("/dashboard/stats", requireAuth(["admin", "super_admin", "event_coord
   });
 });
 
+const safeIsoDate = (d: any): string => {
+  if (!d) return new Date().toISOString();
+  if (d instanceof Date) return d.toISOString();
+  try {
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? String(d) : parsed.toISOString();
+  } catch {
+    return String(d);
+  }
+};
+
 // GET /dashboard/recent-activity
-router.get("/dashboard/recent-activity", requireAuth(["admin", "track_coordinator", "scientific_committee", "coordinator_view_only"]), async (_req, res): Promise<void> => {
-  const logs = await db
-    .select()
-    .from(activityLogsTable)
-    .orderBy(sql`${activityLogsTable.timestamp} desc`)
-    .limit(20);
-  res.json(
-    logs.map((l) => ({
-      id: l.id,
-      type: l.type,
-      message: l.message,
-      timestamp: l.timestamp.toISOString(),
-    }))
-  );
+router.get("/dashboard/recent-activity", requireAuth(["super_admin", "admin", "event_coordinator", "track_coordinator", "food_coordinator", "scientific_committee", "pr_member", "coordinator_view_only"]), async (_req, res): Promise<void> => {
+  try {
+    const logs = await db
+      .select()
+      .from(activityLogsTable)
+      .orderBy(sql`${activityLogsTable.timestamp} desc`)
+      .limit(20);
+    res.json(
+      logs.map((l) => ({
+        id: l.id,
+        type: l.type,
+        message: l.message,
+        timestamp: safeIsoDate(l.timestamp),
+      }))
+    );
+  } catch (error: any) {
+    console.error("[RECENT ACTIVITY FETCH ERROR]", error);
+    res.json([]);
+  }
 });
 
-// GET /dashboard/logs - Detailed Super Admin Logs Panel
-router.get("/dashboard/logs", requireAuth(["admin", "super_admin", "track_coordinator", "scientific_committee", "coordinator_view_only"]), async (_req, res): Promise<void> => {
+// GET /dashboard/logs - Detailed Super Admin & Staff Logs Panel
+router.get("/dashboard/logs", requireAuth(["admin", "super_admin", "event_coordinator", "track_coordinator", "food_coordinator", "scientific_committee", "pr_member", "coordinator_view_only"]), async (_req, res): Promise<void> => {
   try {
     // 1. Fetch Backend logs
     const backend = await db
@@ -124,111 +140,126 @@ router.get("/dashboard/logs", requireAuth(["admin", "super_admin", "track_coordi
       .orderBy(sql`${activityLogsTable.timestamp} desc`)
       .limit(150);
 
-    // 2. Fetch Attendance and Food scanning logs
-    const attLogs = await db
-      .select({
-        id: attendanceLogsTable.id,
-        timestamp: attendanceLogsTable.scannedAt,
-        day: attendanceLogsTable.day,
-        participantName: participantsTable.name,
-        registrationNumber: participantsTable.registrationNumber,
-        coordinatorName: systemUsersTable.name,
-      })
-      .from(attendanceLogsTable)
-      .innerJoin(participantsTable, eq(attendanceLogsTable.participantId, participantsTable.id))
-      .leftJoin(systemUsersTable, eq(attendanceLogsTable.scannedBy, systemUsersTable.id))
-      .orderBy(sql`${attendanceLogsTable.scannedAt} desc`)
-      .limit(100);
+    // 2. Fetch Attendance scanning logs
+    let attLogs: any[] = [];
+    try {
+      const attRes = await db.execute(sql`
+        SELECT 
+          a.id, 
+          a.scanned_at as timestamp, 
+          a.day, 
+          COALESCE(a.scanned_by, 'Self Scanner') as "coordinatorName",
+          p.name as "participantName", 
+          p.registration_number as "registrationNumber"
+        FROM attendance_logs a
+        LEFT JOIN participants p ON a.participant_id = p.id
+        ORDER BY a.scanned_at DESC
+        LIMIT 100
+      `);
+      attLogs = attRes.rows || [];
+    } catch (e) {
+      console.warn("[ATT LOGS QUERY WARN]", e);
+    }
 
-    const foodLogs = await db
-      .select({
-        id: foodLogsTable.id,
-        timestamp: foodLogsTable.collectedAt,
-        sessionName: foodSessionsTable.name,
-        participantName: participantsTable.name,
-        registrationNumber: participantsTable.registrationNumber,
-        coordinatorName: systemUsersTable.name,
-      })
-      .from(foodLogsTable)
-      .innerJoin(participantsTable, eq(foodLogsTable.participantId, participantsTable.id))
-      .innerJoin(foodSessionsTable, eq(foodLogsTable.foodSessionId, foodSessionsTable.id))
-      .leftJoin(systemUsersTable, eq(foodLogsTable.coordinatorId, systemUsersTable.id))
-      .orderBy(sql`${foodLogsTable.collectedAt} desc`)
-      .limit(100);
+    // 3. Fetch Food scanning logs
+    let foodLogs: any[] = [];
+    try {
+      const foodRes = await db.execute(sql`
+        SELECT 
+          f.id, 
+          f.scanned_at as timestamp, 
+          COALESCE(f.session_name, 'Food Session') as "sessionName", 
+          COALESCE(f.scanned_by, 'Catering Desk') as "coordinatorName",
+          p.name as "participantName", 
+          p.registration_number as "registrationNumber"
+        FROM food_logs f
+        LEFT JOIN participants p ON f.participant_id = p.id
+        ORDER BY f.scanned_at DESC
+        LIMIT 100
+      `);
+      foodLogs = foodRes.rows || [];
+    } catch (e) {
+      console.warn("[FOOD LOGS QUERY WARN]", e);
+    }
 
     // Merge scanning logs and sort by timestamp
     const scanning = [
-      ...attLogs.map((a) => ({
+      ...attLogs.map((a: any) => ({
         id: `att-${a.id}`,
         type: "attendance",
-        timestamp: a.timestamp.toISOString(),
-        participantName: a.participantName,
-        registrationNumber: a.registrationNumber,
-        details: `Attendance marked for ${a.day}`,
+        timestamp: safeIsoDate(a.timestamp),
+        participantName: a.participantName || "Delegate",
+        registrationNumber: a.registrationNumber || "—",
+        details: `Attendance marked for ${a.day || "Day 1"}`,
         coordinatorName: a.coordinatorName || "Self Scanner",
       })),
-      ...foodLogs.map((f) => ({
+      ...foodLogs.map((f: any) => ({
         id: `food-${f.id}`,
         type: "food",
-        timestamp: f.timestamp.toISOString(),
-        participantName: f.participantName,
-        registrationNumber: f.registrationNumber,
-        details: `Food token redeemed for ${f.sessionName}`,
+        timestamp: safeIsoDate(f.timestamp),
+        participantName: f.participantName || "Delegate",
+        registrationNumber: f.registrationNumber || "—",
+        details: `Food token redeemed for ${f.sessionName || "Food Session"}`,
         coordinatorName: f.coordinatorName || "Catering Desk",
       })),
     ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 150);
 
-    // 3. Fetch Upload logs
-    const uploads = await db
-      .select({
-        id: uploadedFilesTable.id,
-        filename: uploadedFilesTable.filename,
-        originalName: uploadedFilesTable.originalName,
-        fileType: uploadedFilesTable.fileType,
-        size: uploadedFilesTable.size,
-        version: uploadedFilesTable.version,
-        uploadedAt: uploadedFilesTable.uploadedAt,
-        participantName: participantsTable.name,
-        registrationNumber: participantsTable.registrationNumber,
-        role: assignmentsTable.role,
-        presentationTitle: assignmentsTable.presentationTitle,
-      })
-      .from(uploadedFilesTable)
-      .innerJoin(assignmentsTable, eq(uploadedFilesTable.assignmentId, assignmentsTable.id))
-      .innerJoin(participantsTable, eq(assignmentsTable.participantId, participantsTable.id))
-      .orderBy(sql`${uploadedFilesTable.uploadedAt} desc`)
-      .limit(100);
+    // 4. Fetch Upload logs
+    let uploads: any[] = [];
+    try {
+      const uploadsRes = await db.execute(sql`
+        SELECT 
+          u.id,
+          COALESCE(u.file_name, u.stored_name, 'uploaded_file') as filename,
+          COALESCE(u.original_name, u.file_name, 'file') as "originalName",
+          COALESCE(u.file_type, u.mime_type, 'pptx') as "fileType",
+          COALESCE(u.file_size, 0) as size,
+          1 as version,
+          COALESCE(u.uploaded_at, u.created_at, NOW()) as timestamp,
+          COALESCE(p.name, 'Presenter') as "participantName",
+          COALESCE(p.registration_number, '—') as "registrationNumber",
+          'Faculty' as role,
+          COALESCE(u.session_title, 'Presentation Slides') as "presentationTitle"
+        FROM uploaded_files u
+        LEFT JOIN participants p ON u.participant_id = p.id
+        ORDER BY COALESCE(u.uploaded_at, u.created_at) DESC
+        LIMIT 100
+      `);
+      uploads = uploadsRes.rows || [];
+    } catch (e) {
+      console.warn("[UPLOADS QUERY WARN]", e);
+    }
 
     res.json({
       backend: backend.map((b) => ({
         id: b.id,
-        type: b.type,
-        message: b.message,
-        timestamp: b.timestamp.toISOString(),
+        type: b.type || "SYSTEM",
+        message: b.message || "",
+        timestamp: safeIsoDate(b.timestamp),
       })),
       scanning,
-      uploads: uploads.map((u) => ({
+      uploads: uploads.map((u: any) => ({
         id: u.id,
-        filename: u.filename,
-        originalName: u.originalName,
-        fileType: u.fileType,
-        size: u.size,
-        version: u.version,
-        timestamp: u.uploadedAt.toISOString(),
-        participantName: u.participantName,
-        registrationNumber: u.registrationNumber,
-        role: u.role,
-        presentationTitle: u.presentationTitle || "No title",
+        filename: u.filename || "",
+        originalName: u.originalName || u.filename || "Uploaded File",
+        fileType: u.fileType || "",
+        size: Number(u.size) || 0,
+        version: Number(u.version) || 1,
+        timestamp: safeIsoDate(u.timestamp),
+        participantName: u.participantName || "Presenter",
+        registrationNumber: u.registrationNumber || "—",
+        role: u.role || "Faculty",
+        presentationTitle: u.presentationTitle || "Presentation Slides",
       })),
     });
   } catch (error: any) {
     console.error("[LOGS FETCH ERROR]", error);
-    res.status(500).json({ error: "Failed to fetch log statistics" });
+    res.status(500).json({ error: "Failed to fetch log statistics", details: error?.message });
   }
 });
 
-// GET /dashboard/public-live-stats
-router.get("/dashboard/public-live-stats", async (_req, res): Promise<void> => {
+// GET /dashboard/public-live-stats and /dashboard/live-stats
+const handleLiveStats = async (_req: any, res: any): Promise<void> => {
   try {
     const [totalAttendance] = await db.select({ count: count() }).from(attendanceLogsTable);
     const [totalFoodScans] = await db.select({ count: count() }).from(foodLogsTable);
@@ -259,22 +290,20 @@ router.get("/dashboard/public-live-stats", async (_req, res): Promise<void> => {
       .from(rsvpTable)
       .groupBy(rsvpTable.trackName, rsvpTable.sessionDate, rsvpTable.sessionTime, rsvpTable.sessionName);
 
-    const sessions = await db
-      .select({
-        track: assignmentsTable.track,
-        sessionName: assignmentsTable.sessionName,
-        date: assignmentsTable.date,
-        time: assignmentsTable.time,
-        hall: assignmentsTable.hall,
-      })
-      .from(assignmentsTable)
-      .groupBy(
-        assignmentsTable.track,
-        assignmentsTable.sessionName,
-        assignmentsTable.date,
-        assignmentsTable.time,
-        assignmentsTable.hall
-      );
+    let sessions: any[] = [];
+    try {
+      sessions = await db
+        .select({
+          track: assignmentsTable.track,
+          sessionName: assignmentsTable.sessionName,
+          date: assignmentsTable.date,
+          time: assignmentsTable.time,
+          hall: assignmentsTable.hall,
+        })
+        .from(assignmentsTable);
+    } catch (e: any) {
+      console.warn("[LIVE STATS] assignments query warning:", e.message);
+    }
 
     const rsvpMap = new Map<string, number>();
     for (const r of rsvpCounts) {
@@ -283,11 +312,15 @@ router.get("/dashboard/public-live-stats", async (_req, res): Promise<void> => {
     }
 
     const sessionStats = [];
+    const seenSessions = new Set<string>();
+
     for (const s of sessions) {
       if (!s.track || !s.sessionName) continue;
       const key = `${normalizeTrackName(s.track)}||${s.sessionName.trim()}||${(s.date || "").trim()}`;
+      if (seenSessions.has(key)) continue;
+      seenSessions.add(key);
+
       const rsvpCount = rsvpMap.get(key) || 0;
-      
       const { hallName, capacity } = getHallInfo(s.track, s.hall);
       
       sessionStats.push({
@@ -319,7 +352,10 @@ router.get("/dashboard/public-live-stats", async (_req, res): Promise<void> => {
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to load public live stats" });
   }
-});
+};
+
+router.get("/dashboard/public-live-stats", handleLiveStats);
+router.get("/dashboard/live-stats", handleLiveStats);
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 export function normalizeTrackName(t: string): string {

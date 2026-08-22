@@ -1,0 +1,180 @@
+================================================================================
+SANKARA EVENTS PLATFORM - DOCKER PRODUCTION DEPLOYMENT GUIDE
+Instructions for Server Administrator
+================================================================================
+
+--------------------------------------------------------------------------------
+1. PREREQUISITES & SERVER SPECIFICATIONS
+--------------------------------------------------------------------------------
+- OS: Ubuntu 22.04 LTS / Debian 12 / RHEL 9 (or any Linux server)
+- Hardware: 2+ vCPUs, 4GB+ RAM, 20GB+ SSD storage
+- Software: Docker Engine (v24+) & Docker Compose (v2+)
+- Required Ports: 80 (HTTP), 443 (HTTPS), 22 (SSH)
+  * Port 5000: Node.js / React application container
+  * Port 5432: PostgreSQL database container (secured on 127.0.0.1)
+
+
+--------------------------------------------------------------------------------
+2. ENVIRONMENT CONFIGURATION (.env)
+--------------------------------------------------------------------------------
+The `.env` file contains core server secrets and configuration:
+- Database connection (PostgreSQL)
+- Session signing key (SESSION_SECRET)
+- Zoho SMTP Email configuration
+- Google OAuth & Google Wallet digital pass keys
+- AI Token (HuggingFace)
+
+* NOTE ON PAYMENT GATEWAY (RAZORPAY):
+  Razorpay keys do NOT need to be in `.env`. They are securely managed and
+  stored directly in the database through the Application Admin UI:
+  - Global default: Admin Panel -> Settings -> API & SMTP Credentials
+  - Per-event override: Admin Panel -> Events Manager -> Edit Event -> Pricing & Razorpay
+
+* NOTE ON USERNAME / SYSTEM PATH:
+  The application is fully containerized with Docker. The system user path or
+  home directory on the host server will not conflict with the application.
+  You can clone and run it from any directory, e.g.:
+    /opt/sankara-events  or  /home/<username>/eventssankara
+
+
+--------------------------------------------------------------------------------
+3. INITIAL DEPLOYMENT (FIRST TIME SETUP)
+--------------------------------------------------------------------------------
+
+Step 3.1: Clone the repository onto the server:
+  git clone https://github.com/prabhanjanak/eventsnew.git /opt/sankara-events
+  cd /opt/sankara-events
+
+Step 3.2: Place the .env file in the repository root:
+  # (Copy the .env file provided securely)
+  # Secure the file permissions:
+  chmod 600 .env
+
+Step 3.3: Build Docker images and start all services in the background:
+  docker compose up -d --build
+
+Step 3.4: Verify running containers and health status:
+  docker compose ps
+  docker compose logs -f --tail=50 app
+  curl -I http://127.0.0.1:5000/api/health
+
+
+--------------------------------------------------------------------------------
+4. HOW TO DEPLOY CODE UPDATES (SUBSEQUENT RELEASES)
+--------------------------------------------------------------------------------
+
+Whenever changes or bug fixes are pushed to GitHub:
+
+  cd /opt/sankara-events
+  git pull origin main
+  docker compose up -d --build app
+  docker compose logs -f --tail=50 app
+
+
+--------------------------------------------------------------------------------
+5. DAY-TO-DAY MAINTENANCE COMMANDS
+--------------------------------------------------------------------------------
+
+- Check container status:
+  docker compose ps
+
+- Monitor real-time CPU & memory consumption:
+  docker stats sankara-events-app sankara-events-db
+
+- View live application logs:
+  docker compose logs -f --tail=100 app
+
+- View live database logs:
+  docker compose logs -f --tail=100 db
+
+- Restart application container:
+  docker compose restart app
+
+- Restart full stack:
+  docker compose restart
+
+- Stop all services safely:
+  docker compose down
+  (Note: All database records and uploaded files remain safely preserved on disk)
+
+
+--------------------------------------------------------------------------------
+6. DATABASE & MEDIA BACKUP COMMANDS
+--------------------------------------------------------------------------------
+
+Step 6.1: Create a PostgreSQL database dump (.sql.gz)
+  mkdir -p /opt/backups/db
+  docker compose exec -t db pg_dump -U postgres events_db | gzip > /opt/backups/db/events_db_$(date +%F_%H%M%S).sql.gz
+
+Step 6.2: Restore database from backup
+  gunzip -c /opt/backups/db/events_db_YYYY-MM-DD.sql.gz | docker compose exec -T db psql -U postgres -d events_db
+
+Step 6.3: Backup uploaded files (/uploads folder - photos, badges, brochures)
+  tar -czf /opt/backups/uploads_$(date +%F).tar.gz uploads/
+
+
+--------------------------------------------------------------------------------
+7. NGINX REVERSE PROXY & SSL (HTTPS) SETUP
+--------------------------------------------------------------------------------
+
+Step 7.1: Install Nginx and Certbot
+  sudo apt update
+  sudo apt install -y nginx certbot python3-certbot-nginx
+
+Step 7.2: Create Nginx configuration (/etc/nginx/sites-available/events.sankaraeye.in)
+
+server {
+    server_name events.sankaraeye.in;
+
+    client_max_body_size 50M;
+
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 120s;
+    }
+}
+
+Step 7.3: Enable site and test configuration
+  sudo ln -sf /etc/nginx/sites-available/events.sankaraeye.in /etc/nginx/sites-enabled/
+  sudo nginx -t
+  sudo systemctl reload nginx
+
+Step 7.4: Obtain Free SSL Certificate
+  sudo certbot --nginx -d events.sankaraeye.in
+
+
+--------------------------------------------------------------------------------
+8. FIREWALL (UFW) CONFIGURATION
+--------------------------------------------------------------------------------
+
+  sudo ufw allow OpenSSH
+  sudo ufw allow 'Nginx Full'
+  sudo ufw enable
+  sudo ufw status
+
+
+--------------------------------------------------------------------------------
+9. TROUBLESHOOTING CHEAT SHEET
+--------------------------------------------------------------------------------
+
+* Problem: Application fails to start
+  Diagnosis: docker compose logs app
+  Fix: Check .env file exists and has correct DB credentials and SESSION_SECRET.
+
+* Problem: Uploading photos / brochures gives 500 error
+  Diagnosis: ls -ld uploads
+  Fix: Run `sudo chown -R 1001:1001 uploads/` to ensure the container nodeuser has write permissions.
+
+* Problem: Database connection error
+  Diagnosis: docker compose exec db pg_isready
+  Fix: Confirm db container is running (`docker compose ps`).
+
+================================================================================

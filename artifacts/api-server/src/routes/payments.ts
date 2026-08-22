@@ -62,7 +62,7 @@ router.post("/payments/razorpay/create-order", async (req: Request, res: Respons
         }),
       });
 
-      const orderData = await resp.json();
+      const orderData = (await resp.json()) as any;
       if (!resp.ok) {
         throw new Error(orderData.error?.description || "Razorpay order creation failed");
       }

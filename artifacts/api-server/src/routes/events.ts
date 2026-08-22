@@ -313,10 +313,11 @@ const uploadGallery = multer({
 router.post(
   "/events/upload-gallery",
   requireAuth(),
-  (req: Request, res: Response, next: any) => {
+  (req: Request, res: Response, next: any): void => {
     uploadGallery.array("images", 50)(req, res, (err: any) => {
       if (err) {
-        return res.status(400).json({ error: err.message || "Image upload failed" });
+        res.status(400).json({ error: err.message || "Image upload failed" });
+        return;
       }
       next();
     });
@@ -480,7 +481,7 @@ router.post(
 // Retrieve single event by slug (case-insensitive) or integer ID
 router.get("/events/:slugOrId", async (req: Request, res: Response): Promise<void> => {
   try {
-    const slugOrId = req.params.slugOrId.trim();
+    const slugOrId = String(req.params.slugOrId || "").trim();
     const isNumeric = /^\d+$/.test(slugOrId);
 
     let event;
@@ -579,6 +580,7 @@ router.post("/events", requireAuth(["super_admin"]), async (req: Request, res: R
         customPdfButtonText: body.customPdfButtonText || "View Document (PDF)",
         pdfAttachmentsJson: body.pdfAttachmentsJson ? (typeof body.pdfAttachmentsJson === "string" ? body.pdfAttachmentsJson : JSON.stringify(body.pdfAttachmentsJson)) : null,
         agendaJson: body.agendaJson ? (typeof body.agendaJson === "string" ? body.agendaJson : JSON.stringify(body.agendaJson)) : null,
+        pricingTiersJson: body.pricingTiersJson ? (typeof body.pricingTiersJson === "string" ? body.pricingTiersJson : JSON.stringify(body.pricingTiersJson)) : null,
         razorpayKeyId: body.razorpayKeyId || null,
         razorpayKeySecret: body.razorpayKeySecret || null,
         badgeSubtitle: body.badgeSubtitle || null,
@@ -696,6 +698,9 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
     if (body.agendaJson !== undefined) {
       updates.agendaJson = typeof body.agendaJson === "string" ? body.agendaJson : JSON.stringify(body.agendaJson);
     }
+    if (body.pricingTiersJson !== undefined) {
+      updates.pricingTiersJson = typeof body.pricingTiersJson === "string" ? body.pricingTiersJson : JSON.stringify(body.pricingTiersJson);
+    }
     if (body.razorpayKeyId !== undefined) updates.razorpayKeyId = body.razorpayKeyId;
     if (body.razorpayKeySecret !== undefined) updates.razorpayKeySecret = body.razorpayKeySecret;
     if (body.badgeSubtitle !== undefined) updates.badgeSubtitle = body.badgeSubtitle;
@@ -717,7 +722,7 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
 // GET /api/events/:slug/coupons - List coupons for event
 router.get("/events/:slug/coupons", requireAuth(), async (req: Request, res: Response): Promise<void> => {
   try {
-    const slug = req.params.slug;
+    const slug = String(req.params.slug);
     const { eventCouponsTable } = await import("@workspace/db");
     const [event] = await db.select().from(eventsTable).where(eq(eventsTable.slug, slug));
     if (!event) {
@@ -740,7 +745,7 @@ router.get("/events/:slug/coupons", requireAuth(), async (req: Request, res: Res
 // POST /api/events/:slug/coupons - Create coupon for event
 router.post("/events/:slug/coupons", requireAuth(["super_admin", "admin"]), async (req: Request, res: Response): Promise<void> => {
   try {
-    const slug = req.params.slug;
+    const slug = String(req.params.slug);
     const { eventCouponsTable } = await import("@workspace/db");
     const [event] = await db.select().from(eventsTable).where(eq(eventsTable.slug, slug));
     if (!event) {
@@ -790,7 +795,7 @@ router.delete("/events/coupons/:id", requireAuth(["super_admin", "admin"]), asyn
 // POST /api/events/:slug/coupons/validate - Public coupon code validator for checkout
 router.post("/events/:slug/coupons/validate", async (req: Request, res: Response): Promise<void> => {
   try {
-    const slug = req.params.slug;
+    const slug = String(req.params.slug);
     const { code } = req.body;
     if (!code) {
       res.status(400).json({ valid: false, error: "Please enter a coupon code" });

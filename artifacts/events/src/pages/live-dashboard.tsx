@@ -72,8 +72,7 @@ export default function LiveDashboard() {
 
   useEffect(() => {
     const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setCurrentTime(formatTimeWithSeconds24h(new Date()));
     };
     updateTime();
     const clockInterval = setInterval(updateTime, 1000);
@@ -234,7 +233,7 @@ export default function LiveDashboard() {
               Conference Stats Monitor
             </h2>
             <div className="text-[10px] text-slate-455 font-bold uppercase tracking-wider mt-1">
-              Last updated {lastUpdated.toLocaleTimeString()}
+              Last updated {formatTimeWithSeconds24h(lastUpdated)}
             </div>
           </div>
 
@@ -303,7 +302,7 @@ export default function LiveDashboard() {
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 px-6 text-center text-xs text-slate-500 font-bold shrink-0 shadow-inner">
-        Sankara Eye Foundation India · Vision 2020 20th Annual Meet
+        Sankara Eye Foundation India · Conference Live Telemetry
       </footer>
     </div>
   );

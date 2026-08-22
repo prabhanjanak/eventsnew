@@ -896,10 +896,13 @@ export const UpdateSubmissionSettingsBody = zod.object({
   "smtpFromEmail": zod.string().optional(),
   "smtpFromName": zod.string().optional(),
   "smtpSecure": zod.boolean().optional(),
+  "razorpayKeyId": zod.string().optional(),
+  "razorpayKeySecret": zod.string().optional(),
   "sessionTimeoutMinutes": zod.number().optional(),
   "googleSheetUrl": zod.string().optional(),
   "liveTvUrl": zod.string().optional(),
-  "conferenceMapUrl": zod.string().optional()
+  "conferenceMapUrl": zod.string().optional(),
+  "supportTicketCcEmails": zod.string().optional()
 })
 
 export const UpdateSubmissionSettingsResponse = zod.object({
@@ -916,10 +919,13 @@ export const UpdateSubmissionSettingsResponse = zod.object({
   "smtpFromEmail": zod.string().nullish(),
   "smtpFromName": zod.string().nullish(),
   "smtpSecure": zod.boolean().nullish(),
+  "razorpayKeyId": zod.string().nullish(),
+  "razorpayKeySecret": zod.string().nullish(),
   "sessionTimeoutMinutes": zod.number().nullish(),
   "googleSheetUrl": zod.string().nullish(),
   "liveTvUrl": zod.string().nullish(),
   "conferenceMapUrl": zod.string().nullish(),
+  "supportTicketCcEmails": zod.string().nullish(),
   "updatedAt": zod.coerce.date()
 })
 

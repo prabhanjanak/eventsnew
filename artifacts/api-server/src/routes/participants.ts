@@ -961,9 +961,10 @@ router.post(
       return;
     }
 
+    const eventId = (parsed.data as any).eventId || (req.body.eventId ? Number(req.body.eventId) : undefined);
     let regNum = parsed.data.registrationNumber;
     if (!regNum || regNum.trim() === "") {
-      regNum = await generateEventRegNumber(parsed.data.eventId);
+      regNum = await generateEventRegNumber(eventId);
     }
 
     const regCheck = await db
@@ -983,7 +984,7 @@ router.post(
     const checkDuplicate = await checkEmailOrMobileRegistered({
       email: parsed.data.email,
       mobile: parsed.data.mobile,
-      eventId: parsed.data.eventId,
+      eventId: eventId,
     });
     if (checkDuplicate) {
       res.status(400).json({ error: checkDuplicate.reason });

@@ -1,80 +1,206 @@
-# Docker Deployment Guide: Sankara Events Platform
+# Docker Production Deployment Guide: Sankara Events Platform
 
-This repository includes a multi-stage production Docker setup that bundles the Vite React SPA frontend and the Node.js / Express API backend into a single container.
+This guide provides end-to-end instructions for the server administrator to deploy, run, update, and maintain the **Sankara Events Platform** using Docker & Docker Compose.
 
 ---
 
-## 1. Quick Start with Docker Compose
+## 📋 System Requirements
+- **OS**: Ubuntu 22.04 LTS / Debian 12 / RHEL 9 (or any modern Linux distro)
+- **CPU / RAM**: 2+ vCPUs, 4GB+ RAM recommended
+- **Disk**: 20GB+ SSD storage
+- **Docker**: Docker Engine 24+ & Docker Compose v2+
 
-### Prerequisites
-- Docker Engine & Docker Compose installed
-- A `.env` file with production credentials
+---
 
-### Run with Docker Compose:
+## 🚀 1. Initial Server Setup & Deployment
+
+### Step 1: Clone the Repository
 ```bash
-# 1. Start both the Application and PostgreSQL Database
+# Clone the repository onto the server
+git clone https://github.com/prabhanjanak/eventsnew.git /opt/sankara-events
+cd /opt/sankara-events
+```
+
+### Step 2: Configure Production Environment (`.env`)
+```bash
+# Copy template configuration
+cp .env.example .env
+
+# Edit .env with your production credentials
+nano .env
+```
+
+Ensure you set:
+- `SESSION_SECRET`: A secure 32+ character random string (generate with `openssl rand -base64 32`)
+- `POSTGRES_PASSWORD`: A strong password for the PostgreSQL container
+- `SERVER_BASE_URL` & `FRONTEND_URL`: Your production domain (e.g. `https://events.sankaraeye.in`)
+- `SMTP_USER` & `SMTP_PASS`: Zoho / Google Workspace SMTP credentials
+*(Note: Razorpay payment gateway credentials are configured directly in the Admin UI and stored in the database)*
+
+---
+
+### Step 3: Build & Start Containers
+```bash
+# Build images and start application & database in background
 docker compose up -d --build
 
-# 2. View live logs
+# Verify container status
+docker compose ps
+```
+
+### Step 4: Verify Application Health
+```bash
+# View live logs
 docker compose logs -f app
 
-# 3. Stop the services
+# Test health check endpoint
+curl -I http://127.0.0.1:5000/api/health
+```
+
+The application is now running on port **`5000`** with PostgreSQL on port **`5432`** (bound to `127.0.0.1`).
+
+---
+
+## 🔄 2. Day-to-Day Administration Commands
+
+### Check Service Status & Resource Usage
+```bash
+# Check container status
+docker compose ps
+
+# Check real-time CPU & memory consumption
+docker stats sankara-events-app sankara-events-db
+```
+
+### View Live Logs
+```bash
+# View app server logs (tail last 100 lines)
+docker compose logs -f --tail=100 app
+
+# View database logs
+docker compose logs -f --tail=100 db
+```
+
+### Restart / Stop Services
+```bash
+# Restart application container only (quick restart)
+docker compose restart app
+
+# Restart entire stack
+docker compose restart
+
+# Stop all containers (data in PostgreSQL and /uploads remains safe)
 docker compose down
 ```
 
-The application will be live at: **`http://localhost:5000`** (or behind your reverse proxy / domain).
-
 ---
 
-## 2. Standalone Docker Build (Existing PostgreSQL DB)
+## 🔄 3. Updating to Latest Code (Zero-Downtime / Fast Update)
 
-If you are deploying the container to an existing external PostgreSQL database (e.g. AWS RDS, DigitalOcean Managed DB, or on-premise server):
+When code changes are pushed to GitHub, run:
 
 ```bash
-# 1. Build the Docker Image
-docker build -t sankara-events:latest .
+cd /opt/sankara-events
 
-# 2. Run the Container
-docker run -d \
-  --name sankara-events \
-  --restart unless-stopped \
-  -p 5000:5000 \
-  -e NODE_ENV=production \
-  -e PORT=5000 \
-  -e DATABASE_URL="postgresql://username:password@your-db-host:5432/events_db" \
-  -e SESSION_SECRET="your-strong-production-session-secret" \
-  -v $(pwd)/uploads:/app/uploads \
-  sankara-events:latest
+# Pull latest commits
+git pull origin main
+
+# Rebuild and restart app container with minimal downtime
+docker compose up -d --build app
+
+# Check logs to confirm successful startup
+docker compose logs -f --tail=50 app
 ```
 
 ---
 
-## 3. Automatic Production Migrations & Vision 2020 Data Backfill
+## 💾 4. Database Backup & Restore
 
-When the container starts up:
-1. **Schema Check**: Safe `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` is automatically run on startup.
-2. **Legacy Data Attachment**: Any existing unlinked records from the old Vision 2020 production database are automatically attached to the primary Vision 2020 event with zero manual SQL commands needed.
-3. **Persistent Uploads**: The `/app/uploads` volume preserves all event brochures, uploaded presentation slides, and photo gallery archives across container restarts.
+### Create an Automated Database Backup (.sql)
+```bash
+# Create backup directory
+mkdir -p /opt/backups/db
+
+# Dump database to compressed sql file
+docker compose exec -t db pg_dump -U postgres events_db | gzip > /opt/backups/db/events_db_$(date +%F_%H%M%S).sql.gz
+
+echo "Backup created in /opt/backups/db/"
+```
+
+### Restore Database from SQL Backup
+```bash
+# Uncompress and import backup
+gunzip -c /opt/backups/db/events_db_2026-08-21.sql.gz | docker compose exec -T db psql -U postgres -d events_db
+```
+
+### Backup Uploaded Files (/uploads)
+```bash
+# Backup uploads folder (photos, brochures, badges)
+tar -czf /opt/backups/uploads_$(date +%F).tar.gz uploads/
+```
 
 ---
 
-## 4. Nginx Reverse Proxy Configuration (HTTPS)
+## 🔒 5. Production Nginx Reverse Proxy & SSL (HTTPS)
 
+### Step 1: Install Nginx & Certbot
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx
+```
+
+### Step 2: Configure Nginx Site (`/etc/nginx/sites-available/events.sankaraeye.in`)
 ```nginx
 server {
     server_name events.sankaraeye.in;
+
+    client_max_body_size 50M;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-        client_max_body_size 50M;
+        proxy_buffering off;
+        proxy_read_timeout 120s;
     }
 }
 ```
+
+```bash
+# Enable site configuration and reload Nginx
+sudo ln -sf /etc/nginx/sites-available/events.sankaraeye.in /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### Step 3: Obtain Free Let's Encrypt SSL Certificate
+```bash
+sudo certbot --nginx -d events.sankaraeye.in
+```
+
+---
+
+## 🛡️ 6. Firewall Configuration (UFW)
+```bash
+# Allow SSH, HTTP, and HTTPS only (Postgres stays internal)
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+sudo ufw status
+```
+
+---
+
+## 🆘 Troubleshooting Quick Reference
+
+| Issue | Diagnostic Command | Solution |
+|---|---|---|
+| **App won't start** | `docker compose logs app` | Check for invalid `SESSION_SECRET` or DB connection error in `.env`. |
+| **DB connection failed** | `docker compose exec db pg_isready` | Ensure `POSTGRES_PASSWORD` in `.env` matches `DATABASE_URL`. |
+| **File upload fails** | `ls -ld uploads` | Run `sudo chown -R 1001:1001 uploads/` to ensure container write permissions. |
+| **Port 5000 in use** | `sudo lsof -i :5000` | Stop conflicting process or change host port in `docker-compose.yml` (e.g. `5001:5000`). |
+

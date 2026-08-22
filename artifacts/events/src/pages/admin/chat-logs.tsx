@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { formatDateTime24h } from "@/lib/date-utils";
 
 interface ChatLog {
   id: number;
@@ -214,9 +215,7 @@ export default function AdminChatLogsPage() {
                 </tr>
               ) : (
                 logs.map((log) => {
-                  const istDate = log.createdAt
-                    ? new Date(log.createdAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
-                    : "—";
+                  const istDate = formatDateTime24h(log.createdAt);
 
                   return (
                     <tr

@@ -168,7 +168,7 @@ router.post("/attendance/scan", requireAuth(["admin", "super_admin", "food_coord
 });
 
 // GET /attendance/logs
-router.get("/attendance/logs", requireAuth(["admin", "food_coordinator", "coordinator_view_only"]), async (req, res): Promise<void> => {
+router.get("/attendance/logs", requireAuth(["admin", "super_admin", "food_coordinator", "coordinator_view_only"]), async (req, res): Promise<void> => {
   const parsed = ListAttendanceLogsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

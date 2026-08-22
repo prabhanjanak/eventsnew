@@ -56,6 +56,8 @@ type SubmissionsResponse = {
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+import { formatDateDDMMYYYY, formatDateTime24h } from "@/lib/date-utils";
+
 function formatSize(bytes: number | null | undefined): string {
   if (!bytes) return "—";
   if (bytes < 1024) return `${bytes} B`;
@@ -64,10 +66,7 @@ function formatSize(bytes: number | null | undefined): string {
 }
 
 function formatDate(d: string | null): string {
-  if (!d) return "—";
-  const dt = new Date(d);
-  if (isNaN(dt.getTime())) return d;
-  return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(d);
 }
 
 const ROLE_COLOR: Record<string, string> = {
@@ -1059,7 +1058,7 @@ export default function AdminSubmissions() {
                             </div>
                             <div className="flex items-center justify-between text-[10px] text-gray-500">
                               <span>{formatSize(ver.size)}</span>
-                              <span>{new Date(ver.uploadedAt).toLocaleDateString("en-IN")}</span>
+                              <span>{formatDateTime24h(ver.uploadedAt)}</span>
                             </div>
                           </div>
                         );

@@ -150,7 +150,8 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  mirrorToWhatsapp = true
+  mirrorToWhatsapp = true,
+  cc?: string | string[]
 ): Promise<{ success: boolean; error?: string }> {
   const isOtp = subject.toLowerCase().includes("verification") ||
     subject.toLowerCase().includes("otp") ||
@@ -207,12 +208,13 @@ export async function sendEmail(
       await transporter.sendMail({
         from: `"${cfg.fromName}" <${cfg.fromEmail}>`,
         to,
+        ...(cc ? { cc } : {}),
         subject,
         html: finalHtml,
         attachments,
       });
 
-      console.log(`[MAILER] Email sent to ${to} — "${subject}"`);
+      console.log(`[MAILER] Email sent to ${to}${cc ? ` (CC: ${Array.isArray(cc) ? cc.join(", ") : cc})` : ""} — "${subject}"`);
 
       if (mirrorToWhatsapp) {
         try {
@@ -1101,6 +1103,24 @@ export async function sendRegistrationConfirmationEmail(params: {
   return res.success;
 }
 
+/** Helper: Fetch configured Super Admin CC emails for support ticket escalations */
+export async function getSupportTicketCcEmails(): Promise<string[]> {
+  try {
+    const [settings] = await db
+      .select({ cc: submissionSettingsTable.supportTicketCcEmails })
+      .from(submissionSettingsTable)
+      .limit(1);
+    const raw = settings?.cc || process.env.SUPPORT_TICKET_CC_EMAILS || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com";
+    const emails = raw
+      .split(",")
+      .map((e) => e.trim())
+      .filter((e) => e.length > 0 && e.includes("@"));
+    return emails.length > 0 ? emails : ["saurabhrai@sankaraeye.com", "prabhanjan@sankaraeye.com"];
+  } catch {
+    return ["saurabhrai@sankaraeye.com", "prabhanjan@sankaraeye.com"];
+  }
+}
+
 /** Send notification alert to Super Admins when an inquiry is escalated / unanswerable */
 export async function sendUnresolvedQueryAdminAlertEmail(params: {
   ticketNumber: string;
@@ -1112,6 +1132,7 @@ export async function sendUnresolvedQueryAdminAlertEmail(params: {
 }): Promise<boolean> {
   const { ticketNumber, userIdentifier, userEmail, userPhone, userMessage, adminDashboardUrl } = params;
   const adminEmail = process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER || "events@sankaraeye.com";
+  const ccEmails = await getSupportTicketCcEmails();
   const subject = `⚠️ [Drishti AI Escalation] New Inquiry Ticket #${ticketNumber} requires Super Admin response`;
 
   const html = `
@@ -1189,7 +1210,7 @@ export async function sendUnresolvedQueryAdminAlertEmail(params: {
 </body>
 </html>`;
 
-  const res = await sendEmail(adminEmail, subject, html, false);
+  const res = await sendEmail(adminEmail, subject, html, false, ccEmails);
   return res.success;
 }
 
@@ -1203,6 +1224,7 @@ export async function sendResolvedQueryUserEmail(params: {
   resolvedByName: string;
 }): Promise<boolean> {
   const { ticketNumber, userIdentifier, userEmail, userQuestion, adminReply, resolvedByName } = params;
+  const ccEmails = await getSupportTicketCcEmails();
   const subject = `Response to your Sankara Events inquiry [#${ticketNumber}]`;
 
   const formattedReply = adminReply
@@ -1281,7 +1303,7 @@ export async function sendResolvedQueryUserEmail(params: {
 </body>
 </html>`;
 
-  const res = await sendEmail(userEmail, subject, html, false);
+  const res = await sendEmail(userEmail, subject, html, false, ccEmails);
   return res.success;
 }
 
@@ -1294,6 +1316,7 @@ export async function sendUnresolvedQueryUserConfirmationEmail(params: {
   userMessage: string;
 }): Promise<boolean> {
   const { ticketNumber, userIdentifier, userEmail, userMessage } = params;
+  const ccEmails = await getSupportTicketCcEmails();
   const subject = `🎫 [Ticket #${ticketNumber}] Inquiry Received — Sankara Event Secretariat`;
 
   const html = `
@@ -1358,7 +1381,7 @@ export async function sendUnresolvedQueryUserConfirmationEmail(params: {
 </body>
 </html>`;
 
-  const res = await sendEmail(userEmail, subject, html, false);
+  const res = await sendEmail(userEmail, subject, html, false, ccEmails);
   return res.success;
 }
 

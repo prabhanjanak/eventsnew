@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useActiveEvent } from "@/hooks/use-active-event";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { formatDateTimeWithSeconds24h } from "@/lib/date-utils";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -240,8 +241,8 @@ export default function FoodLogs() {
               ) : filteredLogs.length > 0 ? (
                 filteredLogs.map((log: any) => (
                   <tr key={log.id} className="hover:bg-[#1A1A1F]/70 transition-colors">
-                    <td className="px-5 py-3.5 font-mono text-zinc-400">
-                      {log.collectedAt ? new Date(log.collectedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "—"}
+                    <td className="px-5 py-3.5 font-mono text-zinc-400 whitespace-nowrap">
+                      {formatDateTimeWithSeconds24h(log.collectedAt)}
                     </td>
                     <td className="px-4 py-3.5 font-bold text-white">{log.participantName}</td>
                     <td className="px-4 py-3.5 font-mono font-bold text-zinc-300">{log.registrationNumber}</td>

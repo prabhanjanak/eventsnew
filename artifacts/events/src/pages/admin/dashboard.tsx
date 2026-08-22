@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveEvent } from "@/hooks/use-active-event";
+import { formatDateTime24h } from "@/lib/date-utils";
 
 import { KPIMetricCard } from "@/components/3d/kpi-metric-card";
 import { PerspectiveCard } from "@/components/3d/perspective-card";
@@ -377,13 +378,7 @@ export default function AdminDashboard() {
                   >
                     <p className="text-zinc-200 font-medium leading-snug">{log.message}</p>
                     <span className="text-[10px] text-zinc-500 font-mono block">
-                      {log.createdAt
-                        ? new Date(log.createdAt).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          })
-                        : "Just now"}
+                      {log.createdAt ? formatDateTime24h(log.createdAt) : "Just now"}
                     </span>
                   </div>
                 ))}

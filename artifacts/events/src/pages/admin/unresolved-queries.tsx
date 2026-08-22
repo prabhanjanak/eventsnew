@@ -78,6 +78,48 @@ export default function AdminUnresolvedQueriesPage() {
   const [newKbTopic, setNewKbTopic] = useState("General");
   const [newKbKeywords, setNewKbKeywords] = useState("");
 
+  // CC Emails Modal state
+  const [isEditCcOpen, setIsEditCcOpen] = useState(false);
+  const [ccInput, setCcInput] = useState("");
+
+  // Fetch Support Ticket CC list
+  const { data: ccData, refetch: refetchCc } = useQuery({
+    queryKey: ["/api/settings/support-ticket-cc"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/support-ticket-cc");
+      if (!res.ok) throw new Error("Failed to fetch CC list");
+      return res.json();
+    },
+  });
+
+  const updateCcMutation = useMutation({
+    mutationFn: async (rawEmails: string) => {
+      const res = await fetch("/api/settings/support-ticket-cc", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raw: rawEmails }),
+      });
+      if (!res.ok) throw new Error("Failed to update CC emails");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "CC Email List Updated",
+        description: "Super Admin ticket escalation and response copies will be CC'd to this list.",
+      });
+      setIsEditCcOpen(false);
+      refetchCc();
+      queryClient.invalidateQueries({ queryKey: ["/settings/submissions"] });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Failed to update CC list",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Fetch Tickets
   const { data: ticketsData, isLoading: isTicketsLoading, refetch: refetchTickets } = useQuery({
     queryKey: ["/api/admin/unresolved-queries", activeTab, search, page],
@@ -286,6 +328,37 @@ export default function AdminUnresolvedQueriesPage() {
             <div className="text-xs text-zinc-400 font-medium">Learned Knowledge Base Articles</div>
           </div>
         </div>
+      </div>
+
+      {/* ── CC NOTIFICATION BANNER ────────────────────────────────────────────── */}
+      <div className="p-3.5 rounded-2xl bg-[#13131A] border border-[#242436] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="p-1.5 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+            <Mail className="w-4 h-4" />
+          </div>
+          <span className="font-bold text-zinc-200">Support Escalation &amp; Resolution CC List:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(ccData?.emails || ["saurabhrai@sankaraeye.com", "prabhanjan@sankaraeye.com"]).map((em: string, idx: number) => (
+              <span
+                key={idx}
+                className="px-2 py-0.5 rounded-md bg-indigo-950/60 border border-indigo-500/30 text-indigo-300 font-mono text-[11px]"
+              >
+                {em}
+              </span>
+            ))}
+          </div>
+        </div>
+        <Button
+          onClick={() => {
+            setCcInput(ccData?.raw || "saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com");
+            setIsEditCcOpen(true);
+          }}
+          variant="outline"
+          size="sm"
+          className="border-indigo-500/40 bg-indigo-950/30 text-indigo-200 hover:bg-indigo-900/50 text-xs font-semibold h-7 px-3 shrink-0"
+        >
+          <span>Configure CC Forwarding</span>
+        </Button>
       </div>
 
       {/* ── TAB NAVIGATION & SEARCH ────────────────────────────────────────────── */}
@@ -590,6 +663,19 @@ export default function AdminUnresolvedQueriesPage() {
                   />
                 </div>
               )}
+
+              {/* CC Notice in Reply Modal */}
+              <div className="p-2.5 rounded-xl bg-indigo-950/30 border border-indigo-500/25 flex items-start gap-2.5 text-[11px] text-indigo-300">
+                <Mail className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-indigo-200 block">
+                    Automatic Forwarding to Super Admin CC List:
+                  </span>
+                  <span className="font-mono text-zinc-300">
+                    {(ccData?.emails || ["saurabhrai@sankaraeye.com", "prabhanjan@sankaraeye.com"]).join(", ")}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
@@ -695,6 +781,76 @@ export default function AdminUnresolvedQueriesPage() {
               size="sm"
             >
               <span>{addKbMutation.isPending ? "Saving..." : "Save Knowledge Entry"}</span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── 3. EDIT CC NOTIFICATION LIST MODAL ───────────────────────────────── */}
+      <Dialog open={isEditCcOpen} onOpenChange={setIsEditCcOpen}>
+        <DialogContent className="bg-[#121216] border border-[#272736] text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black flex items-center gap-2">
+              <Mail className="w-5 h-5 text-indigo-400" />
+              <span>Configure Support Ticket CC Email List</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-400">
+              Add email addresses of Super Admins &amp; Secretariat staff who should be CC&apos;d on all chatbot ticket escalations and replies.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-300">
+                CC Email Addresses (comma-separated):
+              </label>
+              <Input
+                value={ccInput}
+                onChange={(e) => setCcInput(e.target.value)}
+                placeholder="saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com"
+                className="bg-[#1A1A22] border-[#2E2E3E] text-white text-xs font-mono h-10"
+              />
+              <p className="text-[11px] text-zinc-500">
+                Example: <code className="text-indigo-400">saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com</code>
+              </p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[#181822] border border-[#272738] space-y-2">
+              <p className="text-[11px] font-bold text-zinc-300">Active CC Recipients Preview:</p>
+              <div className="flex flex-wrap gap-1.5">
+                {ccInput
+                  .split(",")
+                  .map((e) => e.trim())
+                  .filter((e) => e.length > 0)
+                  .map((em, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-950 text-indigo-300 border border-indigo-500/30 font-mono"
+                    >
+                      <Mail className="w-3 h-3 text-indigo-400" />
+                      <span>{em}</span>
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditCcOpen(false)}
+              className="border-[#2E2E3E] text-zinc-300 hover:bg-[#1A1A22]"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => updateCcMutation.mutate(ccInput)}
+              disabled={updateCcMutation.isPending}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs gap-1.5 shadow-lg"
+              size="sm"
+            >
+              <span>{updateCcMutation.isPending ? "Saving..." : "Save CC Email List"}</span>
             </Button>
           </DialogFooter>
         </DialogContent>
