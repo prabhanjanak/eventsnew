@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { eq, or, sql } from "drizzle-orm";
-import { db, eventsTable, participantsTable, googleWalletPassesTable } from "@workspace/db";
+import { db, eventsTable, participantsTable, googleWalletPassesTable, submissionSettingsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import { getGoogleWalletConfig, generateGoogleWalletPass } from "../lib/google-wallet";
 
@@ -28,54 +28,39 @@ router.get("/wallet/google/:registrationId", async (req, res): Promise<void> => 
   }
 
   try {
-    // Lookup participant by ID or registrationNumber
-    const isNumeric = /^\d+$/.test(regParam);
-    const participantCondition = isNumeric
-      ? or(
-          eq(participantsTable.id, parseInt(regParam, 10)),
-          eq(sql`LOWER(${participantsTable.registrationNumber})`, regParam.toLowerCase())
-        )
-      : eq(sql`LOWER(${participantsTable.registrationNumber})`, regParam.toLowerCase());
-
+    // 1. Fetch participant by ID or Registration Number
     const [participant] = await db
       .select()
       .from(participantsTable)
-      .where(participantCondition);
+      .where(
+        or(
+          eq(participantsTable.registrationNumber, regParam),
+          !isNaN(Number(regParam)) ? eq(participantsTable.id, Number(regParam)) : sql`1=0`
+        )
+      )
+      .limit(1);
 
     if (!participant) {
-      res.status(404).json({ error: "Ticket or registration record not found." });
+      res.status(404).json({ error: "Registration record not found." });
       return;
     }
 
-    // Lookup event
-    if (!participant.eventId) {
-      res.status(400).json({ error: "No event associated with this registration." });
-      return;
+    // 2. Fetch associated Event
+    let event: any = null;
+    if (participant.eventId) {
+      const [ev] = await db.select().from(eventsTable).where(eq(eventsTable.id, participant.eventId)).limit(1);
+      event = ev;
     }
 
-    const [event] = await db
-      .select()
-      .from(eventsTable)
-      .where(eq(eventsTable.id, participant.eventId));
+    // Fallback: Primary active event if eventId is missing
+    if (!event) {
+      const [ev] = await db.select().from(eventsTable).orderBy(eventsTable.id).limit(1);
+      event = ev;
+    }
 
     if (!event) {
-      res.status(404).json({ error: "Associated event not found." });
+      res.status(404).json({ error: "Associated event details could not be found." });
       return;
-    }
-
-    // Check authorization: if queried by numeric ID, ensure owner/admin
-    if (isNumeric && currentUser) {
-      const isSuperAdmin = currentUser.userType === "super_admin" || currentUser.userType === "admin";
-      const userEmail = (currentUser.email || "").toLowerCase().trim();
-      const participantEmail = (participant.email || "").toLowerCase().trim();
-
-      const isEmailOwner = userEmail && participantEmail && userEmail === participantEmail;
-      const isIdOwner = currentUser.userType === "participant" && currentUser.id === participant.id;
-
-      if (!isSuperAdmin && !isEmailOwner && !isIdOwner) {
-        res.status(403).json({ error: "You are not authorized to access this event ticket pass." });
-        return;
-      }
     }
 
     // Check ticket validity status
@@ -90,8 +75,14 @@ router.get("/wallet/google/:registrationId", async (req, res): Promise<void> => 
       return;
     }
 
-    // Retrieve Google Wallet API configuration
-    const config = getGoogleWalletConfig();
+    // Retrieve Google Wallet API configuration from DB settings with env fallback
+    const [settings] = await db.select().from(submissionSettingsTable).limit(1);
+    const config = getGoogleWalletConfig(settings ? {
+      issuerId: settings.googleWalletIssuerId || undefined,
+      serviceAccountEmail: settings.googleWalletServiceAccountEmail || undefined,
+      privateKey: settings.googleWalletPrivateKey || undefined,
+    } : null);
+
     if (!config) {
       res.status(503).json({
         error: "Google Wallet service is currently pending configuration. Please use the Web / QR ticket pass in the meantime.",

@@ -1092,12 +1092,13 @@ router.patch("/auth/attendee/profile", requireAuth(), async (req, res): Promise<
 });
 
 // ── Google OAuth Routes ────────────────────────────────────────────────────────
-router.get("/auth/google", (req, res): void => {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const callbackUrl = process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback";
+router.get("/auth/google", async (req, res): Promise<void> => {
+  const [settings] = await db.select().from(submissionSettingsTable).limit(1);
+  const clientId = settings?.googleClientId?.trim() || process.env.GOOGLE_CLIENT_ID;
+  const callbackUrl = settings?.googleCallbackUrl?.trim() || process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback";
 
   if (!clientId) {
-    res.status(500).json({ error: "Google OAuth is not configured on this server." });
+    res.status(500).json({ error: "Google OAuth is not configured on this server. Please enter credentials in Super Admin Settings." });
     return;
   }
 
@@ -1116,9 +1117,10 @@ router.get("/auth/google", (req, res): void => {
 
 router.get("/auth/google/callback", async (req, res): Promise<void> => {
   const code = (req.query.code || "").toString();
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const callbackUrl = process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback";
+  const [settings] = await db.select().from(submissionSettingsTable).limit(1);
+  const clientId = settings?.googleClientId?.trim() || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = settings?.googleClientSecret?.trim() || process.env.GOOGLE_CLIENT_SECRET;
+  const callbackUrl = settings?.googleCallbackUrl?.trim() || process.env.GOOGLE_CALLBACK_URL || "http://localhost:5000/api/auth/google/callback";
   const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
 
   if (!code) {
@@ -1127,7 +1129,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
   }
 
   if (!clientId || !clientSecret) {
-    res.redirect(`${frontendUrl}/my-registrations?error=${encodeURIComponent("Google OAuth credentials missing on server.")}`);
+    res.redirect(`${frontendUrl}/my-registrations?error=${encodeURIComponent("Google OAuth credentials missing on server. Please configure in Super Admin Settings.")}`);
     return;
   }
 

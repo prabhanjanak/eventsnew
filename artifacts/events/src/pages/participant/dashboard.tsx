@@ -20,6 +20,7 @@ import {
   FileBadge, FileImage, Presentation, ChevronRight,
   Star, Search, LayoutGrid
 } from "lucide-react";
+import { formatDateDDMMYYYY } from "@/lib/date-utils";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 const FACULTY_ROLES = ["Speaker", "Presenter", "Poster", "Panelist", "Moderator", "Judge", "Chair", "CoChair"];

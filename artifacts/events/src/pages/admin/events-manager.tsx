@@ -42,6 +42,7 @@ import {
   Filter,
   Check,
   TrendingUp,
+  FileText,
 } from "lucide-react";
 import { formatDateDDMMYYYY, formatDateRange24h, formatTime24h } from "@/lib/date-utils";
 

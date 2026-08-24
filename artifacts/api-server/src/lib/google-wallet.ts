@@ -9,16 +9,16 @@ export interface GoogleWalletConfig {
   privateKey: string;
 }
 
-export function getGoogleWalletConfig(): GoogleWalletConfig | null {
-  const issuerId = process.env.GOOGLE_WALLET_ISSUER_ID?.trim() || "3388000000023186695";
-  const serviceAccountEmail = process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL?.trim();
-  let privateKey = process.env.GOOGLE_WALLET_PRIVATE_KEY?.trim();
+export function getGoogleWalletConfig(dbOverrides?: Partial<GoogleWalletConfig> | null): GoogleWalletConfig | null {
+  const issuerId = dbOverrides?.issuerId?.trim() || process.env.GOOGLE_WALLET_ISSUER_ID?.trim() || "3388000000023186695";
+  const serviceAccountEmail = dbOverrides?.serviceAccountEmail?.trim() || process.env.GOOGLE_WALLET_SERVICE_ACCOUNT_EMAIL?.trim();
+  let privateKey = dbOverrides?.privateKey?.trim() || process.env.GOOGLE_WALLET_PRIVATE_KEY?.trim();
 
   if (!serviceAccountEmail || !privateKey) {
     return null;
   }
 
-  // Properly handle escaped newlines if passed in environment files
+  // Properly handle escaped newlines if passed in environment files or UI
   if (privateKey.includes("\\n")) {
     privateKey = privateKey.replace(/\\n/g, "\n");
   }

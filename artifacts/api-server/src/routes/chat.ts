@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, eventsTable, chatLogsTable, unresolvedQueriesTable, aiKnowledgeBaseTable } from "@workspace/db";
+import { db, eventsTable, chatLogsTable, unresolvedQueriesTable, aiKnowledgeBaseTable, submissionSettingsTable } from "@workspace/db";
 import { desc, eq, sql, like, or } from "drizzle-orm";
 import { logger } from "../lib/logger";
 import {
@@ -10,8 +10,13 @@ import {
 
 const router = Router();
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || "";
-const HF_API_TOKEN = process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN || "";
+async function getAiApiKeys() {
+  const [settings] = await db.select().from(submissionSettingsTable).limit(1);
+  const geminiKey = settings?.geminiApiKey?.trim() || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GEMINI_API_KEY || "";
+  const hfToken = settings?.hfToken?.trim() || process.env.HF_TOKEN || process.env.HUGGINGFACE_TOKEN || "";
+  return { geminiKey, hfToken };
+}
+
 const DEFAULT_MODEL = "gemini-2.0-flash";
 const FALLBACK_MODEL = "meta-llama/Llama-3.3-70B-Instruct";
 
@@ -57,9 +62,14 @@ const SANKARA_HOSPITAL_KNOWLEDGE = `
 `;
 
 // Helper: Query Google Gemini API (2.0 Flash / 1.5 Flash)
-async function queryGemini(systemInstruction: string, messages: Array<{ role: string; content: string }>): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    throw new Error("No GEMINI_API_KEY provided in environment.");
+async function queryGemini(systemInstruction: string, messages: Array<{ role: string; content: string }>, apiKeyOverride?: string): Promise<string> {
+  let apiKey = apiKeyOverride;
+  if (!apiKey) {
+    const keys = await getAiApiKeys();
+    apiKey = keys.geminiKey;
+  }
+  if (!apiKey) {
+    throw new Error("No Gemini API key configured in Super Admin Settings or environment.");
   }
 
   const contents = messages
@@ -73,7 +83,7 @@ async function queryGemini(systemInstruction: string, messages: Array<{ role: st
 
   for (const model of models) {
     try {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -103,7 +113,16 @@ async function queryGemini(systemInstruction: string, messages: Array<{ role: st
 }
 
 // Helper: Query Hugging Face Router with Meta Llama 3.3 / 3.1 / Qwen 2.5
-async function queryLlama(messages: Array<{ role: string; content: string }>): Promise<string> {
+async function queryLlama(messages: Array<{ role: string; content: string }>, tokenOverride?: string): Promise<string> {
+  let token = tokenOverride;
+  if (!token) {
+    const keys = await getAiApiKeys();
+    token = keys.hfToken;
+  }
+  if (!token) {
+    throw new Error("No Hugging Face API token configured in Super Admin Settings or environment.");
+  }
+
   const modelsToTry = [
     "Qwen/Qwen2.5-72B-Instruct",
     "meta-llama/Llama-3.3-70B-Instruct",
@@ -115,7 +134,7 @@ async function queryLlama(messages: Array<{ role: string; content: string }>): P
       const response = await fetch("https://router.huggingface.co/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${HF_API_TOKEN}`,
+          "Authorization": `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -1048,8 +1067,9 @@ ${eventsContext}
       let modelUsed = "Google Gemini 2.0 Flash";
 
       try {
-        if (GEMINI_API_KEY) {
-          aiResponse = await queryGemini(systemPrompt, conversationMessages);
+        const { geminiKey } = await getAiApiKeys();
+        if (geminiKey) {
+          aiResponse = await queryGemini(systemPrompt, conversationMessages, geminiKey);
           modelUsed = "Google Gemini 2.0 Flash";
         } else {
           aiResponse = await queryLlama(conversationMessages);

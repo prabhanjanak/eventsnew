@@ -32,7 +32,15 @@ import {
   Database,
   MapPin,
   Tv,
-  CreditCard
+  CreditCard,
+  Wallet,
+  Bot,
+  Sparkles,
+  Globe,
+  Eye,
+  EyeOff,
+  Copy,
+  ShieldCheck,
 } from "lucide-react";
 
 export default function AdminSettings() {
@@ -68,6 +76,24 @@ export default function AdminSettings() {
   const [razorpayKeySecret, setRazorpayKeySecret] = useState("");
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(30);
   const [supportTicketCcEmails, setSupportTicketCcEmails] = useState("saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com");
+
+  // Google OAuth SSO states
+  const [googleClientId, setGoogleClientId] = useState("");
+  const [googleClientSecret, setGoogleClientSecret] = useState("");
+  const [googleCallbackUrl, setGoogleCallbackUrl] = useState("");
+  const [showGoogleSecret, setShowGoogleSecret] = useState(false);
+
+  // Google Wallet states
+  const [googleWalletIssuerId, setGoogleWalletIssuerId] = useState("");
+  const [googleWalletServiceAccountEmail, setGoogleWalletServiceAccountEmail] = useState("");
+  const [googleWalletPrivateKey, setGoogleWalletPrivateKey] = useState("");
+  const [showWalletKey, setShowWalletKey] = useState(false);
+
+  // AI Chatbot states
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [hfToken, setHfToken] = useState("");
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showHfToken, setShowHfToken] = useState(false);
 
   // Test Email state
   const [testEmailAddress, setTestEmailAddress] = useState("");
@@ -249,6 +275,17 @@ export default function AdminSettings() {
       setGoogleSheetUrl((settings as any).googleSheetUrl || "");
       setConferenceMapUrl((settings as any).conferenceMapUrl || "");
       setLiveTvUrl((settings as any).liveTvUrl || "");
+      // Google OAuth SSO
+      setGoogleClientId((settings as any).googleClientId || "");
+      setGoogleClientSecret((settings as any).googleClientSecret || "");
+      setGoogleCallbackUrl((settings as any).googleCallbackUrl || "https://events.sankaraeye.in/api/auth/google/callback");
+      // Google Wallet
+      setGoogleWalletIssuerId((settings as any).googleWalletIssuerId || "3388000000023186695");
+      setGoogleWalletServiceAccountEmail((settings as any).googleWalletServiceAccountEmail || "");
+      setGoogleWalletPrivateKey((settings as any).googleWalletPrivateKey || "");
+      // AI Keys
+      setGeminiApiKey((settings as any).geminiApiKey || "");
+      setHfToken((settings as any).hfToken || "");
     }
   }, [settings]);
 
@@ -282,6 +319,16 @@ export default function AdminSettings() {
           googleSheetUrl,
           conferenceMapUrl,
           liveTvUrl,
+          ...( {
+            googleClientId: googleClientId.trim() || undefined,
+            googleClientSecret: googleClientSecret.trim() || undefined,
+            googleCallbackUrl: googleCallbackUrl.trim() || undefined,
+            googleWalletIssuerId: googleWalletIssuerId.trim() || undefined,
+            googleWalletServiceAccountEmail: googleWalletServiceAccountEmail.trim() || undefined,
+            googleWalletPrivateKey: googleWalletPrivateKey.trim() || undefined,
+            geminiApiKey: geminiApiKey.trim() || undefined,
+            hfToken: hfToken.trim() || undefined,
+          } as any),
         },
       },
       {
@@ -1196,41 +1243,221 @@ export default function AdminSettings() {
                 </div>
               </div>
 
-              {/* Support Ticket Escalation & Chatbot CC Section */}
+              {/* Google OAuth Single Sign-On Section */}
               <div className="space-y-4 pt-4 border-t border-[#23232A]">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4 text-indigo-400" />
-                  <h3 className="font-bold text-white text-sm">AI Chatbot &amp; Support Ticket Escalations (CC Emails)</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-blue-400" />
+                    <h3 className="font-bold text-white text-sm">Google OAuth 2.0 (Single Sign-On Login)</h3>
+                  </div>
+                  {googleClientId ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-950/80 text-blue-300 border border-blue-800/60">
+                      <ShieldCheck className="w-3 h-3 text-blue-400" /> Configured
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-zinc-500">Not configured (optional)</span>
+                  )}
                 </div>
-                <div className="bg-indigo-950/20 p-4 rounded-2xl border border-indigo-900/40 text-xs text-indigo-200 leading-relaxed space-y-1">
-                  <p className="font-bold text-indigo-300">📨 Automatic Escalation &amp; Resolution Forwarding</p>
-                  <p className="text-indigo-200/80">
-                    When a delegate raises an inquiry ticket that the AI cannot resolve, or when the Secretariat replies and marks a ticket resolved, a CC copy is automatically dispatched to the email addresses configured below.
+                <div className="bg-blue-950/20 p-4 rounded-2xl border border-blue-900/40 text-xs text-blue-200 leading-relaxed space-y-1.5">
+                  <p className="font-bold text-blue-300">🔑 Instant 1-Click Attendee Login with Google</p>
+                  <p className="text-blue-200/80">
+                    Allows delegates and staff to sign in instantly using their official Google or Google Workspace email address. Obtain these credentials from the Google Cloud Console (<code className="text-blue-300 bg-[#09090C] px-1.5 py-0.5 rounded">console.cloud.google.com/apis/credentials</code>).
                   </p>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="google-client-id" className="text-xs font-bold text-zinc-300">Google Client ID</Label>
+                    <Input
+                      id="google-client-id"
+                      placeholder="xxxx-xxxxxxxx.apps.googleusercontent.com"
+                      value={googleClientId}
+                      onChange={(e) => setGoogleClientId(e.target.value)}
+                      className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="google-client-secret" className="text-xs font-bold text-zinc-300">Google Client Secret</Label>
+                    <div className="relative">
+                      <Input
+                        id="google-client-secret"
+                        type={showGoogleSecret ? "text" : "password"}
+                        placeholder="GOCSPX-xxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={googleClientSecret}
+                        onChange={(e) => setGoogleClientSecret(e.target.value)}
+                        className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGoogleSecret(!showGoogleSecret)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer"
+                      >
+                        {showGoogleSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="support-ticket-cc-emails" className="text-xs font-bold text-zinc-300">CC Notification Email Addresses</Label>
-                  <Input
-                    id="support-ticket-cc-emails"
-                    placeholder="saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com"
-                    value={supportTicketCcEmails}
-                    onChange={(e) => setSupportTicketCcEmails(e.target.value)}
-                    className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 font-mono text-xs"
+                  <Label htmlFor="google-callback-url" className="text-xs font-bold text-zinc-300">Authorized Redirect / Callback URI</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="google-callback-url"
+                      placeholder="https://events.sankaraeye.in/api/auth/google/callback"
+                      value={googleCallbackUrl}
+                      onChange={(e) => setGoogleCallbackUrl(e.target.value)}
+                      className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(googleCallbackUrl || "https://events.sankaraeye.in/api/auth/google/callback");
+                        toast({ title: "Copied Callback URL", description: "Paste this into Google Cloud Console Authorized Redirect URIs." });
+                      }}
+                      className="h-11 px-4 rounded-xl border-[#2B2B35] bg-[#181820] text-zinc-300 hover:text-white text-xs font-bold shrink-0 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy URI
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Add this exact URL under <strong>Authorized redirect URIs</strong> in your Google Cloud OAuth 2.0 Client ID settings.
+                  </p>
+                </div>
+              </div>
+
+              {/* Google Wallet Passes API Section */}
+              <div className="space-y-4 pt-4 border-t border-[#23232A]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-emerald-400" />
+                    <h3 className="font-bold text-white text-sm">Google Wallet Passes API (Digital Event Tickets)</h3>
+                  </div>
+                  {googleWalletServiceAccountEmail ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                      <CheckCircle className="w-3 h-3 text-emerald-400" /> Active
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-zinc-500">Not configured (optional)</span>
+                  )}
+                </div>
+                <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/40 text-xs text-emerald-200 leading-relaxed space-y-1.5">
+                  <p className="font-bold text-emerald-300">📲 Native "Add to Google Wallet" Pass Provisioning</p>
+                  <p className="text-emerald-200/80">
+                    Enables attendees to save their QR conference passes and entry badges directly to Google Wallet on Android / iOS devices. Configured via the Google Pay &amp; Wallet Console (<code className="text-emerald-300 bg-[#09090C] px-1.5 py-0.5 rounded">pay.google.com/business/console</code>).
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet-issuer-id" className="text-xs font-bold text-zinc-300">Google Wallet Issuer ID</Label>
+                    <Input
+                      id="wallet-issuer-id"
+                      placeholder="3388000000023186695"
+                      value={googleWalletIssuerId}
+                      onChange={(e) => setGoogleWalletIssuerId(e.target.value)}
+                      className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet-service-email" className="text-xs font-bold text-zinc-300">Service Account Email</Label>
+                    <Input
+                      id="wallet-service-email"
+                      placeholder="wallet-service@project.iam.gserviceaccount.com"
+                      value={googleWalletServiceAccountEmail}
+                      onChange={(e) => setGoogleWalletServiceAccountEmail(e.target.value)}
+                      className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="wallet-private-key" className="text-xs font-bold text-zinc-300">
+                      Service Account Private Key (RSA PEM Certificate)
+                    </Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowWalletKey(!showWalletKey)}
+                      className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                    >
+                      {showWalletKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      <span>{showWalletKey ? "Hide Key" : "Show Key"}</span>
+                    </button>
+                  </div>
+                  <Textarea
+                    id="wallet-private-key"
+                    rows={showWalletKey ? 4 : 2}
+                    placeholder="-----BEGIN PRIVATE KEY-----&#10;MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC...&#10;-----END PRIVATE KEY-----"
+                    value={googleWalletPrivateKey}
+                    onChange={(e) => setGoogleWalletPrivateKey(e.target.value)}
+                    className="font-mono text-xs rounded-xl bg-[#09090C] border-[#2B2B35] text-white"
                   />
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {supportTicketCcEmails
-                      .split(",")
-                      .map((e) => e.trim())
-                      .filter((e) => e.length > 0)
-                      .map((email, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 font-mono shadow-xs"
-                        >
-                          <Mail className="w-3 h-3 text-indigo-400" />
-                          <span>{email}</span>
-                        </span>
-                      ))}
+                  <p className="text-[10px] text-zinc-500">
+                    Paste the private key from your Google Cloud Service Account JSON file (<code className="text-zinc-400">private_key</code> field).
+                  </p>
+                </div>
+              </div>
+
+              {/* AI Chatbot & LLM Engine Keys Section */}
+              <div className="space-y-4 pt-4 border-t border-[#23232A]">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-violet-400" />
+                    <h3 className="font-bold text-white text-sm">AI Assistant &amp; Chatbot LLM Engines</h3>
+                  </div>
+                  {geminiApiKey || hfToken ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-violet-950/80 text-violet-300 border border-violet-800/60">
+                      <Bot className="w-3 h-3 text-violet-400" /> AI Enabled
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-zinc-500">Local grounded mode</span>
+                  )}
+                </div>
+                <div className="bg-violet-950/20 p-4 rounded-2xl border border-violet-900/40 text-xs text-violet-200 leading-relaxed space-y-1.5">
+                  <p className="font-bold text-violet-300">🤖 Intelligent Conference Delegate Support</p>
+                  <p className="text-violet-200/80">
+                    Powers the 24/7 AI chatbot with accurate hospital knowledge, event schedules, maps, and ticketing support. Uses Google Gemini 2.0 Flash as the primary high-speed model with Meta Llama 3.3 70B as an automatic fallback.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="gemini-key" className="text-xs font-bold text-zinc-300">Google Gemini API Key (Primary)</Label>
+                    <div className="relative">
+                      <Input
+                        id="gemini-key"
+                        type={showGeminiKey ? "text" : "password"}
+                        placeholder="AIzaSyxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={geminiApiKey}
+                        onChange={(e) => setGeminiApiKey(e.target.value)}
+                        className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowGeminiKey(!showGeminiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer"
+                      >
+                        {showGeminiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500">Obtain free API keys from <code className="text-zinc-400">aistudio.google.com</code></p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="hf-token" className="text-xs font-bold text-zinc-300">Hugging Face API Token (Fallback)</Label>
+                    <div className="relative">
+                      <Input
+                        id="hf-token"
+                        type={showHfToken ? "text" : "password"}
+                        placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                        value={hfToken}
+                        onChange={(e) => setHfToken(e.target.value)}
+                        className="bg-[#09090C] border-[#2B2B35] text-white rounded-xl h-11 text-xs font-mono pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowHfToken(!showHfToken)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white cursor-pointer"
+                      >
+                        {showHfToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-zinc-500">Obtain User Access Tokens from <code className="text-zinc-400">huggingface.co/settings/tokens</code></p>
                   </div>
                 </div>
               </div>

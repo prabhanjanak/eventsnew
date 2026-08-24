@@ -27,6 +27,7 @@ import {
   Layers,
   Sparkles,
   HeartPulse,
+  ClipboardList,
 } from "lucide-react";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";

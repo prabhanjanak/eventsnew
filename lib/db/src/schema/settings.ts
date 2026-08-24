@@ -25,6 +25,17 @@ export const submissionSettingsTable = pgTable("submission_settings", {
   liveTvUrl: text("live_tv_url"),
   googleServiceAccountEmail: text("google_service_account_email"),
   googleServiceAccountKey: text("google_service_account_key"),
+  // Google OAuth SSO
+  googleClientId: text("google_client_id"),
+  googleClientSecret: text("google_client_secret"),
+  googleCallbackUrl: text("google_callback_url"),
+  // Google Wallet
+  googleWalletIssuerId: text("google_wallet_issuer_id"),
+  googleWalletServiceAccountEmail: text("google_wallet_service_account_email"),
+  googleWalletPrivateKey: text("google_wallet_private_key"),
+  // AI & Chatbot LLM API Keys
+  geminiApiKey: text("gemini_api_key"),
+  hfToken: text("hf_token"),
   supportTicketCcEmails: text("support_ticket_cc_emails").default("saurabhrai@sankaraeye.com, prabhanjan@sankaraeye.com"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
