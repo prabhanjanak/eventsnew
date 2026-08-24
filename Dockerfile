@@ -8,8 +8,8 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Enable Corepack and pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Enable pnpm via global npm install
+RUN npm install -g pnpm@10
 
 # Install build dependencies for native modules
 RUN apk add --no-cache python3 make g++
@@ -36,9 +36,6 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=5000
-
-# Install pnpm for production runner
-RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Setup non-root security user
 RUN addgroup --system --gid 1001 nodejs && \
