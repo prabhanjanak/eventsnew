@@ -19,25 +19,46 @@ app.set("trust proxy", 1);
 // ── Security Headers (Helmet) ───────────────────────────────────────────────────
 app.use(
   helmet({
-    // Allow inline scripts / styles needed by the SPA (Vite/React)
+    // Allow inline scripts / styles and external integrations (Razorpay, Google Fonts/OAuth)
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://checkout.razorpay.com",
+          "https://*.razorpay.com",
+          "https://apis.google.com",
+          "https://accounts.google.com",
+        ],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
         imgSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: ["'self'", "https:", "wss:"],
-        frameSrc: ["'self'", "https://www.google.com/"],
+        connectSrc: [
+          "'self'",
+          "https:",
+          "wss:",
+          "https://api.razorpay.com",
+          "https://*.razorpay.com",
+          "https://accounts.google.com",
+        ],
+        frameSrc: [
+          "'self'",
+          "https://www.google.com/",
+          "https://api.razorpay.com",
+          "https://*.razorpay.com",
+          "https://accounts.google.com",
+        ],
         objectSrc: ["'none'"],
+        upgradeInsecureRequests: null,
       },
     },
-    // HSTS — tell browsers to always use HTTPS for 1 year (production only)
-    hsts: process.env.NODE_ENV === "production"
-      ? { maxAge: 31_536_000, includeSubDomains: true, preload: true }
-      : false,
+    // Let Nginx handle HSTS on public domain to allow internal IP testing
+    hsts: false,
     // Standard protections
     crossOriginEmbedderPolicy: false, // Needed for PDFs / QR codes inline
+    crossOriginOpenerPolicy: false,
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
