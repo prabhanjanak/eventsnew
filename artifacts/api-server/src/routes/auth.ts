@@ -106,7 +106,55 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const numericOnly = identifier.replace(/\D/g, "");
   const mobileSearch = numericOnly.length >= 10 ? numericOnly.slice(-10) : identifier;
 
-  // Try participant login (by mobile number, registration number, or email)
+  // ── 1. Priority: System Users (Super Admin, Admins, Coordinators, Staff) ────
+  if (password) {
+    const [sysUser] = await db
+      .select()
+      .from(systemUsersTable)
+      .where(
+        or(
+          eq(sql`LOWER(${systemUsersTable.empId})`, identifier.toLowerCase()),
+          eq(sql`LOWER(${systemUsersTable.email})`, identifier.toLowerCase()),
+          eq(sql`REGEXP_REPLACE(${systemUsersTable.mobile}, '\D', '', 'g')`, mobileSearch),
+          eq(systemUsersTable.mobile, identifier)
+        )
+      );
+
+    if (sysUser) {
+      const valid = await comparePassword(password, sysUser.passwordHash);
+      if (valid) {
+        const token = signToken({
+          id: sysUser.id,
+          userType: sysUser.userType,
+          assignedTrack: sysUser.assignedTrack,
+          permissions: sysUser.permissions || [],
+        });
+        await createSession(token, sysUser.id, sysUser.userType, sysUser.name, req);
+
+        const effectivePermissions = (sysUser.userType === "admin" || sysUser.userType === "super_admin")
+          ? ["attendance", "goodies", "food"]
+          : (sysUser.permissions ?? []);
+        res.json({
+          token,
+          mustChangePassword: sysUser.mustChangePassword,
+          user: {
+            id: sysUser.id,
+            name: sysUser.name,
+            empId: sysUser.empId,
+            email: sysUser.email,
+            mobile: sysUser.mobile || "",
+            userType: sysUser.userType,
+            assignedTrack: sysUser.assignedTrack,
+            assignedEventIds: sysUser.assignedEventIds ?? [],
+            permissions: effectivePermissions,
+          },
+        });
+        return;
+      }
+    }
+  }
+
+  // ── 2. Participant Login (by mobile number, registration number, or email) ──
   {
     const [participant] = await db
       .select()
@@ -184,7 +232,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
         }
       }
 
-      // Bypassing OTP as requested: issue a session token immediately on participant login
+      // Issue a session token immediately on participant login
       const token = signToken({
         id: participant.id,
         userType: "participant",
@@ -215,62 +263,9 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     }
   }
 
-  // Try system user login — match by empId, email, OR mobile
-  if (!password) {
-    res.status(400).json({ error: "Password is required for staff login" });
-    return;
-  }
-  const [sysUser] = await db
-    .select()
-    .from(systemUsersTable)
-    .where(
-      or(
-        eq(sql`LOWER(${systemUsersTable.empId})`, identifier.toLowerCase()),
-        eq(sql`LOWER(${systemUsersTable.email})`, identifier.toLowerCase()),
-        eq(sql`REGEXP_REPLACE(${systemUsersTable.mobile}, '\D', '', 'g')`, mobileSearch),
-        eq(systemUsersTable.mobile, identifier)
-      )
-    );
-
-  if (!sysUser) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-
-  const valid = await comparePassword(password, sysUser.passwordHash);
-
-  if (!valid) {
-    res.status(401).json({ error: "Invalid credentials" });
-    return;
-  }
-
-  const token = signToken({
-    id: sysUser.id,
-    userType: sysUser.userType,
-    assignedTrack: sysUser.assignedTrack,
-    permissions: sysUser.permissions || [],
-  });
-  await createSession(token, sysUser.id, sysUser.userType, sysUser.name, req);
-
-  const effectivePermissions = (sysUser.userType === "admin" || sysUser.userType === "super_admin")
-    ? ["attendance", "goodies", "food"]
-    : (sysUser.permissions ?? []);
-  res.json({
-    token,
-    mustChangePassword: sysUser.mustChangePassword,
-    user: {
-      id: sysUser.id,
-      name: sysUser.name,
-      empId: sysUser.empId,
-      email: sysUser.email,
-      mobile: sysUser.mobile,
-      userType: sysUser.userType,
-      assignedTrack: sysUser.assignedTrack,
-      mustChangePassword: sysUser.mustChangePassword,
-      participantId: null,
-      permissions: effectivePermissions,
-    },
-  });
+  // ── 3. Neither matched or password was invalid ──────────────────────────────
+  res.status(401).json({ error: "Invalid credentials", message: "Invalid Employee ID, Email, or Password." });
+  return;
 });
 
 // POST /auth/quick-access (Allows scan-to-login access: takes any email ID, updates the profile, and logs them in instantly)
