@@ -26,6 +26,7 @@ COPY tsconfig.base.json tsconfig.json ./
 COPY lib ./lib
 COPY artifacts ./artifacts
 COPY scripts ./scripts
+COPY attached_assets ./attached_assets
 
 # Install dependencies using frozen lockfile
 RUN pnpm install --frozen-lockfile
@@ -57,6 +58,7 @@ COPY --from=builder --chown=nodeuser:nodejs /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=builder --chown=nodeuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodeuser:nodejs /app/lib ./lib
 COPY --from=builder --chown=nodeuser:nodejs /app/artifacts ./artifacts
+COPY --from=builder --chown=nodeuser:nodejs /app/attached_assets ./attached_assets
 
 # Create uploads directory with appropriate ownership
 RUN mkdir -p /app/uploads && chown -R nodeuser:nodejs /app/uploads

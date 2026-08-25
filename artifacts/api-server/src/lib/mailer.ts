@@ -175,8 +175,13 @@ export async function sendEmail(
         tls: { rejectUnauthorized: false },
       });
 
-      const bannerPath = path.resolve(process.cwd(), "../../attached_assets/headerwebfinal.png");
-      const hasBanner = fs.existsSync(bannerPath);
+      const bannerCandidates = [
+        path.resolve(process.cwd(), "attached_assets/headerwebfinal.png"),
+        path.resolve(process.cwd(), "../../attached_assets/headerwebfinal.png"),
+        path.resolve(import.meta.dirname, "../../../attached_assets/headerwebfinal.png"),
+      ];
+      const bannerPath = bannerCandidates.find((p) => fs.existsSync(p));
+      const hasBanner = !!bannerPath;
 
       let finalHtml = html;
       const attachments: any[] = [];
