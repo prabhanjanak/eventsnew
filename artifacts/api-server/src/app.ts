@@ -17,48 +17,16 @@ const app: Express = express();
 app.set("trust proxy", 1);
 
 // ── Security Headers (Helmet) ───────────────────────────────────────────────────
+// Disable internal CSP and HSTS to allow smooth operation behind Nginx reverse proxy
+// and allow clean internal IP HTTP access without browser protocol errors.
 app.use(
   helmet({
-    // Allow inline scripts / styles and external integrations (Razorpay, Google Fonts/OAuth)
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: [
-          "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-          "https://checkout.razorpay.com",
-          "https://*.razorpay.com",
-          "https://apis.google.com",
-          "https://accounts.google.com",
-        ],
-        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-        fontSrc: ["'self'", "https://fonts.gstatic.com", "data:"],
-        imgSrc: ["'self'", "data:", "blob:", "https:"],
-        connectSrc: [
-          "'self'",
-          "https:",
-          "wss:",
-          "https://api.razorpay.com",
-          "https://*.razorpay.com",
-          "https://accounts.google.com",
-        ],
-        frameSrc: [
-          "'self'",
-          "https://www.google.com/",
-          "https://api.razorpay.com",
-          "https://*.razorpay.com",
-          "https://accounts.google.com",
-        ],
-        objectSrc: ["'none'"],
-        upgradeInsecureRequests: null,
-      },
-    },
-    // Let Nginx handle HSTS on public domain to allow internal IP testing
-    hsts: false,
-    // Standard protections
-    crossOriginEmbedderPolicy: false, // Needed for PDFs / QR codes inline
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
     crossOriginOpenerPolicy: false,
+    crossOriginResourcePolicy: false,
+    originAgentCluster: false,
+    hsts: false,
     referrerPolicy: { policy: "strict-origin-when-cross-origin" },
   })
 );
