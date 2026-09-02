@@ -21,6 +21,26 @@ interface AuthContextType {
   logout: () => void;
 }
 
+const TOKEN_KEY = "sankara_events_token";
+const LEGACY_TOKEN_KEY = "vision2020_token";
+
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY) || localStorage.getItem(LEGACY_TOKEN_KEY);
+}
+
+export function setAuthToken(val: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TOKEN_KEY, val);
+  localStorage.setItem(LEGACY_TOKEN_KEY, val);
+}
+
+export function removeAuthToken(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,10 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const params = new URLSearchParams(window.location.search);
       const urlToken = params.get("auth_token");
       if (urlToken) {
-        localStorage.setItem("vision2020_token", urlToken);
+        setAuthToken(urlToken);
         return urlToken;
       }
-      return localStorage.getItem("vision2020_token");
+      return getAuthToken();
     }
     return null;
   });
@@ -69,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       const status = (error as any).status || (error as any).statusCode;
       if (status === 401) {
-        localStorage.removeItem("vision2020_token");
+        removeAuthToken();
         setToken(null);
         if (!isPublicRoute(location)) {
           setLocation("/login");
@@ -80,63 +100,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Inactivity Auto-Logout (Only for Staff / Coordinators; Attendees stay logged in) ─────
   const handleActivity = () => {
-    if (!inactivityTimer.current) return;
-    clearTimeout(inactivityTimer.current);
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
 
     const timeoutMinutes = user?.sessionTimeoutMinutes ?? 30;
     const timeoutMs = timeoutMinutes * 60 * 1000;
 
     inactivityTimer.current = setTimeout(() => {
-      const storedToken = localStorage.getItem("vision2020_token");
+      const storedToken = getAuthToken();
       if (storedToken) {
         fetch("/api/auth/logout", {
           method: "POST",
           headers: { Authorization: `Bearer ${storedToken}` },
         }).catch(() => {});
       }
-      localStorage.removeItem("vision2020_token");
+      removeAuthToken();
       setToken(null);
       setLocation("/login");
       toast({
-        title: "Session expired",
-        description: `You were automatically logged out after ${timeoutMinutes} minutes of inactivity.`,
+        title: "Session Expired",
+        description: `You were logged out after ${timeoutMinutes} minutes of inactivity for security.`,
         variant: "destructive",
       });
     }, timeoutMs);
   };
 
   useEffect(() => {
-    if (!token || (user?.userType as string) === "attendee" || (user?.userType as string) === "participant") {
-      // Clear timer for attendees (never logout until explicit logout)
-      if (inactivityTimer.current) {
-        clearTimeout(inactivityTimer.current);
-        inactivityTimer.current = null;
-      }
+    if (!token) {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
       return;
     }
 
-    const timeoutMinutes = user?.sessionTimeoutMinutes ?? 30;
-    const timeoutMs = timeoutMinutes * 60 * 1000;
+    // Attendees/participants don't get auto-logged out
+    if ((user?.userType as string) === "participant" || (user?.userType as string) === "attendee") {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      return;
+    }
 
-    inactivityTimer.current = setTimeout(() => {
-      const storedToken = localStorage.getItem("vision2020_token");
-      if (storedToken) {
-        fetch("/api/auth/logout", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${storedToken}` },
-        }).catch(() => {});
-      }
-      localStorage.removeItem("vision2020_token");
-      setToken(null);
-      setLocation("/login");
-      toast({
-        title: "Session expired",
-        description: `You were automatically logged out after ${timeoutMinutes} minutes of inactivity.`,
-        variant: "destructive",
-      });
-    }, timeoutMs);
-
-    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll", "click"];
+    const events = ["mousedown", "keydown", "scroll", "touchstart", "click"];
     events.forEach((evt) => window.addEventListener(evt, handleActivity, { passive: true }));
 
     return () => {
@@ -149,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [token, user]);
 
   const login = (newToken: string, newUser: any, mustChangePassword?: boolean) => {
-    localStorage.setItem("vision2020_token", newToken);
+    setAuthToken(newToken);
     setToken(newToken);
     queryClient.setQueryData(["/api/auth/me"], newUser);
 
@@ -184,21 +184,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const loginAttendee = (newToken: string, newUser: any) => {
-    localStorage.setItem("vision2020_token", newToken);
+    setAuthToken(newToken);
     setToken(newToken);
     queryClient.setQueryData(["/api/auth/me"], newUser);
     queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
   };
 
   const logout = () => {
-    const storedToken = localStorage.getItem("vision2020_token");
+    const storedToken = getAuthToken();
     if (storedToken) {
       fetch("/api/auth/logout", {
         method: "POST",
         headers: { Authorization: `Bearer ${storedToken}` },
       }).catch(() => {});
     }
-    localStorage.removeItem("vision2020_token");
+    removeAuthToken();
     setToken(null);
     queryClient.setQueryData(["/api/auth/me"], null);
     queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
