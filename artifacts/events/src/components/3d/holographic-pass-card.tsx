@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PerspectiveCard } from "./perspective-card";
+import QRCode from "qrcode";
 import { GoogleWalletButton } from "@/components/google-wallet-button";
 import {
   Calendar,
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   Utensils,
   ExternalLink,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -51,82 +53,58 @@ export function HolographicPassCard(props: HolographicPassCardProps) {
   const className = props.className || "";
 
   const [isFlipped, setIsFlipped] = useState(false);
+  const [localQrUrl, setLocalQrUrl] = useState<string>("");
   const qrValue = `https://events.sankaraeye.in/q/${registrationNumber}`;
+
+  useEffect(() => {
+    QRCode.toDataURL(qrValue, { width: 400, margin: 2, color: { dark: "#000000", light: "#ffffff" } })
+      .then(url => setLocalQrUrl(url))
+      .catch(() => setLocalQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(qrValue)}`));
+  }, [qrValue]);
 
   return (
     <div className={`relative [perspective:1400px] w-full max-w-md mx-auto ${className}`}>
       {/* 3D Flip Card Container */}
       <motion.div
         animate={{ rotateY: isFlipped ? 180 : 0 }}
-        transition={{ duration: 0.6, type: "spring", stiffness: 200, damping: 25 }}
-        style={{ transformStyle: "preserve-3d" }}
-        className="w-full"
+        transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+        className="w-full relative [transform-style:preserve-3d]"
       >
         {/* ── FRONT OF PASS ── */}
         <PerspectiveCard
-          depth={14}
-          style={{ backfaceVisibility: "hidden" }}
-          className="relative bg-gradient-to-br from-[#18181C] via-[#121215] to-[#0A0A0D] border border-white/15 p-6 sm:p-7 rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.8),0_0_40px_rgba(59,130,246,0.15)]"
+          className="[backface-visibility:hidden] overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#121218]/95 via-[#0D0D12]/95 to-[#08080C]/95 p-6 shadow-2xl backdrop-blur-xl relative"
         >
-          {/* Holographic Iridescent Sheen Layer */}
-          <div
-            className="pointer-events-none absolute inset-0 opacity-15 mix-blend-color-dodge bg-gradient-to-tr from-pink-500 via-cyan-400 to-amber-300 animate-pulse"
-            aria-hidden="true"
-          />
+          {/* Subtle Dynamic Laser Edge */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/15 via-transparent to-transparent pointer-events-none" />
 
-          {/* Top Pass Header: Institution Emblem & Pass Type */}
-          <div className="relative z-10 flex items-center justify-between border-b border-white/10 pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-white flex items-center justify-center p-1 shadow-md">
-                <img
-                  src="/sankara-eye-logo.png"
-                  alt="Sankara Logo"
-                  className="w-full h-full object-contain"
-                />
+          {/* Top Header: Brand & Flip Trigger */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-white text-xs shadow-md shrink-0">
+                SEH
               </div>
-              <div>
-                <span className="text-[11px] font-black tracking-wider uppercase text-white block">
-                  Sankara Eye Care
-                </span>
-                <span className="text-[9px] font-semibold tracking-widest text-zinc-400 uppercase">
+              <div className="min-w-0">
+                <div className="text-xs font-black text-white uppercase tracking-wider truncate">
+                  {eventName}
+                </div>
+                <div className="text-[10px] text-zinc-400 font-medium">
                   Official Admission Pass
-                </span>
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-400/40">
-                {delegateType}
-              </span>
-              <button
-                onClick={() => setIsFlipped(true)}
-                className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-                title="Flip to view pass details & coupons"
-              >
-                <RotateCw className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <button
+              onClick={() => setIsFlipped(!isFlipped)}
+              className="h-7 px-2.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+              title="Flip Card"
+            >
+              <RotateCw className="w-3 h-3" />
+              <span>Flip</span>
+            </button>
           </div>
 
-          {/* Event Title & Date */}
-          <div className="relative z-10 py-4 space-y-1.5">
-            <h3 className="text-lg sm:text-xl font-black text-white leading-snug tracking-tight">
-              {eventName}
-            </h3>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-300">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-blue-400" />
-                {startDate} {endDate && endDate !== startDate ? `– ${endDate}` : ""}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-purple-400" />
-                {venue}, {city}
-              </span>
-            </div>
-          </div>
-
-          {/* Delegate Name & 3D QR Code Barcode */}
-          <div className="relative z-10 bg-[#09090B]/90 border border-white/10 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-inner">
+          {/* Delegate Main Content */}
+          <div className="pt-5 flex items-center justify-between gap-4 relative z-10">
             <div className="space-y-1 min-w-0 flex-1">
               <span className="text-[10px] font-bold tracking-widest uppercase text-zinc-400">
                 Delegate Name
@@ -146,16 +124,25 @@ export function HolographicPassCard(props: HolographicPassCardProps) {
             {/* High-Contrast QR Code */}
             <div className="bg-white p-1.5 rounded-xl shadow-lg shrink-0">
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(qrValue)}`}
+                src={localQrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(qrValue)}`}
                 alt="Pass QR Code"
                 className="w-16 h-16 rounded-md"
               />
             </div>
           </div>
 
-          {/* Action Buttons: Google Wallet & Details */}
+          {/* Action Buttons: Download QR & Details */}
           <div className="relative z-10 pt-5 space-y-2.5">
-            <GoogleWalletButton registrationNumber={registrationNumber} className="w-full shadow-lg" />
+            {localQrUrl && (
+              <a
+                href={localQrUrl}
+                download={`${registrationNumber}_QR_Pass.png`}
+                className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs shadow-md transition-all cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-zinc-950" />
+                <span>Download QR Code (PNG)</span>
+              </a>
+            )}
 
             <div className="flex items-center justify-between pt-1">
               <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-400">

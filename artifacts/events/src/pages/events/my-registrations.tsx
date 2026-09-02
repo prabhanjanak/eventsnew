@@ -488,19 +488,43 @@ export default function MyRegistrationsPage() {
                         </div>
 
                         {/* QR Code Pass Box */}
-                        <div className="flex items-center justify-between bg-white text-zinc-950 p-3.5 rounded-2xl shadow-inner">
-                          <div className="space-y-0.5">
-                            <p className="text-xs font-bold text-zinc-950">Official Delegate Pass</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-white text-zinc-950 p-4 rounded-2xl shadow-inner gap-3">
+                          <div className="space-y-1">
+                            <p className="text-xs font-black text-zinc-950">Official Delegate Pass</p>
                             <p className="text-[11px] text-zinc-600 font-medium">Present at check-in counter</p>
-                            <p className="text-[10px] font-mono text-zinc-500 pt-1">{reg.name}</p>
+                            <p className="text-[10px] font-mono text-zinc-500 pt-0.5">{reg.name} (#{reg.registrationNumber})</p>
                           </div>
 
-                          <div className="p-1 bg-white rounded-lg border border-zinc-200">
-                            <img
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&margin=4&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`)}`}
-                              alt={`QR for ${reg.registrationNumber}`}
-                              className="w-16 h-16 object-contain"
-                            />
+                          <div className="flex items-center gap-3 self-center sm:self-auto">
+                            <div className="p-1.5 bg-white rounded-xl border border-zinc-200 shrink-0">
+                              <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=2&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`)}`}
+                                alt={`QR for ${reg.registrationNumber}`}
+                                className="w-16 h-16 object-contain"
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                try {
+                                  const QRCode = (await import("qrcode")).default;
+                                  const url = await QRCode.toDataURL(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`, { width: 400, margin: 2 });
+                                  const link = document.createElement("a");
+                                  link.href = url;
+                                  link.download = `${reg.registrationNumber}_QR_Pass.png`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                } catch {
+                                  window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`)}`, "_blank");
+                                }
+                              }}
+                              className="h-8 rounded-xl border-zinc-300 text-zinc-900 hover:bg-zinc-100 text-xs font-bold gap-1 cursor-pointer shrink-0"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                              <span>Save QR</span>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -508,11 +532,28 @@ export default function MyRegistrationsPage() {
                       {/* Action Buttons */}
                       <div className="pt-5 border-t border-zinc-900 mt-4 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <GoogleWalletButton
-                            registrationNumber={reg.registrationNumber}
-                            variant="compact"
-                            showHint
-                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              try {
+                                const QRCode = (await import("qrcode")).default;
+                                const url = await QRCode.toDataURL(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`, { width: 400, margin: 2 });
+                                const link = document.createElement("a");
+                                link.href = url;
+                                link.download = `${reg.registrationNumber}_QR_Pass.png`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              } catch {
+                                window.open(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`https://events.sankaraeye.in/q/${(reg as any).qrToken || reg.registrationNumber}`)}`, "_blank");
+                              }
+                            }}
+                            className="h-8 px-2.5 rounded-xl text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-bold cursor-pointer"
+                          >
+                            <Download className="w-3.5 h-3.5 mr-1 text-cyan-400" />
+                            <span>Download QR</span>
+                          </Button>
                           <a
                             href={calLinks.google}
                             target="_blank"

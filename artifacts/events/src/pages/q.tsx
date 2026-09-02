@@ -38,6 +38,7 @@ import {
   Clock,
   ChevronRight,
   QrCode,
+  Download,
 } from "lucide-react";
 import { getCache, setCache } from "@/lib/indexeddb-cache";
 import { OtpInput } from "@/components/ui/otp-input";
@@ -806,12 +807,24 @@ export default function SmartQRLanding() {
                   </div>
 
                   {qrDataUrl ? (
-                    <div className="p-2.5 bg-white rounded-2xl inline-block shadow-inner mx-auto border border-zinc-200">
-                      <img
-                        src={qrDataUrl}
-                        alt={`Digital Pass QR - ${participant.registrationNumber}`}
-                        className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto"
-                      />
+                    <div className="space-y-3">
+                      <div className="p-2.5 bg-white rounded-2xl inline-block shadow-inner mx-auto border border-zinc-200">
+                        <img
+                          src={qrDataUrl}
+                          alt={`Digital Pass QR - ${participant.registrationNumber}`}
+                          className="w-56 h-56 sm:w-64 sm:h-64 object-contain mx-auto"
+                        />
+                      </div>
+                      <div className="pt-1">
+                        <a
+                          href={qrDataUrl}
+                          download={`${participant.registrationNumber}_QR_Pass.png`}
+                          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-900 text-white font-bold text-xs shadow-md transition-all cursor-pointer mx-auto"
+                        >
+                          <Download className="w-3.5 h-3.5 text-cyan-400" />
+                          <span>Download QR Pass (PNG)</span>
+                        </a>
+                      </div>
                     </div>
                   ) : (
                     <div className="w-56 h-56 flex items-center justify-center mx-auto">
