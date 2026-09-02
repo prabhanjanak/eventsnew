@@ -35,6 +35,40 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// ── Auto-provision PostgreSQL database if it does not exist ───────────────────
+export async function ensureDatabaseExists(databaseUrl: string = process.env.DATABASE_URL!): Promise<void> {
+  try {
+    const parsed = new URL(databaseUrl);
+    const dbName = parsed.pathname.replace(/^\//, "");
+    if (!dbName || dbName === "postgres") return;
+
+    // Test connection to target db
+    const testClient = new pg.Client({ connectionString: databaseUrl });
+    try {
+      await testClient.connect();
+      await testClient.end();
+      return; // Database exists and is reachable
+    } catch (err: any) {
+      if (err.code === "3D000" || err.message?.includes("does not exist")) {
+        // Connect to default postgres DB and create database
+        parsed.pathname = "/postgres";
+        const adminClient = new pg.Client({ connectionString: parsed.toString() });
+        try {
+          await adminClient.connect();
+          await adminClient.query(`CREATE DATABASE "${dbName}";`);
+          console.log(`[Database] Auto-provisioned database "${dbName}" successfully.`);
+        } catch (createErr: any) {
+          if (!createErr.message?.includes("already exists")) {
+            console.warn(`[Database] Auto-create database notice:`, createErr.message);
+          }
+        } finally {
+          await adminClient.end().catch(() => {});
+        }
+      }
+    }
+  } catch {}
+}
+
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 50,
@@ -44,3 +78,4 @@ export const pool = new Pool({
 export const db = drizzle(pool, { schema });
 
 export * from "./schema/index.js";
+

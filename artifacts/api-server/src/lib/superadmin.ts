@@ -1,9 +1,12 @@
 import bcrypt from "bcryptjs";
-import { db, systemUsersTable } from "@workspace/db";
+import { db, systemUsersTable, ensureDatabaseExists } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
 
 export async function ensureSuperAdmin() {
+  // ── 0. AUTO-PROVISION DATABASE IF NOT EXISTS ──────────────────────────────────
+  await ensureDatabaseExists();
+
   // ── 1. AUTOMATED DATABASE MIGRATIONS (DDL) FIRST ─────────────────────────────
   // MUST execute before any Drizzle ORM queries, otherwise selecting from tables
   // with newly defined schema columns will fail with 'column does not exist'.
