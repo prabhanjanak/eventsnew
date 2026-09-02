@@ -42,6 +42,13 @@ export const participantsTable = pgTable("participants", {
   rejectionReason: text("rejection_reason"),
   notes: text("notes"),
 
+  // Medical Council, Category Tier & Document Uploads
+  medicalCouncilRegNumber: text("medical_council_reg_number"),
+  documentUrl: text("document_url"),
+  documentType: text("document_type"), // medical_council_cert | student_id | payment_proof | other
+  categoryTierName: text("category_tier_name"), // e.g. "Early Bird Delegate", "PG Student", "Faculty"
+  groupRegistrationId: integer("group_registration_id"),
+  
   isActive: boolean("is_active").default(true).notNull(),
   isSponsored: boolean("is_sponsored").default(false).notNull(),
   sponsorType: text("sponsor_type"),

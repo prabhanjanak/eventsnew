@@ -18,7 +18,7 @@ import {
   Phone, Mail, QrCode, FileText, Clock, MapPin, Calendar,
   UserCheck, Gift, Utensils, Loader2, ExternalLink, RefreshCw,
   FileBadge, FileImage, Presentation, ChevronRight,
-  Star, Search, LayoutGrid
+  Star, Search, LayoutGrid, Award, Check
 } from "lucide-react";
 import { formatDateDDMMYYYY } from "@/lib/date-utils";
 
@@ -177,6 +177,83 @@ export default function ParticipantDashboard() {
       }
     } catch { toast({ title: "Wish to Attend Error", variant: "destructive" }); }
     finally { setRsvpToggling(null); }
+  };
+
+  // ── Certificates state ──
+  const [certificates, setCertificates] = useState<any[]>([]);
+  const [certificatesLoading, setCertificatesLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadCerts() {
+      if (!participantId) return;
+      setCertificatesLoading(true);
+      try {
+        const token = localStorage.getItem("vision2020_token");
+        const res = await fetch("/api/certificates/my-certificates", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) setCertificates(await res.json());
+      } catch {}
+      finally { setCertificatesLoading(false); }
+    }
+    loadCerts();
+  }, [participantId]);
+
+  // ── Feedback state ──
+  const [scientificRating, setScientificRating] = useState(5);
+  const [avRating, setAvRating] = useState(5);
+  const [hospitalityRating, setHospitalityRating] = useState(5);
+  const [overallRating, setOverallRating] = useState(5);
+  const [feedbackComments, setFeedbackComments] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFeedbackSubmitting(true);
+    try {
+      const token = localStorage.getItem("vision2020_token");
+      const eventId = (participant as any)?.eventId || 1;
+      const res = await fetch(`/api/events/${eventId}/feedback`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ratings: {
+            scientific: scientificRating,
+            av: avRating,
+            hospitality: hospitalityRating,
+            overall: overallRating,
+          },
+          comments: feedbackComments,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit feedback");
+      }
+
+      setFeedbackSubmitted(true);
+      toast({ title: "Feedback Received! 🙏", description: "Thank you for helping us elevate future CME conferences." });
+    } catch (err: any) {
+      toast({ title: "Submission Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
+
+  const handleDownloadCert = async (cert: any) => {
+    try {
+      const token = localStorage.getItem("vision2020_token");
+      await fetch(`/api/certificates/mark-downloaded/${cert.id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast({ title: "Certificate Downloaded ✓", description: cert.certificateNumber });
+    } catch {}
   };
 
   const handleFileUpload = async (assignmentId: number, file: File) => {
@@ -437,6 +514,18 @@ export default function ParticipantDashboard() {
             className="rounded-lg py-2 px-4 font-bold text-sm gap-1.5 shrink-0 snap-start text-slate-600 hover:text-slate-900 data-[state=active]:bg-[#F58220] data-[state=active]:text-white transition-all duration-200"
           >
             <QrCode className="w-3.5 h-3.5" /> My QR Codes
+          </TabsTrigger>
+          <TabsTrigger 
+            value="certificates" 
+            className="rounded-lg py-2 px-4 font-bold text-sm gap-1.5 shrink-0 snap-start text-slate-600 hover:text-slate-900 data-[state=active]:bg-[#F58220] data-[state=active]:text-white transition-all duration-200"
+          >
+            <Award className="w-3.5 h-3.5" /> e-Certificates
+          </TabsTrigger>
+          <TabsTrigger 
+            value="feedback" 
+            className="rounded-lg py-2 px-4 font-bold text-sm gap-1.5 shrink-0 snap-start text-slate-600 hover:text-slate-900 data-[state=active]:bg-[#F58220] data-[state=active]:text-white transition-all duration-200"
+          >
+            <Star className="w-3.5 h-3.5" /> Post-CME Feedback
           </TabsTrigger>
           <TabsTrigger 
             value="map" 
@@ -1199,6 +1288,252 @@ export default function ParticipantDashboard() {
             </div>
 
           </div>
+        </TabsContent>
+
+        {/* ── e-Certificates Tab ── */}
+        <TabsContent value="certificates" className="mt-5 space-y-5">
+          <Card className="bg-white border border-slate-200/80 shadow-md">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <CardTitle className="text-base flex items-center justify-between">
+                <span className="flex items-center gap-2 text-slate-800 font-extrabold">
+                  <Award className="w-5 h-5 text-[#F58220]" />
+                  Official CME e-Certificates
+                </span>
+                <span className="text-xs text-slate-500 font-semibold">
+                  Accredited by Medical Council
+                </span>
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="p-6 space-y-6">
+              {certificatesLoading ? (
+                <div className="flex items-center justify-center p-8 text-slate-400">
+                  <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                  <span>Loading certificates...</span>
+                </div>
+              ) : certificates.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-full bg-orange-100 text-[#F58220] flex items-center justify-center mx-auto">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <h4 className="font-bold text-slate-800 text-sm">No Certificate Available Yet</h4>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                    Certificates are unlocked automatically upon scanning your attendance at the conference registration desk or after CME session completion.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {certificates.map((cert) => (
+                    <div
+                      key={cert.id}
+                      className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 text-white shadow-xl border border-slate-800 flex flex-col justify-between space-y-5 relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-[#F58220]/10 rounded-full blur-2xl pointer-events-none" />
+
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#F58220] text-white uppercase tracking-wider">
+                            {cert.certificateType === "faculty" ? "Faculty Certificate" : "Delegate Certificate"}
+                          </span>
+                          <h3 className="font-black text-lg text-white pt-1">{cert.recipientName}</h3>
+                          <p className="text-xs text-slate-400">{participant?.institution}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                          <Award className="w-5 h-5 text-[#F58220]" />
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5 text-xs font-mono">
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Certificate No:</span>
+                          <span className="font-bold text-orange-300">{cert.certificateNumber}</span>
+                        </div>
+                        {cert.cmeCreditHours && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">CME Credit Points:</span>
+                            <span className="font-bold text-emerald-300">{cert.cmeCreditHours} Credit Hours</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-slate-400">Issued On:</span>
+                          <span className="text-slate-200">{new Date(cert.issuedAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={() => handleDownloadCert(cert)}
+                        className="w-full h-10 rounded-xl bg-[#F58220] hover:bg-orange-600 text-white font-bold text-xs shadow-md cursor-pointer flex items-center justify-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        <span>Download Verified Certificate (PDF)</span>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Post-CME Feedback Tab ── */}
+        <TabsContent value="feedback" className="mt-5 space-y-5">
+          <Card className="bg-white border border-slate-200/80 shadow-md">
+            <CardHeader className="pb-3 border-b border-slate-100">
+              <CardTitle className="text-base flex items-center gap-2 text-slate-800 font-extrabold">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                Conference &amp; CME Evaluation Feedback
+              </CardTitle>
+            </CardHeader>
+
+            <CardContent className="p-6 space-y-6 max-w-2xl">
+              {feedbackSubmitted ? (
+                <div className="p-8 rounded-3xl bg-emerald-50 border border-emerald-200 text-center space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-black text-slate-900">Thank You for Your Valuable Feedback!</h3>
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-md mx-auto">
+                    Your evaluation helps the Sankara Academic &amp; CME Committee continually refine the scientific agenda and hospitality for future symposiums.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmitFeedback} className="space-y-6">
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Please take a moment to rate various aspects of the conference to help us maintain academic excellence.
+                  </p>
+
+                  <div className="space-y-4">
+                    {/* Scientific Content Rating */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Scientific &amp; Academic Content</h4>
+                        <p className="text-[11px] text-slate-500">Quality of lectures, case discussions, and clinical depth</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setScientificRating(star)}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              className={`w-6 h-6 ${
+                                star <= scientificRating
+                                  ? "text-amber-500 fill-amber-500"
+                                  : "text-slate-300"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Audio-Visual / Stage Rating */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Audio-Visual, Stage &amp; Halls</h4>
+                        <p className="text-[11px] text-slate-500">Projection quality, acoustic clarity, and seating comfort</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setAvRating(star)}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              className={`w-6 h-6 ${
+                                star <= avRating
+                                  ? "text-amber-500 fill-amber-500"
+                                  : "text-slate-300"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Food & Hospitality Rating */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Food, Catering &amp; Hospitality</h4>
+                        <p className="text-[11px] text-slate-500">Hygiene, flavor, and dining logistics</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setHospitalityRating(star)}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              className={`w-6 h-6 ${
+                                star <= hospitalityRating
+                                  ? "text-amber-500 fill-amber-500"
+                                  : "text-slate-300"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Overall Experience */}
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800">Overall Conference Experience</h4>
+                        <p className="text-[11px] text-slate-500">Overall organization and satisfaction</p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            type="button"
+                            key={star}
+                            onClick={() => setOverallRating(star)}
+                            className="p-1 hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              className={`w-6 h-6 ${
+                                star <= overallRating
+                                  ? "text-amber-500 fill-amber-500"
+                                  : "text-slate-300"
+                              }`}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Suggestions & Comments Textarea */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700">
+                      Suggestions for Future CMEs / Topics of Interest
+                    </label>
+                    <textarea
+                      rows={4}
+                      placeholder="Share your comments or topics you would like to see in upcoming editions..."
+                      value={feedbackComments}
+                      onChange={(e) => setFeedbackComments(e.target.value)}
+                      className="w-full p-3 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#F58220]/20"
+                    />
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={feedbackSubmitting}
+                    className="w-full h-11 rounded-xl bg-[#F58220] hover:bg-orange-600 text-white font-bold text-xs shadow-md cursor-pointer"
+                  >
+                    {feedbackSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                    <span>Submit CME Evaluation</span>
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

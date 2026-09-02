@@ -570,6 +570,15 @@ router.post("/events", requireAuth(["super_admin"]), async (req: Request, res: R
         organizerName: body.organizerName || "Sankara Eye Care Institutions",
         organizerEmail: body.organizerEmail || null,
         organizerPhone: body.organizerPhone || null,
+        spocName: body.spocName || null,
+        spocDesignation: body.spocDesignation || null,
+        spocPhone: body.spocPhone || null,
+        spocEmail: body.spocEmail || null,
+        cancellationPolicy: body.cancellationPolicy || null,
+        requireDocumentUpload: Boolean(body.requireDocumentUpload),
+        documentUploadLabel: body.documentUploadLabel || "Upload Medical Council Certificate / Student ID",
+        documentUploadRequired: Boolean(body.documentUploadRequired),
+        groupRegistrationEnabled: body.groupRegistrationEnabled !== false,
         themeColor: body.themeColor || "#18181B",
         accentColor: body.accentColor || "#6366F1",
         bannerUrl: body.bannerUrl || null,
@@ -578,9 +587,16 @@ router.post("/events", requireAuth(["super_admin"]), async (req: Request, res: R
         agendaPdfButtonText: body.agendaPdfButtonText || "Download Event Agenda (PDF)",
         customPdfUrl: body.customPdfUrl || null,
         customPdfButtonText: body.customPdfButtonText || "View Document (PDF)",
+        awardsPdfUrl: body.awardsPdfUrl || null,
+        awardsPdfButtonText: body.awardsPdfButtonText || "Download Awards & Winners List (PDF)",
+        externalPhotosUrl: body.externalPhotosUrl || null,
+        externalPhotosButtonText: body.externalPhotosButtonText || "View AI Event Photos (Samaro AI / Photomall)",
         pdfAttachmentsJson: body.pdfAttachmentsJson ? (typeof body.pdfAttachmentsJson === "string" ? body.pdfAttachmentsJson : JSON.stringify(body.pdfAttachmentsJson)) : null,
         agendaJson: body.agendaJson ? (typeof body.agendaJson === "string" ? body.agendaJson : JSON.stringify(body.agendaJson)) : null,
         pricingTiersJson: body.pricingTiersJson ? (typeof body.pricingTiersJson === "string" ? body.pricingTiersJson : JSON.stringify(body.pricingTiersJson)) : null,
+        feedbackFormJson: body.feedbackFormJson ? (typeof body.feedbackFormJson === "string" ? body.feedbackFormJson : JSON.stringify(body.feedbackFormJson)) : null,
+        certificateTemplateJson: body.certificateTemplateJson ? (typeof body.certificateTemplateJson === "string" ? body.certificateTemplateJson : JSON.stringify(body.certificateTemplateJson)) : null,
+        prePostTestJson: body.prePostTestJson ? (typeof body.prePostTestJson === "string" ? body.prePostTestJson : JSON.stringify(body.prePostTestJson)) : null,
         razorpayKeyId: body.razorpayKeyId || null,
         razorpayKeySecret: body.razorpayKeySecret || null,
         badgeSubtitle: body.badgeSubtitle || null,
@@ -684,6 +700,15 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
     if (body.organizerName !== undefined) updates.organizerName = body.organizerName;
     if (body.organizerEmail !== undefined) updates.organizerEmail = body.organizerEmail;
     if (body.organizerPhone !== undefined) updates.organizerPhone = body.organizerPhone;
+    if (body.spocName !== undefined) updates.spocName = body.spocName;
+    if (body.spocDesignation !== undefined) updates.spocDesignation = body.spocDesignation;
+    if (body.spocPhone !== undefined) updates.spocPhone = body.spocPhone;
+    if (body.spocEmail !== undefined) updates.spocEmail = body.spocEmail;
+    if (body.cancellationPolicy !== undefined) updates.cancellationPolicy = body.cancellationPolicy;
+    if (body.requireDocumentUpload !== undefined) updates.requireDocumentUpload = Boolean(body.requireDocumentUpload);
+    if (body.documentUploadLabel !== undefined) updates.documentUploadLabel = body.documentUploadLabel;
+    if (body.documentUploadRequired !== undefined) updates.documentUploadRequired = Boolean(body.documentUploadRequired);
+    if (body.groupRegistrationEnabled !== undefined) updates.groupRegistrationEnabled = Boolean(body.groupRegistrationEnabled);
     if (body.themeColor !== undefined) updates.themeColor = body.themeColor;
     if (body.accentColor !== undefined) updates.accentColor = body.accentColor;
     if (body.bannerUrl !== undefined) updates.bannerUrl = body.bannerUrl;
@@ -692,6 +717,10 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
     if (body.agendaPdfButtonText !== undefined) updates.agendaPdfButtonText = body.agendaPdfButtonText;
     if (body.customPdfUrl !== undefined) updates.customPdfUrl = body.customPdfUrl;
     if (body.customPdfButtonText !== undefined) updates.customPdfButtonText = body.customPdfButtonText;
+    if (body.awardsPdfUrl !== undefined) updates.awardsPdfUrl = body.awardsPdfUrl;
+    if (body.awardsPdfButtonText !== undefined) updates.awardsPdfButtonText = body.awardsPdfButtonText;
+    if (body.externalPhotosUrl !== undefined) updates.externalPhotosUrl = body.externalPhotosUrl;
+    if (body.externalPhotosButtonText !== undefined) updates.externalPhotosButtonText = body.externalPhotosButtonText;
     if (body.pdfAttachmentsJson !== undefined) {
       updates.pdfAttachmentsJson = typeof body.pdfAttachmentsJson === "string" ? body.pdfAttachmentsJson : JSON.stringify(body.pdfAttachmentsJson);
     }
@@ -700,6 +729,15 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
     }
     if (body.pricingTiersJson !== undefined) {
       updates.pricingTiersJson = typeof body.pricingTiersJson === "string" ? body.pricingTiersJson : JSON.stringify(body.pricingTiersJson);
+    }
+    if (body.feedbackFormJson !== undefined) {
+      updates.feedbackFormJson = typeof body.feedbackFormJson === "string" ? body.feedbackFormJson : JSON.stringify(body.feedbackFormJson);
+    }
+    if (body.certificateTemplateJson !== undefined) {
+      updates.certificateTemplateJson = typeof body.certificateTemplateJson === "string" ? body.certificateTemplateJson : JSON.stringify(body.certificateTemplateJson);
+    }
+    if (body.prePostTestJson !== undefined) {
+      updates.prePostTestJson = typeof body.prePostTestJson === "string" ? body.prePostTestJson : JSON.stringify(body.prePostTestJson);
     }
     if (body.razorpayKeyId !== undefined) updates.razorpayKeyId = body.razorpayKeyId;
     if (body.razorpayKeySecret !== undefined) updates.razorpayKeySecret = body.razorpayKeySecret;

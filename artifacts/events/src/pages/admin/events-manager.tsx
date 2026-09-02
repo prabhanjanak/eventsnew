@@ -196,6 +196,9 @@ export interface AgendaSlot {
   title: string;
   type: "session" | "keynote" | "break_tea" | "break_lunch" | "workshop" | "panel";
   speaker?: string;
+  speakerDesignation?: string;
+  speakerInstitution?: string;
+  moderator?: string;
   trackHall?: string;
   description?: string;
 }
@@ -377,6 +380,25 @@ export default function EventsManager() {
   const [organizerPhone, setOrganizerPhone] = useState("");
   const [status, setStatus] = useState("published");
   const [assignedCoordinators, setAssignedCoordinators] = useState<number[]>([]);
+
+  // SPOC (Single Point of Contact) Details
+  const [spocName, setSpocName] = useState("");
+  const [spocDesignation, setSpocDesignation] = useState("");
+  const [spocPhone, setSpocPhone] = useState("");
+  const [spocEmail, setSpocEmail] = useState("");
+  const [cancellationPolicy, setCancellationPolicy] = useState("");
+
+  // Document Uploads & Group Registration Toggles
+  const [requireDocumentUpload, setRequireDocumentUpload] = useState(false);
+  const [documentUploadLabel, setDocumentUploadLabel] = useState("Upload Medical Council Certificate / Student ID");
+  const [documentUploadRequired, setDocumentUploadRequired] = useState(false);
+  const [groupRegistrationEnabled, setGroupRegistrationEnabled] = useState(true);
+
+  // Awards & External AI Photos
+  const [awardsPdfUrl, setAwardsPdfUrl] = useState("");
+  const [awardsPdfButtonText, setAwardsPdfButtonText] = useState("Download Awards & Winners List (PDF)");
+  const [externalPhotosUrl, setExternalPhotosUrl] = useState("");
+  const [externalPhotosButtonText, setExternalPhotosButtonText] = useState("View AI Event Photos (Samaro AI / Photomall)");
 
   // PDF Document Attachments & Button Labels
   const [agendaPdfUrl, setAgendaPdfUrl] = useState("");
@@ -617,12 +639,25 @@ export default function EventsManager() {
     setOrganizerName("Sankara Eye Care Institutions");
     setOrganizerEmail("events@sankaraeye.in");
     setOrganizerPhone("");
+    setSpocName("");
+    setSpocDesignation("CME Coordinator");
+    setSpocPhone("");
+    setSpocEmail("");
+    setCancellationPolicy("Cancellations requested 7 days prior to event will receive 100% refund. No refunds for cancellations within 48 hours. Contact Event SPOC for processing.");
+    setRequireDocumentUpload(false);
+    setDocumentUploadLabel("Upload Medical Council Certificate / Student ID");
+    setDocumentUploadRequired(false);
+    setGroupRegistrationEnabled(true);
     setStatus("published");
     setAssignedCoordinators([]);
     setAgendaPdfUrl("");
     setAgendaPdfButtonText("Download Event Agenda (PDF)");
     setCustomPdfUrl("");
     setCustomPdfButtonText("View Schedule / Document (PDF)");
+    setAwardsPdfUrl("");
+    setAwardsPdfButtonText("Download Awards & Winners List (PDF)");
+    setExternalPhotosUrl("");
+    setExternalPhotosButtonText("View AI Event Photos (Samaro AI / Photomall)");
     setAgendaSlots(DEFAULT_SAMPLE_AGENDA.map((s) => ({ ...s, date: today })));
     setModalOpen(true);
   };
@@ -667,11 +702,24 @@ export default function EventsManager() {
     setOrganizerName(ev.organizerName || "Sankara Eye Care Institutions");
     setOrganizerEmail(ev.organizerEmail || "");
     setOrganizerPhone(ev.organizerPhone || "");
+    setSpocName(ev.spocName || "");
+    setSpocDesignation(ev.spocDesignation || "");
+    setSpocPhone(ev.spocPhone || "");
+    setSpocEmail(ev.spocEmail || "");
+    setCancellationPolicy(ev.cancellationPolicy || "");
+    setRequireDocumentUpload(Boolean(ev.requireDocumentUpload));
+    setDocumentUploadLabel(ev.documentUploadLabel || "Upload Medical Council Certificate / Student ID");
+    setDocumentUploadRequired(Boolean(ev.documentUploadRequired));
+    setGroupRegistrationEnabled(ev.groupRegistrationEnabled !== false);
     setStatus(ev.status || "published");
     setAgendaPdfUrl(ev.agendaPdfUrl || "");
     setAgendaPdfButtonText(ev.agendaPdfButtonText || "Download Event Agenda (PDF)");
     setCustomPdfUrl(ev.customPdfUrl || "");
     setCustomPdfButtonText(ev.customPdfButtonText || "View Schedule / Document (PDF)");
+    setAwardsPdfUrl(ev.awardsPdfUrl || "");
+    setAwardsPdfButtonText(ev.awardsPdfButtonText || "Download Awards & Winners List (PDF)");
+    setExternalPhotosUrl(ev.externalPhotosUrl || "");
+    setExternalPhotosButtonText(ev.externalPhotosButtonText || "View AI Event Photos (Samaro AI / Photomall)");
 
     try {
       const parsed = ev.agendaJson ? JSON.parse(ev.agendaJson) : [];
@@ -687,7 +735,7 @@ export default function EventsManager() {
     setModalOpen(true);
   };
 
-  const handlePdfUpload = async (file: File, target: "agenda" | "custom") => {
+  const handlePdfUpload = async (file: File, target: "agenda" | "custom" | "awards") => {
     if (!file) return;
     setUploadingPdf(true);
     try {
@@ -709,9 +757,12 @@ export default function EventsManager() {
       if (target === "agenda") {
         setAgendaPdfUrl(data.url);
         toast({ title: "Agenda PDF Uploaded ✓", description: data.originalName });
-      } else {
+      } else if (target === "custom") {
         setCustomPdfUrl(data.url);
         toast({ title: "Custom Document PDF Uploaded ✓", description: data.originalName });
+      } else {
+        setAwardsPdfUrl(data.url);
+        toast({ title: "Awards & Winners PDF Uploaded ✓", description: data.originalName });
       }
     } catch (err: any) {
       toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
@@ -748,13 +799,13 @@ export default function EventsManager() {
       });
 
       if (!res.ok) throw new Error("Failed to create coupon");
-      toast({ title: "Coupon Created! 🎉", description: `Code: ${newCouponCode.toUpperCase()}` });
+      toast({ title: "Coupon Created ✓", description: `Code ${newCouponCode.toUpperCase()} added.` });
       setNewCouponCode("");
       setNewCouponSponsor("");
       setNewCouponDesc("");
       refetchCoupons();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Failed to Create Coupon", description: err.message, variant: "destructive" });
     } finally {
       setCreatingCoupon(false);
     }
@@ -770,7 +821,7 @@ export default function EventsManager() {
       toast({ title: "Coupon Deleted" });
       refetchCoupons();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
     }
   };
 
@@ -811,12 +862,25 @@ export default function EventsManager() {
         organizerName,
         organizerEmail,
         organizerPhone,
+        spocName: spocName.trim() || null,
+        spocDesignation: spocDesignation.trim() || null,
+        spocPhone: spocPhone.trim() || null,
+        spocEmail: spocEmail.trim() || null,
+        cancellationPolicy: cancellationPolicy.trim() || null,
+        requireDocumentUpload,
+        documentUploadLabel: documentUploadLabel.trim() || "Upload Medical Council Certificate / Student ID",
+        documentUploadRequired,
+        groupRegistrationEnabled,
         themeColor: "#18181B",
         accentColor: "#6366F1",
         agendaPdfUrl: agendaPdfUrl.trim() || null,
         agendaPdfButtonText: agendaPdfButtonText.trim() || "Download Event Agenda (PDF)",
         customPdfUrl: customPdfUrl.trim() || null,
         customPdfButtonText: customPdfButtonText.trim() || "View Document (PDF)",
+        awardsPdfUrl: awardsPdfUrl.trim() || null,
+        awardsPdfButtonText: awardsPdfButtonText.trim() || "Download Awards & Winners List (PDF)",
+        externalPhotosUrl: externalPhotosUrl.trim() || null,
+        externalPhotosButtonText: externalPhotosButtonText.trim() || "View AI Event Photos (Samaro AI / Photomall)",
         agendaJson: JSON.stringify(agendaSlots),
         status,
         assignedCoordinatorIds: assignedCoordinators,
@@ -1738,6 +1802,7 @@ export default function EventsManager() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
                         <div className="sm:col-span-3">
+                          <Label className="text-[10px] text-zinc-400">Time From</Label>
                           <Input
                             placeholder="09:00 AM"
                             value={slot.timeFrom}
@@ -1746,6 +1811,7 @@ export default function EventsManager() {
                           />
                         </div>
                         <div className="sm:col-span-3">
+                          <Label className="text-[10px] text-zinc-400">Time To</Label>
                           <Input
                             placeholder="10:00 AM"
                             value={slot.timeTo}
@@ -1754,11 +1820,43 @@ export default function EventsManager() {
                           />
                         </div>
                         <div className="sm:col-span-6">
+                          <Label className="text-[10px] text-zinc-400">Topic / Session Title</Label>
                           <Input
-                            placeholder="Session Title"
+                            placeholder="Session / Lecture Topic Title"
                             value={slot.title}
                             onChange={(e) => updateAgendaSlot(slot.id, { title: e.target.value })}
                             className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-lg font-semibold"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Speaker / Faculty Mapping Against Topic */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                        <div>
+                          <Label className="text-[10px] text-zinc-400">Faculty / Speaker Name(s)</Label>
+                          <Input
+                            placeholder="e.g. Dr. A. Sharma, Dr. Priya S"
+                            value={slot.speaker || ""}
+                            onChange={(e) => updateAgendaSlot(slot.id, { speaker: e.target.value })}
+                            className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-amber-200 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-zinc-400">Speaker Designation &amp; Institute</Label>
+                          <Input
+                            placeholder="e.g. Head of Cornea, Sankara Eye Hospital"
+                            value={slot.speakerDesignation || ""}
+                            onChange={(e) => updateAgendaSlot(slot.id, { speakerDesignation: e.target.value })}
+                            className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-zinc-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-zinc-400">Track / Hall / Moderator</Label>
+                          <Input
+                            placeholder="e.g. Hall A | Mod: Dr. R. Verma"
+                            value={slot.trackHall || ""}
+                            onChange={(e) => updateAgendaSlot(slot.id, { trackHall: e.target.value })}
+                            className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-cyan-200 rounded-lg"
                           />
                         </div>
                       </div>
@@ -1768,14 +1866,14 @@ export default function EventsManager() {
               )}
             </div>
 
-            {/* 6. Event PDF Documents & Attendee Action Buttons */}
+            {/* 6. Event PDF Documents, Awards & AI Photos */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                  6. Event PDF Documents &amp; Attendee Action Buttons
+                  6. Event PDF Documents, Awards List &amp; AI Photos Platform
                 </h3>
                 <p className="text-[11px] text-zinc-500">
-                  Upload PDF documents (Agenda, Floor Map, Scientific Brochure). These appear as interactive download buttons on the scanned attendee QR pass page.
+                  Upload PDF documents and link external AI photo detection services (Samaro AI / Photomall).
                 </p>
               </div>
 
@@ -1805,18 +1903,16 @@ export default function EventsManager() {
 
                   <div className="space-y-1">
                     <Label className="text-[11px] text-zinc-400">PDF File</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handlePdfUpload(f, "agenda");
-                        }}
-                        disabled={uploadingPdf}
-                        className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-zinc-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-zinc-950 hover:file:bg-zinc-200 cursor-pointer"
-                      />
-                    </div>
+                    <Input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handlePdfUpload(f, "agenda");
+                      }}
+                      disabled={uploadingPdf}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-zinc-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-zinc-950 hover:file:bg-zinc-200 cursor-pointer"
+                    />
                     {agendaPdfUrl && (
                       <p className="text-[10px] text-zinc-500 font-mono truncate" title={agendaPdfUrl}>
                         URL: {agendaPdfUrl}
@@ -1825,14 +1921,14 @@ export default function EventsManager() {
                   </div>
                 </div>
 
-                {/* 2. Secondary Document PDF (Floor Map, Rules, Schedule) */}
+                {/* 2. Awards & Winners PDF Document */}
                 <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-zinc-300" /> Additional Document (Floor Map / Guide)
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                      <Gift className="w-3.5 h-3.5 text-amber-400" /> Awards &amp; Winners List (PDF)
                     </span>
-                    {customPdfUrl && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
+                    {awardsPdfUrl && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/60 text-amber-300 border border-amber-800/40">
                         Uploaded ✓
                       </span>
                     )}
@@ -1841,34 +1937,181 @@ export default function EventsManager() {
                   <div className="space-y-1">
                     <Label className="text-[11px] text-zinc-400">Button Display Name</Label>
                     <Input
-                      placeholder="e.g. View Floor Map & Stalls (PDF)"
-                      value={customPdfButtonText}
-                      onChange={(e) => setCustomPdfButtonText(e.target.value)}
+                      placeholder="e.g. Download Awards & Winners List (PDF)"
+                      value={awardsPdfButtonText}
+                      onChange={(e) => setAwardsPdfButtonText(e.target.value)}
                       className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
                     />
                   </div>
 
                   <div className="space-y-1">
                     <Label className="text-[11px] text-zinc-400">PDF File</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="file"
-                        accept=".pdf,application/pdf"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handlePdfUpload(f, "custom");
-                        }}
-                        disabled={uploadingPdf}
-                        className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-zinc-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-zinc-950 hover:file:bg-zinc-200 cursor-pointer"
-                      />
-                    </div>
-                    {customPdfUrl && (
-                      <p className="text-[10px] text-zinc-500 font-mono truncate" title={customPdfUrl}>
-                        URL: {customPdfUrl}
+                    <Input
+                      type="file"
+                      accept=".pdf,application/pdf"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handlePdfUpload(f, "awards");
+                      }}
+                      disabled={uploadingPdf}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-zinc-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-zinc-950 hover:file:bg-zinc-200 cursor-pointer"
+                    />
+                    {awardsPdfUrl && (
+                      <p className="text-[10px] text-zinc-500 font-mono truncate" title={awardsPdfUrl}>
+                        URL: {awardsPdfUrl}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* 3. AI Photo Identification Platform Link */}
+                <div className="sm:col-span-2 p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> AI-Enabled Event Photo Detection Platform (Samaro AI / Photomall)
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-zinc-400">Platform URL Link</Label>
+                      <Input
+                        placeholder="https://samaro.ai/event/... or https://photomall.in/..."
+                        value={externalPhotosUrl}
+                        onChange={(e) => setExternalPhotosUrl(e.target.value)}
+                        className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-zinc-400">Button Display Text</Label>
+                      <Input
+                        placeholder="e.g. Find Your Photos with AI (Samaro AI)"
+                        value={externalPhotosButtonText}
+                        onChange={(e) => setExternalPhotosButtonText(e.target.value)}
+                        className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 7. CME SPOC Helpdesk, Document Uploads & Cancellation Policy */}
+            <div className="space-y-4 pt-2 border-t border-[#242429]">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  7. CME SPOC Contact &amp; Registration Document Rules
+                </h3>
+                <p className="text-[11px] text-zinc-500">
+                  Configure Single Point of Contact (SPOC), Document uploads (Medical Council Certificate), and Cancellation Policy.
+                </p>
+              </div>
+
+              {/* SPOC Contact Details */}
+              <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-3">
+                <h4 className="text-xs font-bold text-zinc-200">Event SPOC (Single Point of Contact)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-zinc-400">SPOC Name</Label>
+                    <Input
+                      placeholder="e.g. Dr. Anand Sharma"
+                      value={spocName}
+                      onChange={(e) => setSpocName(e.target.value)}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-zinc-400">SPOC Designation</Label>
+                    <Input
+                      placeholder="e.g. CME Coordinator"
+                      value={spocDesignation}
+                      onChange={(e) => setSpocDesignation(e.target.value)}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-zinc-400">Phone / WhatsApp</Label>
+                    <Input
+                      placeholder="e.g. +91 9876543210"
+                      value={spocPhone}
+                      onChange={(e) => setSpocPhone(e.target.value)}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-zinc-400">SPOC Email</Label>
+                    <Input
+                      placeholder="e.g. cme.coimbatore@sankaraeye.com"
+                      value={spocEmail}
+                      onChange={(e) => setSpocEmail(e.target.value)}
+                      className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Document Upload & Group Reg Toggles */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white">Require Document Upload</span>
+                      <p className="text-[10px] text-zinc-500">E.g. Medical Council Certificate / Student ID</p>
+                    </div>
+                    <Switch
+                      checked={requireDocumentUpload}
+                      onCheckedChange={setRequireDocumentUpload}
+                    />
+                  </div>
+                  {requireDocumentUpload && (
+                    <div className="space-y-2 pt-2 border-t border-[#202026]">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-zinc-400">Upload Field Label</Label>
+                        <Input
+                          placeholder="Upload Medical Council Certificate / Student ID"
+                          value={documentUploadLabel}
+                          onChange={(e) => setDocumentUploadLabel(e.target.value)}
+                          className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-xl"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="docReqCheck"
+                          checked={documentUploadRequired}
+                          onChange={(e) => setDocumentUploadRequired(e.target.checked)}
+                          className="rounded border-[#2B2B32] text-blue-600 focus:ring-0"
+                        />
+                        <label htmlFor="docReqCheck" className="text-xs text-zinc-300 cursor-pointer">
+                          Mandatory (Delegates cannot submit without file)
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-white">Enable Group Registration</span>
+                      <p className="text-[10px] text-zinc-500">Allow institutions to register multiple delegates in bulk</p>
+                    </div>
+                    <Switch
+                      checked={groupRegistrationEnabled}
+                      onCheckedChange={setGroupRegistrationEnabled}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Cancellation Policy */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Cancellation &amp; Refund Policy</Label>
+                <Textarea
+                  placeholder="State the cancellation deadlines, refund percentage, and SPOC contact routing..."
+                  value={cancellationPolicy}
+                  onChange={(e) => setCancellationPolicy(e.target.value)}
+                  className="rounded-xl min-h-[70px] bg-[#09090B] border-[#2B2B32] text-white text-xs"
+                />
               </div>
             </div>
 

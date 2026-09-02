@@ -61,6 +61,9 @@ export interface AgendaSlot {
   type: string;
   trackHall?: string;
   speaker?: string;
+  speakerDesignation?: string;
+  speakerInstitution?: string;
+  moderator?: string;
   description?: string;
 }
 
@@ -1093,17 +1096,36 @@ export default function EventDetailPage() {
                                 {slot.description}
                               </p>
                             )}
+
+                            {/* Speaker & Faculty Mapping Against Topic */}
+                            {slot.speaker && (
+                              <div className="pt-2 mt-1 border-t border-zinc-800/50 flex items-start gap-2">
+                                <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                                  <User className="w-3.5 h-3.5 text-amber-300" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold text-amber-200 truncate">
+                                    {slot.speaker}
+                                  </p>
+                                  {(slot.speakerDesignation || slot.speakerInstitution) && (
+                                    <p className="text-[10px] text-zinc-400 truncate">
+                                      {slot.speakerDesignation}{slot.speakerDesignation && slot.speakerInstitution ? " • " : ""}{slot.speakerInstitution}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-400">
                             {slot.trackHall && (
-                              <span className="truncate max-w-[140px] text-zinc-300 font-medium">
+                              <span className="truncate max-w-[150px] text-zinc-300 font-medium">
                                 📍 {slot.trackHall}
                               </span>
                             )}
-                            {slot.speaker && (
-                              <span className="truncate max-w-[140px] text-zinc-400 italic">
-                                {slot.speaker}
+                            {slot.moderator && (
+                              <span className="truncate max-w-[130px] text-cyan-300 font-medium">
+                                Mod: {slot.moderator}
                               </span>
                             )}
                           </div>
@@ -1112,6 +1134,115 @@ export default function EventDetailPage() {
                     })}
                   </div>
                 </div>
+              </div>
+
+              {/* ── CME SPOC & HELPDESK CARD ── */}
+              {(event.spocName || event.organizerPhone || event.organizerEmail) && (
+                <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-extrabold text-sm sm:text-base text-white">Event Helpdesk &amp; CME SPOC</h3>
+                        <p className="text-[11px] text-zinc-400">Single Point of Contact for queries, cancellations &amp; logistics</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Event SPOC</span>
+                      <p className="text-xs font-bold text-white">{event.spocName || event.organizerName || "Sankara CME Secretariat"}</p>
+                      <p className="text-[11px] text-zinc-400">{event.spocDesignation || "Organizing Secretary"}</p>
+                    </div>
+
+                    <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col justify-between space-y-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Contact Channels</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(event.spocPhone || event.organizerPhone) && (
+                          <a
+                            href={`tel:${event.spocPhone || event.organizerPhone}`}
+                            className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center gap-1.5 transition-colors font-medium"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>{event.spocPhone || event.organizerPhone}</span>
+                          </a>
+                        )}
+                        {(event.spocEmail || event.organizerEmail) && (
+                          <a
+                            href={`mailto:${event.spocEmail || event.organizerEmail}`}
+                            className="px-3 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center gap-1.5 transition-colors font-medium"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Email SPOC</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── CANCELLATION POLICY & EVENT DOCUMENTS ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {/* Cancellation Policy */}
+                {event.cancellationPolicy && (
+                  <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center gap-2 text-zinc-200 font-bold text-xs">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span>Cancellation &amp; Refund Policy</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed whitespace-pre-line">
+                      {event.cancellationPolicy}
+                    </p>
+                  </div>
+                )}
+
+                {/* Awards & Winners List PDF Button */}
+                {event.awardsPdfUrl && (
+                  <div className="bg-amber-950/20 border border-amber-800/40 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-amber-300 font-bold text-xs">
+                        <Gift className="w-4 h-4 text-amber-400" />
+                        <span>Awards &amp; Winners List</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400">Download official awards and paper presentation results</p>
+                    </div>
+                    <a
+                      href={event.awardsPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-colors shadow-sm"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>{event.awardsPdfButtonText || "Download Awards List (PDF)"}</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* AI Photos Platform Link */}
+                {event.externalPhotosUrl && (
+                  <div className="bg-cyan-950/20 border border-cyan-800/40 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-xs">
+                        <Sparkles className="w-4 h-4 text-cyan-400" />
+                        <span>AI-Enabled Event Photos</span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400">Find your photos instantly using facial recognition</p>
+                    </div>
+                    <a
+                      href={event.externalPhotosUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold text-xs transition-colors shadow-sm"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{event.externalPhotosButtonText || "Find Photos with AI"}</span>
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1237,44 +1368,8 @@ export default function EventDetailPage() {
                   )}
                 </div>
 
-                {/* Capacity and Seats Left Telemetry Box / Footfall Telemetry */}
-                {isConcluded ? (
-                  <div className="bg-[#141417] border border-amber-500/30 rounded-2xl p-4 space-y-3 shadow-inner">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-amber-300 flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-amber-400" />
-                        Official Event Footfall
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                        Event Concluded
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-between text-xs pt-1">
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                          Total Attendance &amp; Footfall
-                        </span>
-                        <span className="text-2xl font-black text-white font-mono">
-                          {(event.postEventVisitorCount || event.totalParticipants || (event as any).attendanceCount || 0).toLocaleString()}{" "}
-                          <span className="text-xs text-zinc-400 font-normal">Attendees</span>
-                        </span>
-                      </div>
-                      <div className="text-right space-y-0.5">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                          Max Capacity
-                        </span>
-                        <span className="text-sm font-black text-zinc-300 font-mono">
-                          {maxCapacity} Max
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200">
-                      This event has concluded. Registrations are closed.
-                    </div>
-                  </div>
-                ) : (
+                {/* Capacity and Seats Left Telemetry Box */}
+                {!isConcluded && (
                   <div className="bg-[#141417] border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-inner">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-bold text-zinc-200 flex items-center gap-1.5">
@@ -1333,15 +1428,31 @@ export default function EventDetailPage() {
                   </div>
                 )}
 
-                {/* Primary CTA */}
-                <Button
-                  asChild
-                  className="w-full h-12 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer"
-                >
-                  <Link href={`/events/${event.slug}/register?tier=${activeTier.id}`}>
-                    {event.requiresApproval ? "Request to Join" : `Register as ${activeTier.name}`}
-                  </Link>
-                </Button>
+                {/* Primary CTA Buttons (Individual & Group) */}
+                <div className="space-y-2 pt-1">
+                  <Button
+                    asChild
+                    className="w-full h-12 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer"
+                  >
+                    <Link href={`/events/${event.slug}/register?tier=${activeTier.id}`}>
+                      {event.requiresApproval ? "Request to Join" : `Register as ${activeTier.name}`}
+                    </Link>
+                  </Button>
+
+                  {/* Group Registration Button */}
+                  {event.groupRegistrationEnabled !== false && (
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full h-10 rounded-full border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 font-bold text-xs transition-all cursor-pointer"
+                    >
+                      <Link href={`/events/${event.slug}/register?mode=group`}>
+                        <Users className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+                        <span>Register Group / Institutional Delegation</span>
+                      </Link>
+                    </Button>
+                  )}
+                </div>
 
                 <p className="text-[11px] text-center text-zinc-500 font-medium">
                   Digital pass with dynamic QR check-in sent immediately after confirmation.

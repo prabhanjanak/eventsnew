@@ -17,3 +17,6 @@ export * from "./google-wallet";
 export * from "./id-card-designs";
 export * from "./chat-logs";
 export * from "./knowledge-base";
+export * from "./feedback";
+export * from "./certificates";
+export * from "./groups";

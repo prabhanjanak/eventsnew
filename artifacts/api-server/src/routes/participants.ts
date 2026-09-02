@@ -347,6 +347,10 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
         notes: notes
           ? `${notes} (Tier: ${matchedTier.name || resolvedRole}${isEarlyBirdApplied ? " - Early Bird" : ""}${appliedCoupon ? `, Coupon: ${appliedCoupon.code}` : ""})`
           : `Tier: ${matchedTier.name || resolvedRole}${isEarlyBirdApplied ? " - Early Bird" : ""}${appliedCoupon ? `, Coupon: ${appliedCoupon.code}` : ""}`,
+        medicalCouncilRegNumber: req.body.medicalCouncilRegNumber ? req.body.medicalCouncilRegNumber.trim() : null,
+        documentUrl: req.body.documentUrl || null,
+        documentType: req.body.documentType || null,
+        categoryTierName: matchedTier?.name || resolvedRole,
         isPaid: isFullyPaid,
         paymentStatus: isFullyPaid ? (finalAmount === 0 ? "waived" : "paid") : "unpaid",
         paymentAmount: finalAmount,

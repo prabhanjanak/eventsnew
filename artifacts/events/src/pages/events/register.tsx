@@ -50,10 +50,28 @@ export default function EventRegisterPage() {
   const [mobile, setMobile] = useState("");
   const [institution, setInstitution] = useState("");
   const [designation, setDesignation] = useState("");
+  const [medicalCouncilRegNumber, setMedicalCouncilRegNumber] = useState("");
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
   const [foodPreference, setFoodPreference] = useState<"veg" | "non_veg">("veg");
 
-  // Initial role tier from URL query param (?tier=xxx)
+  // Initial mode from URL query param (?mode=group)
   const searchParams = new URLSearchParams(window.location.search);
+  const initialMode = searchParams.get("mode") === "group" ? "group" : "single";
+  const [regMode, setRegMode] = useState<"single" | "group">(initialMode);
+
+  // Group Registration state
+  const [orgName, setOrgName] = useState("");
+  const [coordName, setCoordName] = useState("");
+  const [coordEmail, setCoordEmail] = useState("");
+  const [coordPhone, setCoordPhone] = useState("");
+  const [groupDelegates, setGroupDelegates] = useState<Array<{ id: string; name: string; email: string; mobile: string; designation: string; categoryTierName: string }>>([
+    { id: "del-1", name: "", email: "", mobile: "", designation: "Delegate", categoryTierName: "Official Delegate" },
+  ]);
+  const [submittingGroup, setSubmittingGroup] = useState(false);
+  const [groupRegisteredData, setGroupRegisteredData] = useState<any>(null);
+
+  // Initial role tier from URL query param (?tier=xxx)
   const initialTier = searchParams.get("tier") || "delegate";
   const [selectedTierId, setSelectedTierId] = useState<string>(initialTier);
 
@@ -421,6 +439,107 @@ export default function EventRegisterPage() {
     }
   };
 
+  const handleDocUpload = async (file: File) => {
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${BASE_URL}/api/events/upload-pdf`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to upload document");
+      }
+      const data = await res.json();
+      setDocumentUrl(data.url);
+      toast({ title: "Document Uploaded ✓", description: data.originalName });
+    } catch (err: any) {
+      toast({ title: "Upload Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleAddGroupDelegate = () => {
+    const nextNum = groupDelegates.length + 1;
+    setGroupDelegates((prev) => [
+      ...prev,
+      {
+        id: `del-${Date.now()}-${nextNum}`,
+        name: "",
+        email: "",
+        mobile: "",
+        designation: "Delegate",
+        categoryTierName: activeTier?.name || "Official Delegate",
+      },
+    ]);
+  };
+
+  const handleUpdateGroupDelegate = (index: number, field: string, val: string) => {
+    setGroupDelegates((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      return copy;
+    });
+  };
+
+  const handleRemoveGroupDelegate = (index: number) => {
+    if (groupDelegates.length <= 1) return;
+    setGroupDelegates((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgName.trim() || !coordName.trim() || !coordEmail.trim() || !coordPhone.trim()) {
+      toast({ title: "Missing Contact Details", description: "Organization & coordinator contact details are required.", variant: "destructive" });
+      return;
+    }
+    const cleanPhone = coordPhone.replace(/[^0-9]/g, "").slice(-10);
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      toast({ title: "Invalid Mobile Number", description: "Please enter a valid 10-digit Indian mobile number for coordinator.", variant: "destructive" });
+      return;
+    }
+    if (groupDelegates.some((d) => !d.name.trim())) {
+      toast({ title: "Incomplete Delegates", description: "Please enter the full name for each delegate in the group.", variant: "destructive" });
+      return;
+    }
+
+    setSubmittingGroup(true);
+    try {
+      const res = await fetch(`${BASE_URL}/api/events/${event.id}/group-register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          organizationName: orgName.trim(),
+          coordinatorName: coordName.trim(),
+          coordinatorEmail: coordEmail.trim().toLowerCase(),
+          coordinatorPhone: cleanPhone,
+          delegates: groupDelegates,
+          paymentMethod: isPaidEvent ? "online" : "complimentary",
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit group registration");
+      }
+
+      const data = await res.json();
+      setGroupRegisteredData(data);
+      try {
+        confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+      } catch {}
+      toast({ title: "Group Registration Confirmed! 🎉", description: `Booking Code: ${data.groupCode}` });
+    } catch (err: any) {
+      toast({ title: "Group Registration Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmittingGroup(false);
+    }
+  };
+
   const completeRegistration = async (paymentDetails: any) => {
     try {
       const res = await fetch(`${BASE_URL}/api/events/${event.slug}/register`, {
@@ -432,6 +551,9 @@ export default function EventRegisterPage() {
           mobile,
           institution,
           designation,
+          medicalCouncilRegNumber: medicalCouncilRegNumber.trim() || undefined,
+          documentUrl: documentUrl || undefined,
+          documentType: documentUrl ? "medical_council_cert" : undefined,
           foodPreference,
           tierId: activeTier.id,
           role: activeTier.role,
@@ -508,6 +630,61 @@ export default function EventRegisterPage() {
       <div className="min-h-screen bg-[#09090B] flex flex-col justify-center max-w-md mx-auto p-6 space-y-4">
         <Skeleton className="h-10 w-full bg-zinc-800" />
         <Skeleton className="h-64 w-full rounded-2xl bg-zinc-800" />
+      </div>
+    );
+  }
+
+  // ─── Group Registration Confirmation Screen ──────────────────────────────
+  if (groupRegisteredData) {
+    return (
+      <div className="relative min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
+        <ThreeAmbientScene particleCount={60} className="z-0 opacity-80" />
+
+        <header className="border-b border-zinc-800/80 bg-[#09090B]/80 backdrop-blur-xl sticky top-0 z-40">
+          <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+            <Link href="/events" className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Events</span>
+            </Link>
+            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Group Confirmed ✓</span>
+          </div>
+        </header>
+
+        <main className="max-w-lg mx-auto px-4 py-10 w-full flex-1 flex flex-col justify-center space-y-6 relative z-10">
+          <div className="p-6 sm:p-8 rounded-3xl bg-[#141417] border border-[#2B2B32] shadow-2xl space-y-5 text-center">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center mx-auto text-emerald-400">
+              <CheckCircle2 className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1">
+              <h2 className="text-xl font-black text-white">Group Booking Successful!</h2>
+              <p className="text-xs text-zinc-400">Institutional registration for <strong>{orgName}</strong> has been registered.</p>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 text-left space-y-2 font-mono text-xs">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Group Booking Code:</span>
+                <span className="text-emerald-300 font-bold">{groupRegisteredData.groupCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Total Delegates:</span>
+                <span className="text-white font-bold">{groupRegisteredData.totalDelegates} Delegates</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Coordinator:</span>
+                <span className="text-zinc-300">{coordName} ({coordPhone})</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-zinc-400 leading-relaxed">
+              Individual confirmation emails with digital QR passes have been dispatched to registered delegate email addresses.
+            </p>
+
+            <Button asChild className="w-full rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs h-11">
+              <Link href="/events">Explore Other Events</Link>
+            </Button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -636,307 +813,517 @@ export default function EventRegisterPage() {
           </div>
         </PerspectiveCard>
 
-        {/* 3D Perspective Form Card */}
-        <PerspectiveCard depth={8} className="bg-[#141417]/90 border border-[#2B2B32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
-          <div>
-            <h2 className="text-xl font-black text-white tracking-tight">Delegate Information</h2>
-            <p className="text-xs text-zinc-400 mt-1">Please enter your credentials for badge printing and access.</p>
+        {/* ── Mode Switcher: Single vs Group Registration ── */}
+        {event.groupRegistrationEnabled !== false && (
+          <div className="grid grid-cols-2 gap-2 bg-[#141417] p-1.5 rounded-2xl border border-zinc-800">
+            <button
+              type="button"
+              onClick={() => setRegMode("single")}
+              className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                regMode === "single"
+                  ? "bg-white text-zinc-950 shadow-md"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Individual Delegate
+            </button>
+            <button
+              type="button"
+              onClick={() => setRegMode("group")}
+              className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                regMode === "group"
+                  ? "bg-white text-zinc-950 shadow-md"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Group / Institutional
+            </button>
           </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* ── Role / Category Tier Selector ── */}
-            <div className="space-y-2 pb-1 border-b border-zinc-800/80">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-zinc-300">
-                  Select Delegate Category / Role *
-                </Label>
-                {activeTier.badgeLabel && (
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                    {activeTier.badgeLabel}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {pricingTiers.map((tier) => {
-                  const isSelected = tier.id === activeTier.id;
-                  const isTierEarlyBird = event?.isPaid && tier.earlyBirdPrice !== undefined && (tier.earlyBirdDeadline ? new Date(tier.earlyBirdDeadline) >= new Date() : true);
-                  const priceToDisplay = event?.isPaid ? (isTierEarlyBird ? tier.earlyBirdPrice : tier.price) : 0;
-
-                  return (
-                    <button
-                      type="button"
-                      key={tier.id}
-                      onClick={() => setSelectedTierId(tier.id)}
-                      className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-1.5 ${
-                        isSelected
-                          ? "bg-zinc-900 border-white/40 shadow-lg ring-1 ring-white/30"
-                          : "bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700 text-zinc-400"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-1 w-full">
-                        <span className={`text-xs font-bold ${isSelected ? "text-white" : "text-zinc-300"}`}>
-                          {tier.name}
-                        </span>
-                        {isSelected && (
-                          <div className="w-4 h-4 rounded-full bg-white text-zinc-950 flex items-center justify-center shrink-0 mt-0.5">
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-baseline justify-between w-full pt-1">
-                        <span className="text-sm font-black text-white font-mono">
-                          {event?.isPaid ? `₹${priceToDisplay.toLocaleString("en-IN")}` : "Free"}
-                        </span>
-                        {isTierEarlyBird && tier.price > priceToDisplay && (
-                          <span className="text-[10px] text-zinc-500 line-through font-mono">
-                            ₹{tier.price.toLocaleString("en-IN")}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
+        {/* ── GROUP REGISTRATION FORM ── */}
+        {regMode === "group" ? (
+          <PerspectiveCard depth={8} className="bg-[#141417]/90 border border-[#2B2B32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight">Institutional / Group Booking</h2>
+              <p className="text-xs text-zinc-400 mt-1">Register multiple delegates under your hospital or college.</p>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-zinc-300">Full Name *</Label>
-              <div className="relative">
-                <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <form onSubmit={handleGroupSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Organization / Hospital Name *</Label>
                 <Input
                   required
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  data-lpignore="true"
-                  placeholder="Dr. / Mr. / Ms. Full Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                  placeholder="e.g. Sankara Eye Hospital / Aravind Eye Hospital"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                  className="h-10 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs sm:text-sm"
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-zinc-300">Mobile Number (10-Digits) *</Label>
-                  {mobile && mobile.length === 10 && (
-                    <span className="text-[10px] text-emerald-400 font-mono font-bold">✓ 10 Digits</span>
-                  )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-zinc-300">SPOC / Coordinator Name *</Label>
+                  <Input
+                    required
+                    placeholder="Coordinator Name"
+                    value={coordName}
+                    onChange={(e) => setCoordName(e.target.value)}
+                    className="h-10 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs"
+                  />
                 </div>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-zinc-300">Coordinator Email *</Label>
+                  <Input
+                    required
+                    type="email"
+                    placeholder="coord@org.com"
+                    value={coordEmail}
+                    onChange={(e) => setCoordEmail(e.target.value)}
+                    className="h-10 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-bold text-zinc-300">Coordinator Mobile *</Label>
                   <Input
                     required
                     type="tel"
                     maxLength={10}
-                    autoComplete="new-password"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    data-lpignore="true"
                     placeholder="9876543210"
-                    value={mobile}
-                    onChange={(e) => {
-                      setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10));
-                      setMobileWarning(null);
-                      setValidationError(null);
-                    }}
-                    onBlur={() => {
-                      if (mobile) checkMobileAvailability(mobile);
-                    }}
-                    className={`pl-9.5 h-11 bg-zinc-950 border text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 font-mono transition-colors ${
-                      mobileWarning
-                        ? "border-rose-500/80 focus-visible:ring-rose-500"
-                        : "border-zinc-800 focus-visible:ring-zinc-600"
-                    }`}
+                    value={coordPhone}
+                    onChange={(e) => setCoordPhone(e.target.value)}
+                    className="h-10 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs font-mono"
                   />
-                  {checkingMobile && (
-                    <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              {/* Dynamic Delegates List */}
+              <div className="space-y-3 pt-3 border-t border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white">Delegates List ({groupDelegates.length})</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleAddGroupDelegate}
+                    className="h-7 text-[11px] rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer"
+                  >
+                    + Add Delegate
+                  </Button>
+                </div>
+
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {groupDelegates.map((del, idx) => (
+                    <div key={del.id} className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 font-mono">Delegate #{idx + 1}</span>
+                        {groupDelegates.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveGroupDelegate(idx)}
+                            className="text-[10px] text-red-400 hover:text-red-300"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Input
+                          required
+                          placeholder="Full Name *"
+                          value={del.name}
+                          onChange={(e) => handleUpdateGroupDelegate(idx, "name", e.target.value)}
+                          className="h-8 text-xs bg-[#141417] border-zinc-800 text-white rounded-lg"
+                        />
+                        <Input
+                          placeholder="Designation (e.g. PG Resident)"
+                          value={del.designation}
+                          onChange={(e) => handleUpdateGroupDelegate(idx, "designation", e.target.value)}
+                          className="h-8 text-xs bg-[#141417] border-zinc-800 text-white rounded-lg"
+                        />
+                        <Input
+                          placeholder="Email (for direct pass delivery)"
+                          value={del.email}
+                          onChange={(e) => handleUpdateGroupDelegate(idx, "email", e.target.value)}
+                          className="h-8 text-xs bg-[#141417] border-zinc-800 text-white rounded-lg"
+                        />
+                        <Input
+                          placeholder="10-Digit Mobile"
+                          maxLength={10}
+                          value={del.mobile}
+                          onChange={(e) => handleUpdateGroupDelegate(idx, "mobile", e.target.value)}
+                          className="h-8 text-xs bg-[#141417] border-zinc-800 text-white rounded-lg font-mono"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Group Fee Summary */}
+              {isPaidEvent && (
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 flex items-center justify-between text-xs">
+                  <span className="text-zinc-400">Total Group Tariff ({groupDelegates.length} delegates):</span>
+                  <span className="text-lg font-black text-white font-mono">
+                    ₹{((event.registrationFee || 0) * groupDelegates.length).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={submittingGroup}
+                className="w-full h-12 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer"
+              >
+                {submittingGroup ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                <span>Submit Group Registration ({groupDelegates.length} Delegates)</span>
+              </Button>
+            </form>
+          </PerspectiveCard>
+        ) : (
+          /* ── INDIVIDUAL REGISTRATION FORM ── */
+          <PerspectiveCard depth={8} className="bg-[#141417]/90 border border-[#2B2B32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            <div>
+              <h2 className="text-xl font-black text-white tracking-tight">Delegate Information</h2>
+              <p className="text-xs text-zinc-400 mt-1">Please enter your credentials for badge printing and access.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* ── Role / Category Tier Selector ── */}
+              <div className="space-y-2 pb-1 border-b border-zinc-800/80">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-zinc-300">
+                    Select Delegate Category / Role *
+                  </Label>
+                  {activeTier.badgeLabel && (
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                      {activeTier.badgeLabel}
+                    </span>
                   )}
                 </div>
 
-                {mobileWarning && (
-                  <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1 pt-0.5 animate-in fade-in">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{mobileWarning}</span>
-                  </p>
-                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {pricingTiers.map((tier) => {
+                    const isSelected = tier.id === activeTier.id;
+                    const isTierEarlyBird = event?.isPaid && tier.earlyBirdPrice !== undefined && (tier.earlyBirdDeadline ? new Date(tier.earlyBirdDeadline) >= new Date() : true);
+                    const priceToDisplay = event?.isPaid ? (isTierEarlyBird ? tier.earlyBirdPrice : tier.price) : 0;
+
+                    return (
+                      <button
+                        type="button"
+                        key={tier.id}
+                        onClick={() => setSelectedTierId(tier.id)}
+                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-1.5 ${
+                          isSelected
+                            ? "bg-zinc-900 border-white/40 shadow-lg ring-1 ring-white/30"
+                            : "bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700 text-zinc-400"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-1 w-full">
+                          <span className={`text-xs font-bold ${isSelected ? "text-white" : "text-zinc-300"}`}>
+                            {tier.name}
+                          </span>
+                          {isSelected && (
+                            <div className="w-4 h-4 rounded-full bg-white text-zinc-950 flex items-center justify-center shrink-0 mt-0.5">
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-baseline justify-between w-full pt-1">
+                          <span className="text-sm font-black text-white font-mono">
+                            {event?.isPaid ? `₹${priceToDisplay.toLocaleString("en-IN")}` : "Free"}
+                          </span>
+                          {isTierEarlyBird && tier.price > priceToDisplay && (
+                            <span className="text-[10px] text-zinc-500 line-through font-mono">
+                              ₹{tier.price.toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-zinc-300">Email Address</Label>
+                <Label className="text-xs font-bold text-zinc-300">Full Name *</Label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <Input
-                    type="email"
+                    required
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck={false}
                     data-lpignore="true"
-                    placeholder="name@hospital.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setValidationError(null);
-                    }}
+                    placeholder="Dr. / Mr. / Ms. Full Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
                   />
                 </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-zinc-300">Institution / Hospital / College *</Label>
-              <div className="relative">
-                <Building className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <Input
-                  required
-                  autoComplete="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  data-lpignore="true"
-                  placeholder="e.g. Sankara Eye Hospital / AIIMS"
-                  value={institution}
-                  onChange={(e) => {
-                    setInstitution(e.target.value);
-                    setValidationError(null);
-                  }}
-                  className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-zinc-300">Designation / Speciality</Label>
-              <div className="relative">
-                <Briefcase className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <Input
-                  placeholder="e.g. Consultant / Resident / Post Graduate"
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
-                />
-              </div>
-            </div>
-
-            {/* ── Dietary & Culinary Philosophy (Pure Vegetarian) ── */}
-            {event.enableFood && (
-              <div className="pt-1">
-                <div className="p-4 rounded-2xl bg-[#0F1410] border border-emerald-900/40 space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20" />
-                      <span className="text-xs font-bold text-emerald-300 tracking-tight">
-                        Culinary Philosophy: Pure Vegetarian
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 uppercase tracking-wider">
-                      Included
-                    </span>
+                    <Label className="text-xs font-bold text-zinc-300">Mobile Number (10-Digits) *</Label>
+                    {mobile && mobile.length === 10 && (
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">✓ 10 Digits</span>
+                    )}
                   </div>
-                  <p className="text-[11px] text-zinc-400 leading-relaxed">
-                    In alignment with the institutional traditions and ethos of Sankara Eye Care Institutions, all culinary arrangements, catering, and refreshments across conference days are exclusively pure vegetarian, crafted to the highest standards of hygiene, nutrition, and hospitality.
-                  </p>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      type="tel"
+                      maxLength={10}
+                      autoComplete="new-password"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      placeholder="9876543210"
+                      value={mobile}
+                      onChange={(e) => {
+                        setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10));
+                        setMobileWarning(null);
+                        setValidationError(null);
+                      }}
+                      onBlur={() => {
+                        if (mobile) checkMobileAvailability(mobile);
+                      }}
+                      className={`pl-9.5 h-11 bg-zinc-950 border text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 font-mono transition-colors ${
+                        mobileWarning
+                          ? "border-rose-500/80 focus-visible:ring-rose-500"
+                          : "border-zinc-800 focus-visible:ring-zinc-600"
+                      }`}
+                    />
+                    {checkingMobile && (
+                      <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+
+                  {mobileWarning && (
+                    <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1 pt-0.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{mobileWarning}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      type="email"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      placeholder="name@hospital.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setValidationError(null);
+                      }}
+                      className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                    />
+                  </div>
                 </div>
               </div>
-            )}
 
-            {/* ── Coupon / Promo Code Input Section ── */}
-            {isPaidEvent && (
-              <div className="space-y-2 pt-2 border-t border-zinc-800">
-                <Label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Promo Code / Sponsored Pass</span>
-                </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Institution / Hospital *</Label>
+                  <div className="relative">
+                    <Building className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-lpignore="true"
+                      placeholder="e.g. Sankara Eye Hospital"
+                      value={institution}
+                      onChange={(e) => {
+                        setInstitution(e.target.value);
+                        setValidationError(null);
+                      }}
+                      className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                    />
+                  </div>
+                </div>
 
-                {appliedCoupon ? (
-                  <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-center justify-between">
-                    <div className="space-y-0.5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Medical Council Reg. No.</Label>
+                  <Input
+                    placeholder="e.g. TNMC-89421"
+                    value={medicalCouncilRegNumber}
+                    onChange={(e) => setMedicalCouncilRegNumber(e.target.value)}
+                    className="h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Designation / Speciality</Label>
+                <div className="relative">
+                  <Briefcase className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Input
+                    placeholder="e.g. Consultant / Resident / Post Graduate"
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                  />
+                </div>
+              </div>
+
+              {/* Configurable Document Upload Field (Medical Council Cert / Student ID) */}
+              {event.requireDocumentUpload && (
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-zinc-200">
+                      {event.documentUploadLabel || "Upload Medical Council Certificate / Student ID"}
+                      {event.documentUploadRequired && <span className="text-rose-400 ml-1">*</span>}
+                    </Label>
+                    {documentUrl && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/60">
+                        Uploaded ✓
+                      </span>
+                    )}
+                  </div>
+
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    required={event.documentUploadRequired && !documentUrl}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleDocUpload(f);
+                    }}
+                    disabled={uploadingDoc}
+                    className="h-10 text-xs bg-[#141417] border-zinc-800 text-zinc-300 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-zinc-950 hover:file:bg-zinc-200 cursor-pointer"
+                  />
+                  {uploadingDoc && (
+                    <p className="text-[10px] text-zinc-400 flex items-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin text-blue-400" />
+                      <span>Uploading document...</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* ── Dietary & Culinary Philosophy (Pure Vegetarian) ── */}
+              {event.enableFood && (
+                <div className="pt-1">
+                  <div className="p-4 rounded-2xl bg-[#0F1410] border border-emerald-900/40 space-y-2">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-xs text-emerald-300 uppercase">
-                          {appliedCoupon.code}
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-200">
-                          {appliedCoupon.discountType === "sponsor_free"
-                            ? "100% SPONSORED PASS"
-                            : `${appliedCoupon.discountValue}% OFF`}
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-500/20" />
+                        <span className="text-xs font-bold text-emerald-300 tracking-tight">
+                          Culinary Philosophy: Pure Vegetarian
                         </span>
                       </div>
-                      <p className="text-[11px] text-zinc-400">
-                        {appliedCoupon.description || `Discount Applied: -₹${discountAmount}`}
-                      </p>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 uppercase tracking-wider">
+                        Included
+                      </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveCoupon}
-                      className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      In alignment with the institutional traditions and ethos of Sankara Eye Care Institutions, all culinary arrangements, catering, and refreshments across conference days are exclusively pure vegetarian.
+                    </p>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="e.g. SANKARA20 or SPONSORED100"
-                      value={couponInput}
-                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
-                      className="h-10 bg-zinc-950 border-zinc-800 text-white uppercase placeholder:normal-case placeholder:text-zinc-500 rounded-xl text-xs font-mono"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleApplyCoupon}
-                      disabled={validatingCoupon || !couponInput.trim()}
-                      className="h-10 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold cursor-pointer"
-                    >
-                      {validatingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
-                    </Button>
+                </div>
+              )}
+
+              {/* ── Coupon / Promo Code Input Section ── */}
+              {isPaidEvent && (
+                <div className="space-y-2 pt-2 border-t border-zinc-800">
+                  <Label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Promo Code / Sponsored Pass</span>
+                  </Label>
+
+                  {appliedCoupon ? (
+                    <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-xs text-emerald-300 uppercase">
+                            {appliedCoupon.code}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-200">
+                            {appliedCoupon.discountType === "sponsor_free"
+                              ? "100% SPONSORED PASS"
+                              : `${appliedCoupon.discountValue}% OFF`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          {appliedCoupon.description || `Discount Applied: -₹${discountAmount}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="p-1 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="e.g. SANKARA20 or SPONSORED100"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                        className="h-10 bg-zinc-950 border-zinc-800 text-white uppercase placeholder:normal-case placeholder:text-zinc-500 rounded-xl text-xs font-mono"
+                      />
+                      <Button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={validatingCoupon || !couponInput.trim()}
+                        className="h-10 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold cursor-pointer"
+                      >
+                        {validatingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Apply"}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Price Summary Breakdown */}
+              {isPaidEvent && (
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2 text-xs">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Base Tier Tariff ({activeTier.name}):</span>
+                    <span className="font-mono">₹{baseTierPrice.toLocaleString("en-IN")}</span>
                   </div>
-                )}
-              </div>
-            )}
-
-            {/* Price Summary Breakdown */}
-            {isPaidEvent && (
-              <div className="p-3.5 rounded-xl bg-zinc-950 border border-zinc-800 text-xs space-y-1.5">
-                <div className="flex justify-between text-zinc-400">
-                  <span>Registration Fee</span>
-                  <span>₹{baseTierPrice.toLocaleString("en-IN")}</span>
-                </div>
-                {appliedCoupon && (
-                  <div className="flex justify-between text-emerald-400 font-medium">
-                    <span>Discount ({appliedCoupon.code})</span>
-                    <span>-₹{discountAmount.toLocaleString("en-IN")}</span>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-emerald-400 font-semibold">
+                      <span>Discount ({appliedCoupon?.code}):</span>
+                      <span className="font-mono">-₹{discountAmount.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-zinc-800 flex justify-between font-bold text-white text-sm">
+                    <span>Final Payable Amount:</span>
+                    <span className="text-base font-mono">₹{finalFee.toLocaleString("en-IN")}</span>
                   </div>
-                )}
-                <div className="flex justify-between font-bold text-white pt-1 border-t border-zinc-800 text-sm">
-                  <span>Total Payable</span>
-                  <span>{finalFee === 0 ? "Free (Waived)" : `₹${finalFee.toLocaleString("en-IN")}`}</span>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ── Pre-Payment Validation Error Callout Banner ── */}
-            {validationError && (
-              <div className="p-4 rounded-2xl bg-rose-950/60 border border-rose-600/50 shadow-xl shadow-rose-950/40 text-rose-200 text-xs space-y-1.5 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 font-bold text-rose-300">
-                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                  <span>Please Resolve Application Issue Before Payment</span>
+              {validationError && (
+                <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs text-rose-300 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Registration Issue</span>
+                  </div>
+                  <p className="leading-relaxed">{validationError}</p>
                 </div>
-                <p className="text-[11px] text-rose-200/90 leading-relaxed pl-6">
-                  {validationError}
-                </p>
-              </div>
-            )}
+              )}
 
-            <div className="pt-2">
-              <TactileButton
-                variant="primary"
+              <Button
                 type="submit"
                 disabled={submitting || paymentProcessing}
-                className="w-full h-12 text-sm font-bold shadow-xl"
+                className="w-full h-12 text-sm font-bold shadow-xl rounded-full bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer"
               >
                 {submitting || paymentProcessing ? (
                   <span className="flex items-center gap-2">
@@ -951,10 +1338,27 @@ export default function EventRegisterPage() {
                 ) : (
                   <span>{event.requiresApproval ? "Submit Request to Join" : "Complete Free Registration"}</span>
                 )}
-              </TactileButton>
-            </div>
-          </form>
-        </PerspectiveCard>
+              </Button>
+            </form>
+          </PerspectiveCard>
+        )}
+
+        {/* SPOC & Cancellation Note */}
+        {(event.spocName || event.cancellationPolicy) && (
+          <div className="p-4 rounded-2xl bg-[#141417]/70 border border-zinc-800/80 text-xs space-y-1.5 text-zinc-400">
+            {event.spocName && (
+              <p className="flex items-center gap-1.5 text-zinc-300">
+                <Phone className="w-3.5 h-3.5 text-blue-400" />
+                <span>Questions? Contact Event SPOC: <strong>{event.spocName}</strong> ({event.spocPhone || event.spocEmail || ""})</span>
+              </p>
+            )}
+            {event.cancellationPolicy && (
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Policy: {event.cancellationPolicy}
+              </p>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Lu.ma Minimal Dark Footer */}

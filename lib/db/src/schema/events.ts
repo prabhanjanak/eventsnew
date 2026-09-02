@@ -38,11 +38,22 @@ export const eventsTable = pgTable("events", {
   enableGoodies: boolean("enable_goodies").notNull().default(true),
   enableGoogleWallet: boolean("enable_google_wallet").notNull().default(true),
 
-  // Organizer details
+  // Organizer & CME SPOC Contact details
   organizerName: text("organizer_name").default("Sankara Eye Care Institutions"),
   organizerEmail: text("organizer_email"),
   organizerPhone: text("organizer_phone"),
+  spocName: text("spoc_name"),
+  spocDesignation: text("spoc_designation"),
+  spocPhone: text("spoc_phone"),
+  spocEmail: text("spoc_email"),
+  cancellationPolicy: text("cancellation_policy"),
   
+  // Registration Documents & Group Registration Config
+  requireDocumentUpload: boolean("require_document_upload").notNull().default(false),
+  documentUploadLabel: text("document_upload_label").default("Upload Medical Council Certificate / Student ID"),
+  documentUploadRequired: boolean("document_upload_required").notNull().default(false),
+  groupRegistrationEnabled: boolean("group_registration_enabled").notNull().default(true),
+
   // Design & Branding (Obsidian Dark Lu.ma Theme Defaults)
   themeColor: text("theme_color").notNull().default("#18181B"),
   accentColor: text("accent_color").notNull().default("#6366F1"),
@@ -52,12 +63,21 @@ export const eventsTable = pgTable("events", {
   agendaPdfButtonText: text("agenda_pdf_button_text").default("Download Event Agenda (PDF)"),
   customPdfUrl: text("custom_pdf_url"),
   customPdfButtonText: text("custom_pdf_button_text").default("View Document (PDF)"),
+  awardsPdfUrl: text("awards_pdf_url"),
+  awardsPdfButtonText: text("awards_pdf_button_text").default("Download Awards & Winners List (PDF)"),
+  externalPhotosUrl: text("external_photos_url"),
+  externalPhotosButtonText: text("external_photos_button_text").default("View AI Event Photos (Samaro AI / Photomall)"),
   pdfAttachmentsJson: text("pdf_attachments_json"),
   agendaJson: text("agenda_json"),
   pricingTiersJson: text("pricing_tiers_json"),
   badgeSubtitle: text("badge_subtitle"),
   badgeFooterText: text("badge_footer_text"),
   
+  // Dynamic Modules (Feedback, Certificates, Pre/Post Tests)
+  feedbackFormJson: text("feedback_form_json"),
+  certificateTemplateJson: text("certificate_template_json"),
+  prePostTestJson: text("pre_post_test_json"),
+
   // Post-Event Wrapup & Gallery (Available after event end date)
   postEventSummary: text("post_event_summary"),
   postEventDescription: text("post_event_description"),
