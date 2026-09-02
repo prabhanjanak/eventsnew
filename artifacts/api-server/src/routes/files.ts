@@ -24,17 +24,25 @@ function sanitizePathSegment(val: string | null | undefined, fallback: string): 
     .replace(/^-+|-+$/g, "");
 }
 
-const workspaceRoot = process.cwd().endsWith(path.join("artifacts", "api-server"))
-  ? path.resolve(process.cwd(), "../..")
-  : process.cwd();
+const uploadsDir = path.resolve(process.cwd(), "uploads");
+const fallbackUploadsDir = path.resolve(process.cwd(), "artifacts/api-server/uploads");
 
-const uploadsDir = path.resolve(workspaceRoot, "artifacts/api-server/uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o777 });
+  }
+} catch {}
+
+export function resolveUploadedFilePath(filename: string): string {
+  const p1 = path.join(uploadsDir, filename);
+  if (fs.existsSync(p1)) return p1;
+  const p2 = path.join(fallbackUploadsDir, filename);
+  if (fs.existsSync(p2)) return p2;
+  return p1;
 }
 
 const storage = multer.diskStorage({
-  destination: uploadsDir,
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     // Sanitize original filename: keep only alphanumeric, dots, hyphens
     const ext = path.extname(file.originalname).toLowerCase();
@@ -279,7 +287,7 @@ router.post("/files/download-zip", requireAuth(["admin", "pr_member", "coordinat
 
   for (const { file, assignment, participant } of files) {
     if (!file) continue;
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (fs.existsSync(filePath)) {
       const sanitize = (s?: string | null) => (s || "").replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "_");
       const dateStr = sanitize(assignment?.date) || "No_Date";
@@ -331,7 +339,7 @@ router.get("/files/download-all", requireAuth(["admin", "pr_member", "coordinato
 
   for (const { file, assignment, participant } of latestFilesMap.values()) {
     if (!file) continue;
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (fs.existsSync(filePath)) {
       const sanitize = (s?: string | null) => (s || "").replace(/[^a-zA-Z0-9 ]/g, "").trim().replace(/\s+/g, "_");
       const dateStr = sanitize(assignment?.date) || "No_Date";
@@ -638,7 +646,7 @@ router.get(
       return;
     }
     const { file, assignment, participant } = fileRow;
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "File not found on disk" });
       return;
@@ -675,7 +683,7 @@ router.get(
       res.status(404).json({ error: "File not found" });
       return;
     }
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "File not found on disk" });
       return;
@@ -729,7 +737,7 @@ router.get(
       return;
     }
     const { file, assignment, participant } = fileRow;
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "File not found on disk" });
       return;
@@ -766,7 +774,7 @@ router.get(
       res.status(404).json({ error: "File not found" });
       return;
     }
-    const filePath = path.join(uploadsDir, file.filename);
+    const filePath = resolveUploadedFilePath(file.filename);
     if (!fs.existsSync(filePath)) {
       res.status(404).json({ error: "File not found on disk" });
       return;
