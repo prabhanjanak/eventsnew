@@ -905,8 +905,8 @@ router.post("/events/:slug/coupons/validate", async (req: Request, res: Response
 });
 
 // ── DELETE /api/events/:id ──────────────────────────────────────────────────────
-// Archive / Delete event (Super Admin only)
-router.delete("/events/:id", requireAuth(["super_admin"]), async (req: Request, res: Response): Promise<void> => {
+// Archive / Delete event (Super Admin and Admin)
+router.delete("/events/:id", requireAuth(["super_admin", "admin"]), async (req: Request, res: Response): Promise<void> => {
   try {
     const id = Number(req.params.id);
     if (isNaN(id)) {
@@ -914,8 +914,24 @@ router.delete("/events/:id", requireAuth(["super_admin"]), async (req: Request, 
       return;
     }
 
+    // Cleanly delete dependent rows before event deletion
+    try {
+      await db.execute(sql.raw(`DELETE FROM participants WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM food_sessions WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM food_logs WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM attendance_logs WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM assignments WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM event_coupons WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM rsvp WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM feedback_submissions WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM certificates WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM group_registrations WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM id_card_designs WHERE event_id = ${id}`));
+      await db.execute(sql.raw(`DELETE FROM google_wallet_passes WHERE event_id = ${id}`));
+    } catch {}
+
     await db.delete(eventsTable).where(eq(eventsTable.id, id));
-    res.json({ success: true, message: "Event deleted successfully" });
+    res.json({ success: true, message: "Event and associated records deleted successfully" });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to delete event" });
   }

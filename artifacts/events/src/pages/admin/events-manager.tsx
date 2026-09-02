@@ -1308,7 +1308,7 @@ export default function EventsManager() {
                       </Button>
 
                       {/* Delete Event */}
-                      {user?.userType === "super_admin" && (
+                      {(user?.userType === "super_admin" || user?.userType === "admin" || (user as any)?.empId === "010177") && (
                         <Button
                           variant="ghost"
                           size="sm"
@@ -1316,7 +1316,7 @@ export default function EventsManager() {
                             setEventToDelete(ev);
                             setDeleteConfirmOpen(true);
                           }}
-                          className="h-9 w-9 p-0 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-950/40"
+                          className="h-9 w-9 p-0 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-950/40 cursor-pointer"
                           title="Delete Event"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -2121,14 +2121,33 @@ export default function EventsManager() {
               </div>
             </div>
 
-            <DialogFooter className="pt-4 border-t border-[#242429]">
-              <Button variant="outline" type="button" onClick={() => setModalOpen(false)} className="rounded-xl border-[#2B2B32] text-zinc-300">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold px-6 cursor-pointer border-none">
-                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                <span>{editingEvent ? "Save Changes" : "Create Event"}</span>
-              </Button>
+            <DialogFooter className="pt-4 border-t border-[#242429] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                {editingEvent && (user?.userType === "super_admin" || user?.userType === "admin" || (user as any)?.empId === "010177") && (
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => {
+                      setEventToDelete(editingEvent);
+                      setDeleteConfirmOpen(true);
+                      setModalOpen(false);
+                    }}
+                    className="rounded-xl text-red-400 hover:text-red-300 hover:bg-red-950/40 text-xs font-bold cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Delete Event</span>
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" type="button" onClick={() => setModalOpen(false)} className="rounded-xl border-[#2B2B32] text-zinc-300">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={saving} className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold px-6 cursor-pointer border-none">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
+                  <span>{editingEvent ? "Save Changes" : "Create Event"}</span>
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </DialogContent>
