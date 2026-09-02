@@ -330,11 +330,8 @@ router.post(
         return;
       }
 
-      const { getClientBaseUrl } = await import("../lib/ip-helper");
-      const baseUrl = getClientBaseUrl(req);
-
       const uploaded = files.map((f) => ({
-        url: `${baseUrl}/api/uploads/${f.filename}`,
+        url: `/api/uploads/${f.filename}`,
         filename: f.filename,
         originalName: f.originalname,
       }));
@@ -414,12 +411,16 @@ router.post(
         postEventEndingNotes,
         postEventVisitorCount,
         postEventGallery,
+        externalPhotosUrl,
+        externalPhotosButtonText,
       } = req.body as {
         postEventSummary?: string;
         postEventDescription?: string;
         postEventEndingNotes?: string;
         postEventVisitorCount?: number;
         postEventGallery?: string[];
+        externalPhotosUrl?: string;
+        externalPhotosButtonText?: string;
       };
 
       const galleryList = Array.isArray(postEventGallery) ? postEventGallery.filter(Boolean) : [];
@@ -464,6 +465,8 @@ router.post(
           postEventCompleted: true,
           postEventCompletedAt: new Date(),
           status: "completed",
+          ...(externalPhotosUrl !== undefined ? { externalPhotosUrl: externalPhotosUrl.trim() || null } : {}),
+          ...(externalPhotosButtonText !== undefined ? { externalPhotosButtonText: externalPhotosButtonText.trim() || null } : {}),
         })
         .where(eq(eventsTable.id, id));
 

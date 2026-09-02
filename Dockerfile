@@ -60,8 +60,8 @@ COPY --from=builder --chown=nodeuser:nodejs /app/lib ./lib
 COPY --from=builder --chown=nodeuser:nodejs /app/artifacts ./artifacts
 COPY --from=builder --chown=nodeuser:nodejs /app/attached_assets ./attached_assets
 
-# Create uploads directory with appropriate ownership
-RUN mkdir -p /app/uploads && chown -R nodeuser:nodejs /app/uploads
+# Create uploads directory with appropriate permissions
+RUN mkdir -p /app/uploads && chmod -R 777 /app/uploads && chown -R nodeuser:nodejs /app/uploads
 
 USER nodeuser
 

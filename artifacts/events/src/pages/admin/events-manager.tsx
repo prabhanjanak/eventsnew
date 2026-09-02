@@ -464,6 +464,8 @@ export default function EventsManager() {
   const [wrapupVisitorCount, setWrapupVisitorCount] = useState<number | string>("");
   const [wrapupDescription, setWrapupDescription] = useState("");
   const [wrapupEndingNotes, setWrapupEndingNotes] = useState("");
+  const [wrapupExternalPhotosUrl, setWrapupExternalPhotosUrl] = useState("");
+  const [wrapupExternalPhotosButtonText, setWrapupExternalPhotosButtonText] = useState("Find My Photos with AI (Samaro AI / Photomall)");
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [submittingWrapup, setSubmittingWrapup] = useState(false);
 
@@ -490,6 +492,8 @@ export default function EventsManager() {
     setWrapupVisitorCount(ev.postEventVisitorCount || ev.totalParticipants || "");
     setWrapupDescription(ev.postEventDescription || ev.description || "");
     setWrapupEndingNotes(ev.postEventEndingNotes || "");
+    setWrapupExternalPhotosUrl(ev.externalPhotosUrl || "");
+    setWrapupExternalPhotosButtonText(ev.externalPhotosButtonText || "Find My Photos with AI (Samaro AI / Photomall)");
     try {
       const parsed = ev.postEventGalleryJson ? JSON.parse(ev.postEventGalleryJson) : [];
       setWrapupGallery(Array.isArray(parsed) ? parsed : []);
@@ -577,6 +581,8 @@ export default function EventsManager() {
           postEventVisitorCount: Number(wrapupVisitorCount),
           postEventDescription: wrapupDescription.trim(),
           postEventEndingNotes: wrapupEndingNotes.trim(),
+          externalPhotosUrl: wrapupExternalPhotosUrl.trim() || null,
+          externalPhotosButtonText: wrapupExternalPhotosButtonText.trim() || null,
         }),
       });
 
@@ -2420,6 +2426,33 @@ export default function EventsManager() {
                 placeholder="Acknowledgments to organizing committee, faculties, catering team, vendors, and concluding statements..."
                 className="bg-[#0C0C0E] border-[#2B2B32] text-white rounded-xl text-xs"
               />
+            </div>
+
+            {/* Step 6: AI Event Photos Platform URL (Samaro AI / Photomall) */}
+            <div className="p-3.5 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-2.5">
+              <span className="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> 6. AI Photo Recognition Platform Link (Samaro AI / Photomall / Premagic)
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-400">Platform Link</Label>
+                  <Input
+                    placeholder="https://app.samaro.ai/e/... or https://photomall.in/..."
+                    value={wrapupExternalPhotosUrl}
+                    onChange={(e) => setWrapupExternalPhotosUrl(e.target.value)}
+                    className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-lg"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-zinc-400">Button Display Text</Label>
+                  <Input
+                    placeholder="Find My Photos with AI"
+                    value={wrapupExternalPhotosButtonText}
+                    onChange={(e) => setWrapupExternalPhotosButtonText(e.target.value)}
+                    className="h-8 text-xs bg-[#141417] border-[#2B2B32] text-white rounded-lg"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

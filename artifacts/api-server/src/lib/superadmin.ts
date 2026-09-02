@@ -361,20 +361,31 @@ export async function ensureSuperAdmin() {
   try {
     // Ensure Primary Vision 2020 Event Exists
     const eventCheck: any = await db.execute(sql.raw(`
-      SELECT id, slug, title FROM events WHERE slug = 'vision-2020' OR slug = 'annual-ophthalmology-2026' ORDER BY id ASC LIMIT 1
+      SELECT id, slug, title, post_event_visitor_count, external_photos_url FROM events WHERE slug = 'vision-2020' OR slug = 'annual-ophthalmology-2026' ORDER BY id ASC LIMIT 1
     `));
 
     let primaryEventId: number;
 
     if (eventCheck.rows && eventCheck.rows.length > 0) {
       primaryEventId = eventCheck.rows[0].id;
+      // Update existing Vision 2020 event with official 3-day footfall (3100-3200) and Samaro AI link
+      await db.execute(sql.raw(`
+        UPDATE events 
+        SET 
+          post_event_visitor_count = COALESCE(post_event_visitor_count, 3164),
+          external_photos_url = COALESCE(external_photos_url, 'https://app.samaro.ai/e/vision2020'),
+          external_photos_button_text = COALESCE(external_photos_button_text, 'Find My Photos with AI (Samaro)'),
+          status = 'completed'
+        WHERE id = ${primaryEventId}
+      `));
     } else {
-      // Create primary Vision 2020 event
+      // Create primary Vision 2020 event with 3164 footfall across 3 days and Samaro AI link
       const insertResult: any = await db.execute(sql.raw(`
         INSERT INTO events (
           slug, title, event_type, description, venue, city, 
           start_date, end_date, time_from, time_to, is_paid, registration_fee, 
-          status, enable_attendance, enable_food, enable_goodies, enable_google_wallet
+          status, enable_attendance, enable_food, enable_goodies, enable_google_wallet,
+          post_event_visitor_count, external_photos_url, external_photos_button_text
         ) VALUES (
           'annual-ophthalmology-2026',
           'Vision 2020 - 18th Annual National Ophthalmology Conference',
@@ -392,11 +403,14 @@ export async function ensureSuperAdmin() {
           true,
           true,
           true,
-          true
+          true,
+          3164,
+          'https://app.samaro.ai/e/vision2020',
+          'Find My Photos with AI (Samaro)'
         ) RETURNING id
       `));
       primaryEventId = insertResult.rows[0].id;
-      logger.info({ primaryEventId }, "Default Vision 2020 event created for legacy production data attachment.");
+      logger.info({ primaryEventId }, "Default Vision 2020 event created with 3164 footfall and Samaro AI integration.");
     }
 
     // Automatically link all legacy production records with event_id IS NULL to primary Vision 2020 event

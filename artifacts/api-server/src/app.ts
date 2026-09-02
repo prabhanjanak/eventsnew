@@ -66,9 +66,9 @@ app.use(
   }),
 );
 
-// ── Body Parsers — enforce size limits to prevent payload DoS ──────────────────
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+// ── Body Parsers — allow multi-image gallery JSON payloads up to 50MB ──────────
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // ── Traffic monitoring ─────────────────────────────────────────────────────────
 app.use(requestCounterMiddleware);
@@ -76,11 +76,15 @@ app.use(requestCounterMiddleware);
 // ── Global rate limiter (300 req/min per IP; LAN exempted) ─────────────────────
 app.use("/api", globalApiLimiter);
 
-// ── Serve uploaded files with long-lived cache headers ──────────────────────────
+// ── Serve uploaded files with long-lived cache headers & CORS ──────────────────
 const uploadsDir = path.resolve(process.cwd(), "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true, mode: 0o777 });
+  }
+  fs.chmodSync(uploadsDir, 0o777);
+} catch {}
+
 app.use(
   "/api/uploads",
   express.static(uploadsDir, {
@@ -89,6 +93,8 @@ app.use(
     lastModified: true,
     setHeaders(res) {
       res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   })
 );
@@ -100,6 +106,8 @@ app.use(
     lastModified: true,
     setHeaders(res) {
       res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     },
   })
 );
@@ -146,12 +154,12 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
   if (err.message?.includes("File too large")) {
-    res.status(400).json({ error: "File too large (max 20 MB)" });
+    res.status(400).json({ error: "File too large (max 50 MB per file)" });
     return;
   }
   // JSON body too large
   if (err.type === "entity.too.large") {
-    res.status(413).json({ error: "Request body too large (max 1 MB)" });
+    res.status(413).json({ error: "Request body too large (max 50 MB)" });
     return;
   }
   logger.error({ err }, "Unhandled error");
