@@ -254,6 +254,248 @@ export async function ensureSuperAdmin() {
         updated_at timestamp with time zone DEFAULT now() NOT NULL
       )`,
 
+      // 8. ACTIVE SESSIONS & ACTIVITY LOGS
+      `CREATE TABLE IF NOT EXISTS active_sessions (
+        id serial PRIMARY KEY,
+        session_token text NOT NULL UNIQUE,
+        user_id integer NOT NULL,
+        user_type text NOT NULL,
+        user_name text NOT NULL,
+        ip_address text,
+        user_agent text,
+        device_type text,
+        device_name text,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+        expires_at timestamp with time zone NOT NULL,
+        revoked_at timestamp with time zone
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS activity_logs (
+        id serial PRIMARY KEY,
+        type text DEFAULT 'general' NOT NULL,
+        message text NOT NULL,
+        timestamp timestamp with time zone DEFAULT now() NOT NULL,
+        user_id integer,
+        user_name text,
+        action text,
+        details text,
+        ip_address text,
+        created_at timestamp with time zone DEFAULT now()
+      )`,
+
+      // 9. GOODIES, PERSONAL DETAILS, RSVP
+      `CREATE TABLE IF NOT EXISTS goodies_logs (
+        id serial PRIMARY KEY,
+        participant_id integer NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+        event_id integer REFERENCES events(id) ON DELETE CASCADE,
+        scanned_by integer REFERENCES system_users(id),
+        scanned_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS goodies_logs_participant_id_idx ON goodies_logs(participant_id)`,
+
+      `CREATE TABLE IF NOT EXISTS personal_details (
+        id serial PRIMARY KEY,
+        participant_id integer NOT NULL UNIQUE REFERENCES participants(id) ON DELETE CASCADE,
+        food_preference text,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS rsvp (
+        id serial PRIMARY KEY,
+        participant_id integer NOT NULL,
+        track_name text NOT NULL,
+        session_name text NOT NULL,
+        session_date text NOT NULL,
+        session_time text NOT NULL,
+        participant_email text,
+        reminder1_sent_at timestamp with time zone,
+        reminder2_sent_at timestamp with time zone,
+        email_open_token text UNIQUE,
+        email_opened_at timestamp with time zone,
+        event_id integer,
+        created_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS rsvp_participant_id_idx ON rsvp(participant_id)`,
+
+      `CREATE TABLE IF NOT EXISTS sync_sessions (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        google_sheet_id text NOT NULL,
+        sheet_name text DEFAULT '',
+        location_name text DEFAULT 'Sankara Eye Hospital' NOT NULL,
+        is_active boolean DEFAULT false NOT NULL,
+        field_mappings jsonb DEFAULT '{}' NOT NULL,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+
+      `CREATE TABLE IF NOT EXISTS event_coupons (
+        id serial PRIMARY KEY,
+        event_id integer REFERENCES events(id) ON DELETE CASCADE,
+        code text NOT NULL,
+        discount_type text DEFAULT 'percentage' NOT NULL,
+        discount_value integer DEFAULT 0 NOT NULL,
+        sponsor_name text,
+        description text,
+        max_uses integer,
+        used_count integer DEFAULT 0 NOT NULL,
+        is_active boolean DEFAULT true NOT NULL,
+        expires_at timestamp with time zone,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS event_coupons_code_idx ON event_coupons(code)`,
+
+      `CREATE TABLE IF NOT EXISTS google_wallet_passes (
+        id serial PRIMARY KEY,
+        participant_id integer NOT NULL REFERENCES participants(id) ON DELETE CASCADE,
+        event_id integer NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        wallet_object_id text NOT NULL UNIQUE,
+        wallet_class_id text NOT NULL,
+        status text DEFAULT 'active' NOT NULL,
+        last_error text,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS gwallet_participant_id_idx ON google_wallet_passes(participant_id)`,
+      `CREATE INDEX IF NOT EXISTS gwallet_event_id_idx ON google_wallet_passes(event_id)`,
+
+      `CREATE TABLE IF NOT EXISTS id_card_designs (
+        id serial PRIMARY KEY,
+        event_id integer NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        card_type text DEFAULT 'preregistered' NOT NULL,
+        template_image_url text,
+        back_template_image_url text,
+        width_inches text DEFAULT '3.46' NOT NULL,
+        height_inches text DEFAULT '5.51' NOT NULL,
+        dpi integer DEFAULT 300 NOT NULL,
+        orientation text DEFAULT 'portrait' NOT NULL,
+        is_double_sided boolean DEFAULT false NOT NULL,
+        print_side_mode text DEFAULT 'duplex' NOT NULL,
+        placeholders_json text,
+        back_placeholders_json text,
+        sheet_config_json text,
+        status text DEFAULT 'draft' NOT NULL,
+        version integer DEFAULT 1 NOT NULL,
+        published_version integer,
+        created_by_id integer,
+        created_at timestamp DEFAULT now() NOT NULL,
+        updated_at timestamp DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS id_card_designs_event_card_type_idx ON id_card_designs(event_id, card_type)`,
+
+      `CREATE TABLE IF NOT EXISTS chat_logs (
+        id serial PRIMARY KEY,
+        session_id text NOT NULL,
+        user_identifier text DEFAULT 'Anonymous Delegate',
+        user_message text NOT NULL,
+        bot_response text NOT NULL,
+        model_used text DEFAULT 'meta-llama/Llama-3.1-8B-Instruct',
+        latency_ms integer DEFAULT 0,
+        created_at timestamp with time zone DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS chat_logs_session_idx ON chat_logs(session_id)`,
+      `CREATE INDEX IF NOT EXISTS chat_logs_created_at_idx ON chat_logs(created_at)`,
+
+      `CREATE TABLE IF NOT EXISTS unresolved_queries (
+        id serial PRIMARY KEY,
+        ticket_number text NOT NULL UNIQUE,
+        user_identifier text DEFAULT 'Anonymous Delegate',
+        user_email text NOT NULL,
+        user_phone text,
+        user_message text NOT NULL,
+        bot_draft_response text,
+        status text DEFAULT 'pending' NOT NULL,
+        admin_reply text,
+        resolved_by text,
+        resolved_at timestamp with time zone,
+        added_to_knowledge_base boolean DEFAULT false,
+        created_at timestamp with time zone DEFAULT now(),
+        updated_at timestamp with time zone DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS unresolved_queries_status_idx ON unresolved_queries(status)`,
+      `CREATE INDEX IF NOT EXISTS unresolved_queries_ticket_idx ON unresolved_queries(ticket_number)`,
+
+      `CREATE TABLE IF NOT EXISTS ai_knowledge_base (
+        id serial PRIMARY KEY,
+        topic text DEFAULT 'General' NOT NULL,
+        question_keywords text NOT NULL,
+        question_text text NOT NULL,
+        verified_answer text NOT NULL,
+        source text DEFAULT 'admin_resolution' NOT NULL,
+        added_by text DEFAULT 'Super Admin',
+        is_active boolean DEFAULT true NOT NULL,
+        usage_count integer DEFAULT 0 NOT NULL,
+        created_at timestamp with time zone DEFAULT now(),
+        updated_at timestamp with time zone DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS ai_knowledge_base_active_idx ON ai_knowledge_base(is_active)`,
+
+      `CREATE TABLE IF NOT EXISTS feedback_submissions (
+        id serial PRIMARY KEY,
+        event_id integer REFERENCES events(id) ON DELETE CASCADE,
+        participant_id integer REFERENCES participants(id) ON DELETE CASCADE,
+        participant_name text,
+        participant_email text,
+        ratings_json text DEFAULT '{}' NOT NULL,
+        comments text,
+        suggestions text,
+        submitted_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS feedback_event_id_idx ON feedback_submissions(event_id)`,
+      `CREATE INDEX IF NOT EXISTS feedback_participant_id_idx ON feedback_submissions(participant_id)`,
+
+      `CREATE TABLE IF NOT EXISTS certificates (
+        id serial PRIMARY KEY,
+        event_id integer REFERENCES events(id) ON DELETE CASCADE,
+        participant_id integer REFERENCES participants(id) ON DELETE CASCADE,
+        certificate_type text DEFAULT 'delegate' NOT NULL,
+        certificate_number text NOT NULL UNIQUE,
+        recipient_name text NOT NULL,
+        recipient_email text,
+        recipient_institution text,
+        credit_hours text DEFAULT '4 CME Credit Hours',
+        presentation_title text,
+        pdf_url text,
+        qr_verification_token text UNIQUE,
+        is_issued boolean DEFAULT true NOT NULL,
+        is_downloaded boolean DEFAULT false NOT NULL,
+        downloaded_at timestamp with time zone,
+        email_sent_at timestamp with time zone,
+        issued_at timestamp with time zone DEFAULT now() NOT NULL,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS certificates_cert_num_idx ON certificates(certificate_number)`,
+      `CREATE INDEX IF NOT EXISTS certificates_event_id_idx ON certificates(event_id)`,
+      `CREATE INDEX IF NOT EXISTS certificates_participant_id_idx ON certificates(participant_id)`,
+
+      `CREATE TABLE IF NOT EXISTS group_registrations (
+        id serial PRIMARY KEY,
+        event_id integer NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        organization_name text NOT NULL,
+        contact_person_name text NOT NULL,
+        contact_person_email text NOT NULL,
+        contact_person_phone text NOT NULL,
+        group_booking_code text NOT NULL UNIQUE,
+        total_delegates integer DEFAULT 1 NOT NULL,
+        total_amount integer DEFAULT 0 NOT NULL,
+        discount_amount integer DEFAULT 0,
+        coupon_code text,
+        payment_status text DEFAULT 'unpaid' NOT NULL,
+        payment_id text,
+        order_id text,
+        utr_number text,
+        delegates_json text DEFAULT '[]' NOT NULL,
+        notes text,
+        created_at timestamp with time zone DEFAULT now() NOT NULL,
+        updated_at timestamp with time zone DEFAULT now() NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS groups_event_id_idx ON group_registrations(event_id)`,
+      `CREATE INDEX IF NOT EXISTS groups_code_idx ON group_registrations(group_booking_code)`,
+
       // ALTER STATEMENTS FOR SCHEMA UPGRADES ON EXISTING TABLES
       `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_summary text`,
       `ALTER TABLE events ADD COLUMN IF NOT EXISTS post_event_description text`,

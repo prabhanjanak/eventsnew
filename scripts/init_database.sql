@@ -267,12 +267,15 @@ CREATE TABLE IF NOT EXISTS active_sessions (
 
 CREATE TABLE IF NOT EXISTS activity_logs (
   id serial PRIMARY KEY,
+  type text DEFAULT 'general' NOT NULL,
+  message text NOT NULL,
+  timestamp timestamp with time zone DEFAULT now() NOT NULL,
   user_id integer,
   user_name text,
-  action text NOT NULL,
+  action text,
   details text,
   ip_address text,
-  created_at timestamp with time zone DEFAULT now() NOT NULL
+  created_at timestamp with time zone DEFAULT now()
 );
 
 -- 10. GOODIES & MERCHANDISE SCAN LOGS

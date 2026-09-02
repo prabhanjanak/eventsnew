@@ -778,7 +778,7 @@ export default function EventsDirectory() {
                   My Registrations &amp; Passes
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-                  Access your digital admission passes, Google Wallet passes, and check-in QR codes.
+                  Access your digital admission passes, check-in QR codes, and event schedules.
                 </p>
               </div>
 
@@ -800,7 +800,7 @@ export default function EventsDirectory() {
                 <div className="space-y-2">
                   <h3 className="text-lg font-bold text-white">Sign In to View Your Passes</h3>
                   <p className="text-xs text-zinc-400 leading-relaxed">
-                    Log in with your registered Google account or request a 6-digit OTP code to view your event passes.
+                    Log in with your registered mobile/email or request a 6-digit OTP code to view your event passes.
                   </p>
                 </div>
                 <div className="space-y-3">
