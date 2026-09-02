@@ -41,7 +41,7 @@ export interface PlaceholderConfig {
 }
 
 export interface SheetLayoutConfig {
-  paperSize: "A4" | "A3" | "Letter" | "Custom";
+  paperSize: "DirectCard" | "A4" | "A3" | "Letter" | "Custom";
   paperWidthMm: number;
   paperHeightMm: number;
   cardsPerRow: number;

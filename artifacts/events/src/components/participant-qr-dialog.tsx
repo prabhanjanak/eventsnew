@@ -105,27 +105,48 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
         <head>
           <title>Print ID Badge - ${participantName}</title>
           <style>
+            @page {
+              size: 85mm 130mm;
+              margin: 0;
+            }
             @media print {
-              body {
-                padding: 0;
-                margin: 0;
+              html, body {
+                width: 85mm !important;
+                height: 130mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .badge-container {
+                width: 85mm !important;
+                height: 130mm !important;
+                max-width: 85mm !important;
+                max-height: 130mm !important;
+                border: none !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                margin: 0 !important;
+                page-break-inside: avoid !important;
+                page-break-after: avoid !important;
               }
             }
-            body {
+            html, body {
               margin: 0;
-              padding: 40px 20px;
+              padding: 0;
               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
               display: flex;
-              flex-direction: column;
+              justify-content: center;
               align-items: center;
-              gap: 40px;
-              background: #fff;
+              background: #f0f0f2;
+              min-height: 100vh;
             }
             .badge-container {
-              width: 3.25in;
-              height: 4.5in;
+              width: 85mm;
+              height: 130mm;
               border: 1.5px solid ${themeColor};
-              border-radius: 12px;
+              border-radius: 8px;
               overflow: hidden;
               display: flex;
               flex-direction: column;
@@ -133,7 +154,7 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
               box-sizing: border-box;
               background: #fff;
               position: relative;
-              page-break-inside: avoid;
+              box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             }
             .badge-front {
               border-color: ${themeColor};
@@ -141,13 +162,13 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
             .badge-header {
               background: ${themeColor};
               color: #fff;
-              padding: 14px 10px;
+              padding: 12px 10px;
               text-align: center;
-              border-bottom: 3.5px solid rgba(0,0,0,0.1);
+              border-bottom: 3px solid rgba(0,0,0,0.1);
             }
             .badge-header h1 {
               margin: 0;
-              font-size: 15px;
+              font-size: 14px;
               font-weight: 800;
               letter-spacing: 0.5px;
               text-transform: uppercase;
@@ -155,19 +176,19 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
             }
             .badge-header p {
               margin: 3px 0 0 0;
-              font-size: 9px;
+              font-size: 8.5px;
               opacity: 0.95;
               font-weight: 600;
             }
             .badge-body {
-              padding: 14px 12px;
+              padding: 10px 12px;
               text-align: center;
               display: flex;
               flex-direction: column;
               align-items: center;
               justify-content: center;
               flex: 1;
-              gap: 5px;
+              gap: 4px;
             }
             .role-badge {
               background-color: ${themeColor};
@@ -181,7 +202,7 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
               margin-bottom: 2px;
             }
             .participant-name {
-              font-size: 18px;
+              font-size: 17px;
               font-weight: 800;
               color: #111;
               margin: 0;
@@ -196,21 +217,21 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
               max-width: 95%;
             }
             .qr-wrapper {
-              margin: 6px 0;
+              margin: 4px 0;
               padding: 4px;
               border: 1px solid #eee;
               border-radius: 8px;
               background: #fff;
             }
             .qr-image {
-              width: 115px;
-              height: 115px;
+              width: 120px;
+              height: 120px;
               display: block;
             }
             .reg-number {
               font-family: monospace;
-              font-size: 12px;
-              font-weight: 700;
+              font-size: 13px;
+              font-weight: 800;
               color: ${themeColor};
               letter-spacing: 1px;
             }
@@ -676,7 +697,7 @@ export function ParticipantQRDialog(props: ParticipantQRDialogProps) {
 
               <div className="w-full space-y-2 mt-2">
                 <Button onClick={handlePrint} className="w-full bg-[#f58220] hover:bg-[#e07010] text-white font-bold gap-2 cursor-pointer">
-                  <Printer className="w-4 h-4" /> Print Badge (3.25" x 4.5")
+                  <Printer className="w-4 h-4" /> Print ID Badge (85mm × 130mm)
                 </Button>
                 <div className="grid grid-cols-2 gap-2">
                   <Button 

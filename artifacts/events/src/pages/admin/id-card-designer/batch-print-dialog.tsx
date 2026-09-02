@@ -52,16 +52,16 @@ export function BatchPrintDialog({
   // Sheet layout settings
   const [sheetConfig, setSheetConfig] = useState<SheetLayoutConfig>(
     design.sheetConfig || {
-      paperSize: "A4",
-      paperWidthMm: 210,
-      paperHeightMm: 297,
-      cardsPerRow: 2,
-      cardsPerCol: 2,
-      marginTopMm: 10,
-      marginLeftMm: 10,
-      gapXmm: 5,
-      gapYmm: 5,
-      showCutMarks: true,
+      paperSize: "DirectCard",
+      paperWidthMm: 85,
+      paperHeightMm: 130,
+      cardsPerRow: 1,
+      cardsPerCol: 1,
+      marginTopMm: 0,
+      marginLeftMm: 0,
+      gapXmm: 0,
+      gapYmm: 0,
+      showCutMarks: false,
       pageOrientation: "portrait",
       printSideMode: design.isDoubleSided ? "duplex" : "single",
     }
@@ -434,13 +434,46 @@ export function BatchPrintDialog({
                   <Label className="text-[11px] text-zinc-400 font-bold">Paper Format</Label>
                   <Select
                     value={sheetConfig.paperSize}
-                    onValueChange={(val: any) => setSheetConfig({ ...sheetConfig, paperSize: val })}
+                    onValueChange={(val: any) => {
+                      if (val === "DirectCard") {
+                        setSheetConfig({
+                          ...sheetConfig,
+                          paperSize: "DirectCard",
+                          paperWidthMm: 85,
+                          paperHeightMm: 130,
+                          cardsPerRow: 1,
+                          cardsPerCol: 1,
+                          marginTopMm: 0,
+                          marginLeftMm: 0,
+                          gapXmm: 0,
+                          gapYmm: 0,
+                          showCutMarks: false,
+                        });
+                      } else if (val === "A4") {
+                        setSheetConfig({
+                          ...sheetConfig,
+                          paperSize: "A4",
+                          paperWidthMm: 210,
+                          paperHeightMm: 297,
+                          cardsPerRow: 2,
+                          cardsPerCol: 2,
+                          marginTopMm: 10,
+                          marginLeftMm: 10,
+                          gapXmm: 5,
+                          gapYmm: 5,
+                          showCutMarks: true,
+                        });
+                      } else {
+                        setSheetConfig({ ...sheetConfig, paperSize: val });
+                      }
+                    }}
                   >
                     <SelectTrigger className="h-9 bg-[#101014] border-[#2A2A35] text-zinc-200 text-xs rounded-xl">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="bg-[#18181F] border-[#2A2A35] text-zinc-200">
-                      <SelectItem value="A4">A4 (210 × 297 mm) — Standard Sheets</SelectItem>
+                      <SelectItem value="DirectCard">Direct ID Card (85 × 130 mm / 1 Card per Page) ⭐</SelectItem>
+                      <SelectItem value="A4">A4 (210 × 297 mm) — Standard Sheets (4 Cards/Page)</SelectItem>
                       <SelectItem value="A3">A3 (297 × 420 mm) — Large Production</SelectItem>
                       <SelectItem value="Letter">US Letter (8.5 × 11 in)</SelectItem>
                     </SelectContent>

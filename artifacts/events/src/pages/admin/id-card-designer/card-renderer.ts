@@ -251,37 +251,66 @@ export async function generateBatchPrintPdf(
   sheetConfig: SheetLayoutConfig,
   onProgress?: (current: number, total: number) => void
 ): Promise<void> {
-  const cardWidthInches = parseFloat(design.widthInches) || 3.46;
-  const cardHeightInches = parseFloat(design.heightInches) || 5.51;
+  const cardWidthInches = parseFloat(design.widthInches) || 3.35;
+  const cardHeightInches = parseFloat(design.heightInches) || 5.12;
+
+  const isDirectCard = sheetConfig.paperSize === "DirectCard";
+  const cardWidthMm = isDirectCard ? 85 : cardWidthInches * 25.4;
+  const cardHeightMm = isDirectCard ? 130 : cardHeightInches * 25.4;
 
   // Paper measurements in Millimeters
-  const paperFormat = sheetConfig.paperSize === "A3" ? "a3" : sheetConfig.paperSize === "Letter" ? "letter" : "a4";
-  const pdf = new jsPDF({
-    orientation: sheetConfig.pageOrientation || "portrait",
-    unit: "mm",
-    format: paperFormat,
-  });
+  const paperFormat = isDirectCard
+    ? [cardWidthMm, cardHeightMm]
+    : sheetConfig.paperSize === "A3"
+    ? "a3"
+    : sheetConfig.paperSize === "Letter"
+    ? "letter"
+    : "a4";
 
-  const cardWidthMm = cardWidthInches * 25.4;
-  const cardHeightMm = cardHeightInches * 25.4;
+  const pdf = new jsPDF({
+    orientation: isDirectCard ? "portrait" : (sheetConfig.pageOrientation || "portrait"),
+    unit: "mm",
+    format: paperFormat as any,
+  });
 
   const isDoubleSided = Boolean(design.isDoubleSided);
   const printMode = isDoubleSided ? (sheetConfig.printSideMode || "duplex") : "single";
 
-  const rows = sheetConfig.cardsPerCol || (cardHeightInches > cardWidthInches ? 2 : 3);
-  const cols = sheetConfig.cardsPerRow || 2;
+  const rows = isDirectCard ? 1 : (sheetConfig.cardsPerCol || (cardHeightInches > cardWidthInches ? 2 : 3));
+  const cols = isDirectCard ? 1 : (sheetConfig.cardsPerRow || 2);
   const cardsPerPage = rows * cols;
 
-  const marginLeftMm = sheetConfig.marginLeftMm ?? 10;
-  const marginTopMm = sheetConfig.marginTopMm ?? 10;
-  const gapXmm = sheetConfig.gapXmm ?? 5;
-  const gapYmm = sheetConfig.gapYmm ?? 5;
+  const marginLeftMm = isDirectCard ? 0 : (sheetConfig.marginLeftMm ?? 10);
+  const marginTopMm = isDirectCard ? 0 : (sheetConfig.marginTopMm ?? 10);
+  const gapXmm = isDirectCard ? 0 : (sheetConfig.gapXmm ?? 5);
+  const gapYmm = isDirectCard ? 0 : (sheetConfig.gapYmm ?? 5);
 
   const total = attendees.length;
   const tempFrontCanvas = document.createElement("canvas");
   const tempBackCanvas = document.createElement("canvas");
 
-  if (printMode === "side_by_side") {
+  if (isDirectCard) {
+    // ── DIRECT ID CARD PRINTING (85mm x 130mm, 1 Card per Page) ──
+    for (let i = 0; i < total; i++) {
+      const attendee = attendees[i];
+      if (i > 0) {
+        pdf.addPage([cardWidthMm, cardHeightMm], "portrait");
+      }
+
+      // Front Side
+      await renderCardToCanvas(design, attendee, tempFrontCanvas, 300, "front");
+      pdf.addImage(tempFrontCanvas.toDataURL("image/png"), "PNG", 0, 0, cardWidthMm, cardHeightMm);
+
+      // Back Side (if double-sided)
+      if (isDoubleSided) {
+        pdf.addPage([cardWidthMm, cardHeightMm], "portrait");
+        await renderCardToCanvas(design, attendee, tempBackCanvas, 300, "back");
+        pdf.addImage(tempBackCanvas.toDataURL("image/png"), "PNG", 0, 0, cardWidthMm, cardHeightMm);
+      }
+
+      if (onProgress) onProgress(i + 1, total);
+    }
+  } else if (printMode === "side_by_side") {
     // Mode: Side-by-Side (Front card in Col 0, Back card in Col 1 for each attendee with center folding dashed line)
     const pairsPerPage = rows;
     for (let i = 0; i < total; i++) {
