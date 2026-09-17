@@ -21,6 +21,18 @@ export function safeDate(input: any): Date | null {
   if (input instanceof Date) return isNaN(input.getTime()) ? null : input;
   
   if (typeof input === "string") {
+    // If format is YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+    const ymdMatch = input.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/);
+    if (ymdMatch) {
+      const year = parseInt(ymdMatch[1], 10);
+      const month = parseInt(ymdMatch[2], 10) - 1;
+      const day = parseInt(ymdMatch[3], 10);
+      const hours = ymdMatch[4] ? parseInt(ymdMatch[4], 10) : 0;
+      const mins = ymdMatch[5] ? parseInt(ymdMatch[5], 10) : 0;
+      const secs = ymdMatch[6] ? parseInt(ymdMatch[6], 10) : 0;
+      return new Date(year, month, day, hours, mins, secs);
+    }
+
     // If format is DD/MM/YYYY or DD-MM-YYYY
     const dmyMatch = input.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(.*)$/);
     if (dmyMatch) {
@@ -151,3 +163,33 @@ export function formatDateRange24h(startDateInput: any, endDateInput: any): stri
 
   return "—";
 }
+
+/**
+ * Formats a clean date display for events, e.g. "21 and 22 September 2026" or "10 – 12 July 2026"
+ */
+export function formatEventDisplayDate(startDateInput: any, endDateInput?: any): string {
+  const start = safeDate(startDateInput);
+  const end = safeDate(endDateInput);
+
+  if (!start && !end) return "—";
+  if (start && !end) return formatDateFull(start);
+  if (!start && end) return formatDateFull(end);
+
+  if (start && end) {
+    if (start.getTime() === end.getTime()) {
+      return formatDateFull(start);
+    }
+    if (start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth()) {
+      const monthName = MONTH_NAMES_FULL[start.getMonth()];
+      const year = start.getFullYear();
+      if (end.getDate() - start.getDate() === 1) {
+        return `${start.getDate()} and ${end.getDate()} ${monthName} ${year}`;
+      }
+      return `${start.getDate()} – ${end.getDate()} ${monthName} ${year}`;
+    }
+    return `${formatDateFull(start)} – ${formatDateFull(end)}`;
+  }
+
+  return "—";
+}
+

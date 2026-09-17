@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Building2,
+  Globe,
   IndianRupee,
   ShieldAlert,
   Clock,
@@ -43,6 +44,13 @@ import {
   Check,
   TrendingUp,
   FileText,
+  Share2,
+  Copy,
+  Send,
+  MessageSquare,
+  Info,
+  Smartphone,
+  Award,
 } from "lucide-react";
 import { formatDateDDMMYYYY, formatDateRange24h, formatTime24h } from "@/lib/date-utils";
 
@@ -367,6 +375,7 @@ export default function EventsManager() {
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
   const [maxCapacity, setMaxCapacity] = useState("");
+  const [postEventVisitorCount, setPostEventVisitorCount] = useState<string>("");
 
   // Logistics / Scanner Feature Toggles
   const [enableAttendance, setEnableAttendance] = useState(true);
@@ -469,6 +478,19 @@ export default function EventsManager() {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const [submittingWrapup, setSubmittingWrapup] = useState(false);
 
+  // Share & Agenda Quick Action Hub
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareEventData, setShareEventData] = useState<any | null>(null);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [copiedAnnouncement, setCopiedAnnouncement] = useState(false);
+
+  const openShareModal = (ev: any) => {
+    setShareEventData(ev);
+    setCopiedShareLink(false);
+    setCopiedAnnouncement(false);
+    setShareModalOpen(true);
+  };
+
   // Query Pending Wrapup Alerts for Concluded Events
   const { data: wrapupAlertsData, refetch: refetchWrapupAlerts } = useQuery<{
     hasPendingAlerts: boolean;
@@ -545,14 +567,6 @@ export default function EventsManager() {
 
   const handleSaveWrapup = async () => {
     if (!selectedEventForWrapup) return;
-    if (wrapupGallery.length < 10) {
-      toast({
-        title: "Minimum 10 Photos Required",
-        description: `Please upload at least 10 event photos before completing wrapup. Currently uploaded: ${wrapupGallery.length}`,
-        variant: "destructive",
-      });
-      return;
-    }
     if (!wrapupSummary.trim()) {
       toast({ title: "Summary Required", description: "Please enter an event summary.", variant: "destructive" });
       return;
@@ -638,6 +652,7 @@ export default function EventsManager() {
     setRequiresApproval(false);
     setRegistrationOpen(true);
     setMaxCapacity("");
+    setPostEventVisitorCount("");
     setEnableAttendance(true);
     setAttendanceDaysCount(1);
     setEnableFood(true);
@@ -701,6 +716,7 @@ export default function EventsManager() {
     setRequiresApproval(Boolean(ev.requiresApproval));
     setRegistrationOpen(ev.registrationOpen !== false);
     setMaxCapacity(ev.maxCapacity ? String(ev.maxCapacity) : "");
+    setPostEventVisitorCount(ev.postEventVisitorCount ? String(ev.postEventVisitorCount) : "");
     setEnableAttendance(ev.enableAttendance !== false);
     setAttendanceDaysCount(ev.attendanceDaysCount || 1);
     setEnableFood(ev.enableFood !== false);
@@ -740,6 +756,19 @@ export default function EventsManager() {
 
     setModalOpen(true);
   };
+
+  // Support direct linking to edit an event via ?editEventId=xxx
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get("editEventId");
+    if (editId && events.length > 0 && !modalOpen && !editingEvent) {
+      const target = events.find((e: any) => String(e.id) === editId || e.slug === editId);
+      if (target) {
+        openEditModal(target);
+      }
+    }
+  }, [events, modalOpen, editingEvent]);
 
   const handlePdfUpload = async (file: File, target: "agenda" | "custom" | "awards") => {
     if (!file) return;
@@ -861,6 +890,7 @@ export default function EventsManager() {
         requiresApproval,
         registrationOpen,
         maxCapacity: maxCapacity ? Number(maxCapacity) : null,
+        postEventVisitorCount: postEventVisitorCount ? Number(postEventVisitorCount) : null,
         enableAttendance,
         attendanceDaysCount: Number(attendanceDaysCount),
         enableFood,
@@ -906,6 +936,9 @@ export default function EventsManager() {
         throw new Error(errData.error || "Failed to save event");
       }
 
+      const resData = await res.json();
+      const savedEv = resData?.event || { ...payload, id: editingEvent?.id || Date.now(), slug: payload.slug || slug };
+
       toast({
         title: editingEvent ? "Event Updated" : "Event Created! 🎉",
         description: `"${title}" has been saved successfully.`,
@@ -914,6 +947,9 @@ export default function EventsManager() {
       queryClient.invalidateQueries({ queryKey: ["/api/events/admin-list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events/all-admin"] });
       setModalOpen(false);
+
+      // Immediately open Share & Agenda Hub
+      openShareModal(savedEv);
     } catch (err: any) {
       toast({ title: "Error Saving Event", description: err.message, variant: "destructive" });
     } finally {
@@ -1135,6 +1171,22 @@ export default function EventsManager() {
                       <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-[#202026] text-zinc-300 border border-[#2F2F38] uppercase font-bold tracking-wider">
                         {ev.eventType}
                       </span>
+                      {ev.eventType === "internal_staff" ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 font-mono flex items-center gap-1">
+                          <Building2 className="w-3 h-3 text-indigo-400" />
+                          <span>Internal Staff Conclave</span>
+                        </span>
+                      ) : ev.registrationOpen === false ? (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-950/80 text-cyan-300 border border-cyan-800/60 font-mono flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          <span>Agenda-Only • Registration Closed</span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 font-mono flex items-center gap-1">
+                          <Ticket className="w-3 h-3" />
+                          <span>Registration Active</span>
+                        </span>
+                      )}
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         ev.status === "published" || ev.status === "ongoing"
                           ? "bg-emerald-950/80 text-emerald-300 border border-emerald-800/60"
@@ -1142,14 +1194,20 @@ export default function EventsManager() {
                       }`}>
                         {ev.status === "published" ? "Live & Published" : ev.status}
                       </span>
-                      {ev.isPaid ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 font-mono">
-                          ₹{ev.registrationFee} Registration Fee
+                      {ev.eventType === "internal_staff" ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-950/80 text-indigo-300 border border-indigo-800/60 font-mono">
+                          Staff Pass (Complimentary)
                         </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono">
-                          Free Admission
-                        </span>
+                      ) : ev.registrationOpen !== false && (
+                        ev.isPaid ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-300 border border-amber-800/60 font-mono">
+                            ₹{ev.registrationFee} Fee
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-950/80 text-blue-300 border border-blue-800/60 font-mono">
+                            Free Admission
+                          </span>
+                        )
                       )}
                       <span className="text-xs text-zinc-500 font-mono">/{ev.slug}</span>
                     </div>
@@ -1271,6 +1329,18 @@ export default function EventsManager() {
                         <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
                       </Button>
 
+                      {/* Share & Agenda Hub Button */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openShareModal(ev)}
+                        className="h-9 px-3 rounded-xl text-xs font-bold border-cyan-800/50 bg-cyan-950/30 hover:bg-cyan-950/60 text-cyan-300 hover:text-white cursor-pointer flex items-center gap-1.5"
+                        title="Share Event Link & View Agenda Options"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Share</span>
+                      </Button>
+
                       {/* Promo Coupons */}
                       <Button
                         variant="outline"
@@ -1285,13 +1355,14 @@ export default function EventsManager() {
 
                       {/* Edit Event */}
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
                         onClick={() => openEditModal(ev)}
-                        className="h-9 w-9 p-0 rounded-xl text-zinc-400 hover:text-white hover:bg-[#24242B]"
-                        title="Edit Event Configuration"
+                        className="h-9 px-3 rounded-xl text-xs font-bold border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/25 text-amber-300 hover:text-white cursor-pointer flex items-center gap-1.5 shadow-sm transition-all"
+                        title="Edit Event Configuration & Details"
                       >
-                        <Pencil className="w-3.5 h-3.5" />
+                        <Pencil className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Edit Event</span>
                       </Button>
 
                       {/* Public Link */}
@@ -1335,12 +1406,24 @@ export default function EventsManager() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 bg-[#141417] border border-[#2B2B32] text-white shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black text-white">
-              {editingEvent ? "Edit Event Configuration" : "Create New Event"}
-            </DialogTitle>
-            <DialogDescription className="text-xs text-zinc-400">
-              Configure event dates, timings, Razorpay pricing, attendance, and meal scan features.
-            </DialogDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <DialogTitle className="text-xl font-black text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-amber-400" />
+                  <span>{editingEvent ? `Edit Event: ${editingEvent.title}` : "Create New Event"}</span>
+                </DialogTitle>
+                <DialogDescription className="text-xs text-zinc-400 mt-1">
+                  {editingEvent
+                    ? `Update event schedule, delegate fields, audience type, pricing passes, and logistics.`
+                    : "Configure event audience type, internal staff registration details, venue, and scan features."}
+                </DialogDescription>
+              </div>
+              {editingEvent && (
+                <span className="self-start sm:self-auto px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold uppercase tracking-wider">
+                  Editing Mode (ID: {editingEvent.id})
+                </span>
+              )}
+            </div>
           </DialogHeader>
 
           <form onSubmit={handleSaveEvent} className="space-y-6 pt-2">
@@ -1351,34 +1434,119 @@ export default function EventsManager() {
                 <Label className="text-xs font-bold text-zinc-300">Event Title *</Label>
                 <Input
                   required
-                  placeholder="e.g. Annual Ophthalmology Conference 2026"
+                  placeholder="e.g. 12th SanQALP Conclave / Annual Ophthalmology Conference 2026"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="rounded-xl bg-[#09090B] border-[#2B2B32] text-white"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-zinc-300">Event Type</Label>
-                  <Select value={eventType} onValueChange={setEventType}>
-                    <SelectTrigger className="rounded-xl bg-[#09090B] border-[#2B2B32] text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#18181C] border-[#2B2B32] text-white">
-                      <SelectItem value="conference">Conference</SelectItem>
-                      <SelectItem value="cme">Medical CME</SelectItem>
-                      <SelectItem value="workshop">Workshop</SelectItem>
-                      <SelectItem value="internal_staff">Internal Staff Meet</SelectItem>
-                      <SelectItem value="symposium">Symposium</SelectItem>
-                    </SelectContent>
-                  </Select>
+              {/* Event Scope & Audience Selector */}
+              <div className="space-y-2 pt-1">
+                <Label className="text-xs font-bold text-zinc-300">Audience Scope &amp; Registration Format *</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option A: Public / External Conference */}
+                  <div
+                    onClick={() => {
+                      if (eventType === "internal_staff") {
+                        setEventType("conference");
+                      }
+                    }}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      eventType !== "internal_staff"
+                        ? "bg-indigo-950/40 border-indigo-500/80 shadow-lg ring-1 ring-indigo-500/40"
+                        : "bg-[#09090B] border-[#2B2B32] opacity-75 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-indigo-400" />
+                        <span className="text-xs font-bold text-white">Public / Academic Conference</span>
+                      </div>
+                      {eventType !== "internal_staff" && <Check className="w-3.5 h-3.5 text-indigo-400 stroke-[3]" />}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-1.5 leading-snug">
+                      Open to external ophthalmologists, optometrists, fellows &amp; medical residents. Standard registration format with instant tickets or role pricing passes.
+                    </p>
+                  </div>
+
+                  {/* Option B: Internal Staff Conclave */}
+                  <div
+                    onClick={() => {
+                      setEventType("internal_staff");
+                      setRequiresApproval(true);
+                      setIsPaid(false);
+                      setPricingTiers([
+                        {
+                          id: "internal_staff",
+                          name: "Internal Staff Delegate",
+                          role: "delegate",
+                          price: 0,
+                          earlyBirdPrice: 0,
+                          description: "Official internal delegation pass for nominated Sankara Eye Hospital staff.",
+                          inclusions: ["All TQM Scientific Tracks & Workshops", "Conclave Delegate Kit", "Hospitality & Dining"],
+                          popular: true,
+                        }
+                      ]);
+                    }}
+                    className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      eventType === "internal_staff"
+                        ? "bg-amber-950/40 border-amber-500/80 shadow-lg ring-1 ring-amber-500/40"
+                        : "bg-[#09090B] border-[#2B2B32] opacity-75 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-amber-400" />
+                        <span className="text-xs font-bold text-white">Internal Staff Conclave</span>
+                      </div>
+                      {eventType === "internal_staff" && <Check className="w-3.5 h-3.5 text-amber-400 stroke-[3]" />}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-1.5 leading-snug">
+                      Strictly for Sankara hospital staff. Registration form collects Employee ID, Designation, Hospital Unit, Address, State &amp; cascading District.
+                    </p>
+                  </div>
                 </div>
+
+                {eventType === "internal_staff" && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1.5 animate-in fade-in">
+                    <div className="flex items-center gap-2 font-bold text-amber-300">
+                      <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>Internal Staff Registration Form &amp; Gate Review Enabled</span>
+                    </div>
+                    <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                      Delegates registering for this event will be required to enter: <strong>Employee ID</strong>, <strong>Designation</strong>, <strong>Sankara Hospital Unit</strong> (Branch dropdown), <strong>Full Address</strong>, <strong>State</strong>, <strong>District cascading dropdowns</strong>, <strong>Mobile number</strong>, and <strong>Email ID</strong>.
+                    </p>
+                    <p className="text-[10px] text-amber-300/80 font-mono">
+                      ✓ Registrations are placed in "Pending Review" until verified by coordinators in Attendee Registry.<br/>
+                      ✓ Upon admin approval, backend automatically generates entry pass and emails QR code via SMTP.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {eventType !== "internal_staff" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-zinc-300">Conference Category</Label>
+                    <Select value={eventType} onValueChange={setEventType}>
+                      <SelectTrigger className="rounded-xl bg-[#09090B] border-[#2B2B32] text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#18181C] border-[#2B2B32] text-white">
+                        <SelectItem value="conference">National / State Conference</SelectItem>
+                        <SelectItem value="cme">Medical CME</SelectItem>
+                        <SelectItem value="workshop">Hands-on Surgical Workshop</SelectItem>
+                        <SelectItem value="symposium">Clinical Symposium</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-zinc-300">Custom URL Slug</Label>
                   <Input
-                    placeholder="annual-ophthalmology-2026"
+                    placeholder="e.g. sanqualp-bangalore or vision-2020"
                     value={slug}
                     onChange={(e) => setSlug(e.target.value)}
                     className="rounded-xl font-mono text-xs bg-[#09090B] border-[#2B2B32] text-white"
@@ -1397,9 +1565,111 @@ export default function EventsManager() {
               </div>
             </div>
 
-            {/* 2. Date, Time & Location */}
+            {/* 2. Event Registration & Access Mode (PROMINENT OPTION) */}
+            <div className="space-y-3 pt-2 border-t border-[#242429]">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>2. Event Access &amp; Registration Format *</span>
+                </h3>
+                <p className="text-[11px] text-zinc-400">
+                  Choose whether attendees must register/book passes, or if this is an agenda-only event to be shared directly.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Option A: Full Registration */}
+                <div
+                  onClick={() => {
+                    setRegistrationOpen(true);
+                  }}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                    registrationOpen
+                      ? "bg-emerald-950/40 border-emerald-500/80 shadow-lg shadow-emerald-950/40 ring-1 ring-emerald-500/40"
+                      : "bg-[#09090B] border-[#2B2B32] hover:border-zinc-600 opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                        registrationOpen ? "bg-emerald-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"
+                      }`}>
+                        <Ticket className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-white flex items-center gap-1.5">
+                          <span>Full Registration Event</span>
+                          {registrationOpen && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-500 text-zinc-950 uppercase">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-emerald-300/90 font-medium">
+                          Passes, Tickets &amp; QR Badges
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      registrationOpen ? "border-emerald-400 bg-emerald-400 text-zinc-950" : "border-zinc-600"
+                    }`}>
+                      {registrationOpen && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-2.5 leading-relaxed">
+                    Attendees register online, choose delegate pricing tiers, receive personalized digital QR admission passes, and check in at entry.
+                  </p>
+                </div>
+
+                {/* Option B: Agenda & Information Only (No Registration Required) */}
+                <div
+                  onClick={() => {
+                    setRegistrationOpen(false);
+                    setIsPaid(false);
+                  }}
+                  className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                    !registrationOpen
+                      ? "bg-cyan-950/40 border-cyan-500/80 shadow-lg shadow-cyan-950/40 ring-1 ring-cyan-500/40"
+                      : "bg-[#09090B] border-[#2B2B32] hover:border-zinc-600 opacity-75 hover:opacity-100"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${
+                        !registrationOpen ? "bg-cyan-500 text-zinc-950 font-black" : "bg-zinc-800 text-zinc-400"
+                      }`}>
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-white flex items-center gap-1.5">
+                          <span>Agenda Only (No Registration)</span>
+                          {!registrationOpen && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-cyan-500 text-zinc-950 uppercase">
+                              Active
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-cyan-300/90 font-medium">
+                          Publish &amp; Share Directly with Staff
+                        </span>
+                      </div>
+                    </div>
+                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
+                      !registrationOpen ? "border-cyan-400 bg-cyan-400 text-zinc-950" : "border-zinc-600"
+                    }`}>
+                      {!registrationOpen && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-2.5 leading-relaxed">
+                    No ticket sales or registration forms. Publish the full schedule, allow attendees to view &amp; favorite sessions, and share the event link directly via WhatsApp or circular.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Date, Time & Location */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">2. Dates, Timing &amp; Location</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">3. Dates, Timing &amp; Location</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-zinc-300">Date From *</Label>
@@ -1473,29 +1743,42 @@ export default function EventsManager() {
               </div>
             </div>
 
-            {/* 3. Multi-Role Pricing & Razorpay Gateway */}
+            {/* 4. Multi-Role Pricing & Registration Passes */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">3. Multi-Role Pricing &amp; Registration Tiers</h3>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">4. Multi-Role Pricing &amp; Registration Passes</h3>
                   <p className="text-[11px] text-zinc-500">Configure role-specific registration fees (e.g. PG Students, Delegates, Faculty, Members)</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-zinc-300">Paid Event:</span>
-                  <Switch
-                    checked={isPaid}
-                    onCheckedChange={(checked) => {
-                      setIsPaid(checked);
-                      if (checked && pricingTiers.every((t) => t.price === 0)) {
-                        setPricingTiers(PRESET_PRICING_CME_5_TIERS);
-                      }
-                    }}
-                  />
-                </div>
+                {registrationOpen && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-zinc-300">Paid Event:</span>
+                    <Switch
+                      checked={isPaid}
+                      onCheckedChange={(checked) => {
+                        setIsPaid(checked);
+                        if (checked && pricingTiers.every((t) => t.price === 0)) {
+                          setPricingTiers(PRESET_PRICING_CME_5_TIERS);
+                        }
+                      }}
+                    />
+                  </div>
+                )}
               </div>
 
-              {/* Tiers Management Controls */}
-              <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-4">
+              {!registrationOpen ? (
+                <div className="p-4 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 text-xs text-cyan-300 space-y-2">
+                  <div className="font-bold flex items-center gap-2 text-white">
+                    <Info className="w-4 h-4 text-cyan-400 shrink-0" />
+                    <span>Ticketing &amp; Pricing Disabled (Agenda-Only Mode)</span>
+                  </div>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    This event is set to <strong>Agenda-Only</strong> format. Delegates will not be asked for payment or pass booking. They will directly access the scientific schedule, like sessions, and sync timings to their calendar.
+                  </p>
+                </div>
+              ) : (
+                /* Tiers Management Controls */
+                <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#202026] pb-3">
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[11px] font-bold text-zinc-400">Apply Presets:</span>
@@ -1678,11 +1961,12 @@ export default function EventsManager() {
                   </div>
                 )}
               </div>
+              )}
             </div>
 
-            {/* 4. Feature Toggles & Scanner Logistics */}
+            {/* 5. Check-in & Scanner Toggles */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">4. Check-in &amp; Scanner Toggles</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">5. Check-in &amp; Scanner Toggles</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3.5 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-2">
@@ -1743,15 +2027,88 @@ export default function EventsManager() {
                   </div>
                   <Switch checked={requiresApproval} onCheckedChange={setRequiresApproval} />
                 </div>
+
+                <div className="p-3.5 rounded-2xl bg-[#09090B] border border-[#2B2B32] flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Ticket className="w-4 h-4 text-blue-400" />
+                    <div>
+                      <span className="font-bold text-xs text-white block">Public Registration Gate</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {registrationOpen ? "Open for passes & tickets" : "Disabled (Internal / Agenda-Only)"}
+                      </span>
+                    </div>
+                  </div>
+                  <Switch checked={registrationOpen} onCheckedChange={(val) => {
+                    setRegistrationOpen(val);
+                    if (!val) setIsPaid(false);
+                  }} />
+                </div>
               </div>
             </div>
 
-            {/* 5. Date & Time-wise Event Agenda Builder */}
+            {/* 5.5 Capacity & Post-Event Verified Attendees */}
             <div className="space-y-4 pt-2 border-t border-[#242429]">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                5.5 Capacity &amp; Post-Event Verified Attendees
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5 p-3.5 rounded-2xl bg-[#09090B] border border-[#2B2B32]">
+                  <Label className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-blue-400" />
+                    Max Delegate Capacity
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 350"
+                    value={maxCapacity}
+                    onChange={(e) => setMaxCapacity(e.target.value)}
+                    className="h-9 rounded-xl bg-[#141417] border-[#2B2B32] text-xs text-white"
+                  />
+                  <p className="text-[10px] text-zinc-500">
+                    Maximum allowed delegates or hall seating limit.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 p-3.5 rounded-2xl bg-[#09090B] border border-emerald-500/30 bg-emerald-950/10">
+                  <Label className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-emerald-400" />
+                    Post-Event Verified Attendees Count
+                  </Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    placeholder="e.g. 350 (update after event)"
+                    value={postEventVisitorCount}
+                    onChange={(e) => setPostEventVisitorCount(e.target.value)}
+                    className="h-9 rounded-xl bg-[#141417] border-emerald-500/40 text-xs text-white focus:border-emerald-400"
+                  />
+                  <p className="text-[10px] text-zinc-400">
+                    Update this after the conclave concludes to showcase final verified footfall on the event portal.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Date & Time-wise Event Agenda Builder */}
+            <div id="event-agenda-section" className={`space-y-4 pt-4 border-t border-[#242429] transition-all ${
+              !registrationOpen ? "p-4 rounded-3xl bg-cyan-950/20 border border-cyan-500/40" : ""
+            }`}>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">5. Event Agenda &amp; Schedule</h3>
-                  <p className="text-[11px] text-zinc-500">Configure schedule from start to end time with breaks, keynotes, and sessions.</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                      6. Event Agenda &amp; Schedule Builder
+                    </h3>
+                    {!registrationOpen && (
+                      <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 uppercase">
+                        Primary Event Focus
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-400">
+                    Configure schedule, faculty, presentation topics, and breaks. Attendees will see and favorite this directly on the shared link.
+                  </p>
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Button
@@ -1776,7 +2133,7 @@ export default function EventsManager() {
                     type="button"
                     size="sm"
                     onClick={() => addAgendaSlot()}
-                    className="h-7 text-[11px] rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer"
+                    className="h-7 text-[11px] rounded-lg bg-white hover:bg-zinc-200 text-zinc-950 font-bold cursor-pointer"
                   >
                     <Plus className="w-3 h-3 mr-1" /> + Session
                   </Button>
@@ -2143,9 +2500,9 @@ export default function EventsManager() {
                 <Button variant="outline" type="button" onClick={() => setModalOpen(false)} className="rounded-xl border-[#2B2B32] text-zinc-300">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={saving} className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold px-6 cursor-pointer border-none">
+                <Button type="submit" disabled={saving} className="rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold px-6 cursor-pointer border-none shadow-md">
                   {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : null}
-                  <span>{editingEvent ? "Save Changes" : "Create Event"}</span>
+                  <span>{editingEvent ? "Save & Update Event" : "Create & Launch Event"}</span>
                 </Button>
               </div>
             </DialogFooter>
@@ -2499,6 +2856,206 @@ export default function EventsManager() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── SHARE & AGENDA HUB MODAL (OBSIDIAN DARK) ────────────────── */}
+      <Dialog open={shareModalOpen} onOpenChange={setShareModalOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 bg-[#141417] border border-[#2B2B32] text-white shadow-2xl space-y-4">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                <Share2 className="w-5 h-5" />
+              </span>
+              <div>
+                <DialogTitle className="text-lg font-black text-white">
+                  Share &amp; Agenda Hub
+                </DialogTitle>
+                <DialogDescription className="text-xs text-zinc-400">
+                  Share this event directly with internal staff and attendees, or jump into managing the agenda.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {shareEventData && (() => {
+            const eventUrl = typeof window !== "undefined"
+              ? `${window.location.origin}/events/${shareEventData.slug || shareEventData.id}`
+              : `https://events.sankaraeye.in/events/${shareEventData.slug || shareEventData.id}`;
+            const isInternal = shareEventData.eventType === "internal_staff";
+            const isRegistrationClosed = shareEventData.registrationOpen === false;
+            const datesFormatted = formatDateRange24h(shareEventData.startDate, shareEventData.endDate);
+
+            const whatsappMessage = `*${shareEventData.title}*\n📅 ${datesFormatted}\n⏰ ${shareEventData.timeFrom || "09:00 AM"} – ${shareEventData.timeTo || "05:00 PM"}\n📍 ${shareEventData.venue || "Sankara Eye Hospital"}, ${shareEventData.city || ""}\n\n${
+              isInternal
+                ? "Register for your internal staff pass (with Employee ID & Unit) and view the conclave schedule here:\n"
+                : isRegistrationClosed
+                ? "Explore the full conclave agenda, schedule, and like your favorite sessions here:\n"
+                : "Register online and view the event schedule here:\n"
+            }${eventUrl}`;
+
+            const circularText = `Subject: Invitation & Schedule - ${shareEventData.title}\n\nDear Team / Delegates,\n\nYou are invited to ${shareEventData.title}.\n\n📅 Date: ${datesFormatted}\n⏰ Time: ${shareEventData.timeFrom || "09:00 AM"} – ${shareEventData.timeTo || "05:00 PM"}\n📍 Venue: ${shareEventData.venue || "Sankara Eye Hospital"}, ${shareEventData.city || ""}\n\n${
+              isInternal
+                ? "This is an internal staff conclave. Please register with your Employee ID and Hospital Unit to obtain your verified entry pass, and explore the interactive agenda:\n"
+                : isRegistrationClosed
+                ? "Please access the interactive agenda, explore presentation topics, and favorite your sessions using the link below:\n"
+                : "Please complete your registration and view the full agenda using the link below:\n"
+            }${eventUrl}\n\nRegards,\n${shareEventData.organizerName || "Sankara Eye Foundation India"}`;
+
+            return (
+              <div className="space-y-4 pt-1">
+                {/* Event Summary Card */}
+                <div className="p-4 rounded-2xl bg-[#09090B] border border-[#2B2B32] space-y-2">
+                  <div className="flex flex-wrap items-center gap-2 justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
+                        isInternal
+                          ? "bg-indigo-950 text-indigo-300 border border-indigo-800"
+                          : isRegistrationClosed
+                          ? "bg-cyan-950 text-cyan-300 border border-cyan-800"
+                          : "bg-emerald-950 text-emerald-300 border border-emerald-800"
+                      }`}>
+                        {isInternal
+                          ? "🏛️ Internal Staff Conclave • Verified Registration"
+                          : isRegistrationClosed
+                          ? "📋 Agenda-Only • Registration Closed"
+                          : "🎟️ Registration Active"}
+                      </span>
+                      <span className="text-xs text-zinc-500 font-mono">/{shareEventData.slug}</span>
+                    </div>
+
+                    <span className="text-xs text-zinc-400 font-medium">
+                      {datesFormatted}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold text-white leading-snug">
+                    {shareEventData.title}
+                  </h3>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400 pt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                      {shareEventData.timeFrom || "09:00 AM"} – {shareEventData.timeTo || "05:00 PM"}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-500" />
+                      {shareEventData.venue}, {shareEventData.city}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Direct Event Link Card */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300 flex items-center justify-between">
+                    <span>Direct Shareable Event Link</span>
+                    <span className="text-[11px] text-zinc-500 font-normal">Opens directly to agenda &amp; sessions</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={eventUrl}
+                      className="font-mono text-xs bg-[#09090B] border-[#2B2B32] text-zinc-200 select-all"
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(eventUrl);
+                        setCopiedShareLink(true);
+                        toast({ title: "Link Copied!", description: "Event link copied to clipboard." });
+                        setTimeout(() => setCopiedShareLink(false), 2000);
+                      }}
+                      className={`h-10 px-4 rounded-xl text-xs font-bold cursor-pointer transition-all shrink-0 ${
+                        copiedShareLink
+                          ? "bg-emerald-500 text-zinc-950 font-black"
+                          : "bg-white hover:bg-zinc-200 text-zinc-950"
+                      }`}
+                    >
+                      {copiedShareLink ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1 stroke-[3]" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1" /> Copy Link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Instant Share Buttons (WhatsApp & Circular) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(whatsappMessage)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3.5 rounded-2xl bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-500/40 text-emerald-300 hover:text-emerald-200 flex items-center gap-3 transition-all cursor-pointer group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500 text-zinc-950 flex items-center justify-center font-black shrink-0">
+                      <Send className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <div className="text-left">
+                      <div className="text-xs font-bold text-white">Share via WhatsApp</div>
+                      <div className="text-[10px] text-emerald-400">Pre-formatted invite &amp; agenda link</div>
+                    </div>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(circularText);
+                      setCopiedAnnouncement(true);
+                      toast({ title: "Announcement Copied!", description: "Internal circular text copied to clipboard." });
+                      setTimeout(() => setCopiedAnnouncement(false), 2000);
+                    }}
+                    className="p-3.5 rounded-2xl bg-[#1A1A20] hover:bg-[#22222A] border border-[#2F2F3A] text-zinc-300 hover:text-white flex items-center gap-3 transition-all cursor-pointer text-left group"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-zinc-800 text-zinc-200 flex items-center justify-center shrink-0">
+                      {copiedAnnouncement ? <Check className="w-4 h-4 text-emerald-400 stroke-[3]" /> : <MessageSquare className="w-4 h-4" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-white">
+                        {copiedAnnouncement ? "Circular Copied!" : "Copy Staff Circular"}
+                      </div>
+                      <div className="text-[10px] text-zinc-400">Ready for internal email / memos</div>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Bottom Actions: Jump to Agenda or View Page */}
+                <div className="pt-3 border-t border-[#242429] flex flex-wrap items-center justify-between gap-2.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShareModalOpen(false);
+                      openEditModal(shareEventData);
+                      setTimeout(() => {
+                        const el = document.getElementById("event-agenda-section");
+                        el?.scrollIntoView({ behavior: "smooth" });
+                      }, 150);
+                    }}
+                    className="rounded-xl text-xs font-bold border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 cursor-pointer"
+                  >
+                    <CalendarDays className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Manage / Add Agenda Sessions</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    asChild
+                    className="rounded-xl text-xs font-bold bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer"
+                  >
+                    <Link href={`/events/${shareEventData.slug || shareEventData.id}`} target="_blank">
+                      <span>View Live Event Page</span>
+                      <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>

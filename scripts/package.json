@@ -10,7 +10,8 @@
     "seed-excel": "tsx ./src/seed-from-excel.ts",
     "sync-paid": "tsx ./src/sync-paid-list.ts",
     "sync-mobiles": "tsx ./src/sync-excel-mobiles.ts",
-    "backfill": "tsx ./src/backfill-clean-names.ts",
+    "seed-events": "tsx ./src/seed-events-vision2020-sanqualp.ts",
+    "seed-sanqualp": "tsx ./src/seed-sanqualp.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

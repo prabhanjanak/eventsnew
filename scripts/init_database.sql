@@ -487,3 +487,90 @@ CREATE TABLE IF NOT EXISTS group_registrations (
 );
 CREATE INDEX IF NOT EXISTS groups_event_id_idx ON group_registrations(event_id);
 CREATE INDEX IF NOT EXISTS groups_code_idx ON group_registrations(group_booking_code);
+
+-- 21. INITIAL EVENTS SEED (Vision 2020 & 12th SanQALP Conclave)
+INSERT INTO events (
+  slug, title, event_type, description, short_description, venue, city, 
+  start_date, end_date, time_from, time_to, is_paid, registration_fee, 
+  status, enable_attendance, enable_food, enable_goodies, enable_google_wallet,
+  post_event_visitor_count, post_event_completed, external_photos_url, external_photos_button_text
+) VALUES (
+  'vision-2020-annual-conference',
+  '20th Annual National Conference — VISION 2020: The Right to Sight India',
+  'conference',
+  'The 20th Annual National Conference of VISION 2020: The Right to Sight India, hosted at Sankara Eye Hospital, Coimbatore.',
+  '20th Annual National Conference — VISION 2020: The Right to Sight India (10–12 July 2026, Coimbatore).',
+  'Sankara Eye Hospital, Auditorium Complex',
+  'Coimbatore',
+  '2026-07-10',
+  '2026-07-12',
+  '08:30 AM',
+  '06:00 PM',
+  false,
+  0,
+  'completed',
+  true,
+  true,
+  true,
+  true,
+  1580,
+  true,
+  'https://app.samaro.ai/e/sankara-events',
+  'Find My Photos with AI (Samaro)'
+) ON CONFLICT (slug) DO UPDATE SET
+  status = 'completed',
+  post_event_completed = true,
+  post_event_visitor_count = COALESCE(events.post_event_visitor_count, 1580);
+
+INSERT INTO events (
+  slug, title, event_type, description, short_description, venue, city, 
+  location_map_url, start_date, end_date, time_from, time_to, is_paid, registration_fee, 
+  currency, requires_approval, registration_open, max_capacity, enable_attendance, 
+  attendance_days_count, enable_food, enable_goodies, enable_google_wallet,
+  organizer_name, organizer_email, organizer_phone, spoc_name, spoc_designation, 
+  spoc_email, spoc_phone, cancellation_policy, theme_color, accent_color, 
+  badge_subtitle, badge_footer_text, status, post_event_completed
+) VALUES (
+  'sanqualp-bangalore',
+  '12th SanQALP Conclave',
+  'internal_staff',
+  'The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery.',
+  '12th SanQALP Conclave on 21st & 22nd September 2026 at Sankara Eye Hospital, Bangalore. Theme: From Vision to Value (TQM). Internal staff delegation.',
+  'Sankara Eye Hospital, Bangalore',
+  'Bangalore',
+  'https://maps.google.com/?q=Sankara+Eye+Hospital+Varthur+Main+Road+Kundalahalli+Bangalore',
+  '2026-09-21',
+  '2026-09-22',
+  '09:00 AM',
+  '07:00 PM',
+  false,
+  0,
+  'INR',
+  true,
+  false,
+  350,
+  true,
+  2,
+  true,
+  false,
+  false,
+  'Sankara Eye Care Institutions (SEFI)',
+  'quality@sankaraeye.in',
+  '+91 80 2854 2727',
+  'Dr. Kaushik Murali',
+  'President (Medical Administration, Quality & Education)',
+  'quality@sankaraeye.in',
+  '+91 80 2854 2728',
+  'Internal staff conclave. Participation is by institutional delegation and nomination across Sankara Eye Hospital units.',
+  '#0F172A',
+  '#3B82F6',
+  '12TH SANQALP CONCLAVE · BANGALORE',
+  'Sankara Quality Assurance Learning Program · Internal Staff',
+  'published',
+  false
+) ON CONFLICT (slug) DO UPDATE SET
+  start_date = '2026-09-21',
+  end_date = '2026-09-22',
+  registration_open = false,
+  external_photos_url = NULL,
+  external_photos_button_text = NULL;

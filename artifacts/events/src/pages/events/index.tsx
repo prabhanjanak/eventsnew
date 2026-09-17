@@ -32,6 +32,7 @@ import {
   LogOut,
   CheckCircle2,
   Grid,
+  Flame,
 } from "lucide-react";
 import { LumaCalendar } from "@/components/events/luma-calendar";
 import { useAuth } from "@/hooks/use-auth";
@@ -52,9 +53,20 @@ const EVENT_TYPE_LABELS: Record<string, { label: string; color: string; badgeBg:
   internal_staff: { label: "Staff Internal", color: "text-white", badgeBg: "bg-zinc-900 border-zinc-800" },
 };
 
+import { formatDateRange24h, formatEventDisplayDate, safeDate } from "@/lib/date-utils";
+
 function formatLumaDate(dateStr: string) {
   if (!dateStr) return { month: "TBD", day: "--", weekday: "Date TBA" };
   try {
+    const parts = dateStr.split("-").map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const [y, m, d] = parts;
+      const dateObj = new Date(y, m - 1, d);
+      const month = dateObj.toLocaleString("en-US", { month: "short" }).toUpperCase();
+      const day = d.toString().padStart(2, "0");
+      const weekday = dateObj.toLocaleString("en-US", { weekday: "short" }).toUpperCase();
+      return { month, day, weekday };
+    }
     const d = new Date(dateStr);
     const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
     const day = d.getDate().toString().padStart(2, "0");
@@ -63,6 +75,17 @@ function formatLumaDate(dateStr: string) {
   } catch {
     return { month: "DATE", day: "--", weekday: dateStr };
   }
+}
+
+function getDaysUntil(targetDateStr: string, currentIsoDate: string) {
+  if (!targetDateStr || !currentIsoDate) return null;
+  const [ty, tm, td] = targetDateStr.split("-").map(Number);
+  const [cy, cm, cd] = currentIsoDate.split("-").map(Number);
+  if (!ty || !tm || !td || !cy || !cm || !cd) return null;
+
+  const targetUtc = Date.UTC(ty, tm - 1, td);
+  const currentUtc = Date.UTC(cy, cm - 1, cd);
+  return Math.round((targetUtc - currentUtc) / (1000 * 60 * 60 * 24));
 }
 
 interface EventRegistration {
@@ -214,7 +237,61 @@ export default function EventsDirectory() {
     return true;
   });
 
-  const todayIso = new Date().toISOString().split("T")[0];
+  // Query server/web live time every minute
+  const { data: serverTime } = useQuery<{
+    iso: string;
+    epoch: number;
+    todayDate: string;
+    formattedDate: string;
+    timeString: string;
+    timeZone: string;
+  }>({
+    queryKey: ["/api/time"],
+    queryFn: async () => {
+      const res = await fetch(`${BASE_URL}/api/time`);
+      if (!res.ok) throw new Error("Failed to fetch server time");
+      return res.json();
+    },
+    refetchInterval: 60_000,
+  });
+
+  // Client-side 1-second ticker formatted to IST (Indian Standard Time)
+  const [liveTime, setLiveTime] = useState<{
+    dateFormatted: string;
+    timeStr: string;
+  }>({
+    dateFormatted: "",
+    timeStr: "",
+  });
+
+  useEffect(() => {
+    function tick() {
+      const now = new Date();
+      const dateFormatted = now.toLocaleDateString("en-IN", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+        timeZone: "Asia/Kolkata",
+      });
+      const timeStr = now.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata",
+      });
+      setLiveTime({ dateFormatted, timeStr });
+    }
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Today in YYYY-MM-DD IST (prefer web/server time, fallback to client IST)
+  const clientIstIso = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  const todayIso = serverTime?.todayDate || clientIstIso;
+
   const upcomingEvents = filteredEvents.filter(
     (e) => (e.endDate || e.startDate) >= todayIso && e.status !== "completed" && e.status !== "archived"
   );
@@ -508,6 +585,36 @@ export default function EventsDirectory() {
                   Official Medical Conferences, Scientific CMEs, Clinical Workshops &amp; Foundation Events
                 </p>
               </div>
+
+              {/* Live Web Date & Time Display Bar */}
+              <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 pt-2">
+                <div className="inline-flex items-center gap-2 sm:gap-3 px-4 py-2 rounded-2xl bg-[#141417]/90 border border-[#2B2B32] backdrop-blur-xl shadow-xl shadow-black/30">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400">
+                    Live IST
+                  </span>
+                  <span className="text-zinc-700">|</span>
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-zinc-200">
+                    <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>{serverTime?.formattedDate || liveTime.dateFormatted || "15 September 2026"}</span>
+                  </div>
+                  <span className="text-zinc-700">|</span>
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-white tabular-nums tracking-wide">
+                    <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>{liveTime.timeStr || serverTime?.timeString || "10:00:00 AM"} IST</span>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 font-medium shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                  <span>
+                    Upcoming: <strong className="text-white font-bold">12th SanQALP Conclave</strong> in 6 days (21–22 Sep 2026)
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Search & Category Filter Pills */}
@@ -634,6 +741,17 @@ export default function EventsDirectory() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   {displayedEvents.map((event) => {
                     const dateInfo = formatLumaDate(event.startDate);
+                    const daysUntil = getDaysUntil(event.startDate, todayIso);
+                    const fullDateLabel = formatEventDisplayDate(event.startDate, event.endDate);
+                    const startD = safeDate(event.startDate);
+                    const endD = safeDate(event.endDate);
+                    const hasMultiDay = Boolean(startD && endD && startD.getTime() !== endD.getTime());
+                    const dayBadgeText = hasMultiDay && startD && endD && startD.getMonth() === endD.getMonth()
+                      ? `${startD.getDate()}–${endD.getDate()}`
+                      : dateInfo.day;
+                    const weekdayBadgeText = hasMultiDay && startD && endD
+                      ? `${startD.toLocaleDateString("en-IN", { weekday: "short" })}–${endD.toLocaleDateString("en-IN", { weekday: "short" })}`
+                      : dateInfo.weekday;
                     const badge = EVENT_TYPE_LABELS[event.eventType] || {
                       label: event.eventType || "Event",
                       color: "text-white",
@@ -659,11 +777,11 @@ export default function EventsDirectory() {
                               <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-zinc-400">
                                 {dateInfo.month}
                               </span>
-                              <span className="text-lg sm:text-2xl font-black text-white leading-none tracking-tight">
-                                {dateInfo.day}
+                              <span className="text-base sm:text-xl font-black text-white leading-none tracking-tight">
+                                {dayBadgeText}
                               </span>
                               <span className="text-[9px] font-semibold text-zinc-500 uppercase">
-                                {dateInfo.weekday}
+                                {weekdayBadgeText}
                               </span>
                             </div>
 
@@ -680,6 +798,29 @@ export default function EventsDirectory() {
                                     • {event.badgeSubtitle}
                                   </span>
                                 )}
+                                {daysUntil !== null && activeTimeline === "upcoming" && (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-xs">
+                                    <Flame className="w-3 h-3 text-amber-400" />
+                                    {daysUntil === 0
+                                      ? "Starts Today"
+                                      : daysUntil === 1
+                                      ? "Starts Tomorrow"
+                                      : `Starts in ${daysUntil} days`}
+                                  </span>
+                                )}
+                                {event.registrationOpen === false ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                                    Conclave Schedule Active
+                                  </span>
+                                ) : event.eventType === "internal_staff" ? (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                    Internal Staff • Gate Pass
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700">
+                                    Registration Closed
+                                  </span>
+                                )}
                               </div>
 
                               <h3 className="text-base sm:text-lg font-bold text-white group-hover:text-zinc-200 transition-colors truncate">
@@ -693,6 +834,13 @@ export default function EventsDirectory() {
                               )}
 
                               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400 pt-1">
+                                {fullDateLabel && fullDateLabel !== "—" && (
+                                  <div className="flex items-center gap-1.5 text-zinc-200 font-semibold">
+                                    <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                                    <span>{fullDateLabel}</span>
+                                  </div>
+                                )}
+
                                 {(event.timeFrom || event.timeTo) && (
                                   <div className="flex items-center gap-1.5">
                                     <Clock className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
@@ -713,12 +861,11 @@ export default function EventsDirectory() {
                                 )}
 
                                 {(() => {
-                                  const todayStr = new Date().toISOString().split("T")[0];
                                   const isPast =
                                     activeTimeline === "past" ||
                                     event.status === "completed" ||
                                     event.status === "archived" ||
-                                    (event.endDate ? event.endDate < todayStr : event.startDate < todayStr);
+                                    (event.endDate ? event.endDate < todayIso : event.startDate < todayIso);
                                   const footfall =
                                     event.postEventVisitorCount ||
                                     event.totalParticipants ||
@@ -734,6 +881,24 @@ export default function EventsDirectory() {
                                             ? `${footfall.toLocaleString()} Footfall`
                                             : "Event Concluded"}
                                         </span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (event.registrationOpen === false) {
+                                    return (
+                                      <div className="flex items-center gap-1.5 text-blue-400 font-semibold">
+                                        <CalendarDays className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                        <span>Conclave Schedule Active</span>
+                                      </div>
+                                    );
+                                  }
+
+                                  if (event.eventType === "internal_staff") {
+                                    return (
+                                      <div className="flex items-center gap-1.5 text-indigo-400 font-semibold">
+                                        <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                        <span>Staff Registration Open</span>
                                       </div>
                                     );
                                   }

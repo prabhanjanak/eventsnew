@@ -167,17 +167,25 @@ export const ListParticipantsResponse = zod.object({
  * @summary Create a participant
  */
 export const CreateParticipantBody = zod.object({
-  "registrationNumber": zod.string(),
+  "registrationNumber": zod.string().optional(),
   "name": zod.string(),
-  "email": zod.string(),
+  "email": zod.string().optional().nullable(),
   "mobile": zod.string(),
-  "institution": zod.string(),
+  "institution": zod.string().optional(),
+  "designation": zod.string().optional().nullable(),
+  "employeeId": zod.string().optional().nullable(),
+  "unit": zod.string().optional().nullable(),
+  "state": zod.string().optional().nullable(),
+  "district": zod.string().optional().nullable(),
+  "address": zod.string().optional().nullable(),
+  "eventId": zod.coerce.number().optional().nullable(),
   "isPaid": zod.boolean().optional(),
-  "utrNumber": zod.string().optional(),
+  "utrNumber": zod.string().optional().nullable(),
   "isActive": zod.boolean().optional(),
   "isSponsored": zod.boolean().optional(),
-  "sponsorType": zod.string().optional()
-})
+  "sponsorType": zod.string().optional().nullable(),
+  "approvalStatus": zod.string().optional()
+}).passthrough()
 
 
 /**
@@ -209,42 +217,30 @@ export const GetParticipantResponse = zod.object({
   "assignments": zod.array(zod.object({
   "id": zod.number(),
   "participantId": zod.number(),
-  "role": zod.enum(['Speaker', 'Presenter', 'Poster', 'Panelist', 'Moderator', 'Judge', 'Chair', 'CoChair']),
   "track": zod.string(),
-  "sessionName": zod.string().nullish(),
-  "hall": zod.string().nullish(),
-  "date": zod.string().nullish(),
-  "time": zod.string().nullish(),
-  "presentationTitle": zod.string().nullish(),
-  "fileId": zod.number().nullish(),
-  "uploadedFile": zod.object({
-  "id": zod.number(),
-  "assignmentId": zod.number(),
-  "filename": zod.string(),
-  "originalName": zod.string(),
-  "fileType": zod.enum(['pptx', 'jpg']),
-  "version": zod.number(),
-  "size": zod.number().nullish(),
-  "uploadedAt": zod.coerce.date()
-}).nullish()
-})),
-  "attendanceMarked": zod.boolean(),
-  "attendanceScannedAt": zod.coerce.date().nullish(),
-  "goodiesCollected": zod.boolean(),
-  "goodiesCollectedAt": zod.coerce.date().nullish(),
-  "foodCoupons": zod.array(zod.object({
-  "foodSessionId": zod.number(),
-  "name": zod.string(),
   "date": zod.string(),
-  "collected": zod.boolean(),
-  "collectedAt": zod.coerce.date().nullish()
+  "sessionName": zod.string(),
+  "time": zod.string(),
+  "role": zod.string(),
+  "hall": zod.string(),
+  "presentationTitle": zod.string().optional(),
+  "specialInstructions": zod.string().optional()
 })),
   "isPaid": zod.boolean(),
-  "utrNumber": zod.string().nullish(),
+  "paymentStatus": zod.string().optional(),
+  "paymentAmount": zod.number().optional(),
+  "paymentId": zod.string().optional(),
+  "orderId": zod.string().optional(),
+  "utrNumber": zod.string().optional(),
+  "age": zod.string().optional(),
+  "gender": zod.string().optional(),
+  "address": zod.string().optional(),
+  "isOnSpot": zod.boolean().optional(),
+  "isOnSpotLinked": zod.boolean().optional(),
+  "isOnSpotOnboarded": zod.boolean().optional(),
   "isActive": zod.boolean().optional(),
   "isSponsored": zod.boolean().optional(),
-  "sponsorType": zod.string().nullish(),
-  "delegateType": zod.string()
+  "sponsorType": zod.string().optional()
 })
 
 
@@ -258,20 +254,26 @@ export const UpdateParticipantParams = zod.object({
 export const UpdateParticipantBody = zod.object({
   "registrationNumber": zod.string().optional(),
   "name": zod.string().optional(),
-  "email": zod.string().optional(),
+  "email": zod.string().optional().nullable(),
   "mobile": zod.string().optional(),
   "institution": zod.string().optional(),
-  "age": zod.string().optional(),
-  "gender": zod.string().optional(),
-  "address": zod.string().optional(),
+  "designation": zod.string().optional().nullable(),
+  "employeeId": zod.string().optional().nullable(),
+  "unit": zod.string().optional().nullable(),
+  "state": zod.string().optional().nullable(),
+  "district": zod.string().optional().nullable(),
+  "age": zod.string().optional().nullable(),
+  "gender": zod.string().optional().nullable(),
+  "address": zod.string().optional().nullable(),
   "isOnSpotLinked": zod.boolean().optional(),
   "isOnSpotOnboarded": zod.boolean().optional(),
   "isPaid": zod.boolean().optional(),
-  "utrNumber": zod.string().optional(),
+  "utrNumber": zod.string().optional().nullable(),
   "isActive": zod.boolean().optional(),
   "isSponsored": zod.boolean().optional(),
-  "sponsorType": zod.string().optional()
-})
+  "sponsorType": zod.string().optional().nullable(),
+  "approvalStatus": zod.string().optional()
+}).passthrough()
 
 export const UpdateParticipantResponse = zod.object({
   "id": zod.number(),

@@ -4,6 +4,35 @@ import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
+// ── Live Server Date & Time (synced to IST) ──────────────────────────────────
+router.get("/time", (_req, res) => {
+  const now = new Date();
+  const istDateStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }); // YYYY-MM-DD
+  const istFormattedDate = now.toLocaleDateString("en-IN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+  const istTimeStr = now.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+
+  res.json({
+    iso: now.toISOString(),
+    epoch: now.getTime(),
+    todayDate: istDateStr, // e.g. "2026-09-15"
+    formattedDate: istFormattedDate, // e.g. "Tuesday, 15 September 2026"
+    timeString: istTimeStr, // e.g. "10:10:00 AM"
+    timeZone: "Asia/Kolkata",
+  });
+});
+
 router.get("/healthz", async (_req, res) => {
   try {
     // 1. Try a simple database query to test connection

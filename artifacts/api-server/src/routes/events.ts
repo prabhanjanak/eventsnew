@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import { eq, sql, desc, and, or, inArray } from "drizzle-orm";
-import { db, eventsTable, participantsTable, attendanceLogsTable, foodLogsTable, systemUsersTable } from "@workspace/db";
+import { db, eventsTable, participantsTable, attendanceLogsTable, foodLogsTable, systemUsersTable, sessionLikesTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/requireAuth";
 import multer from "multer";
 import path from "path";
@@ -425,14 +425,6 @@ router.post(
 
       const galleryList = Array.isArray(postEventGallery) ? postEventGallery.filter(Boolean) : [];
 
-      // Validation: Minimum 10 photos strictly required
-      if (galleryList.length < 10) {
-        res.status(400).json({
-          error: `A minimum of 10 event photos must be uploaded. You currently have ${galleryList.length} photo(s).`,
-        });
-        return;
-      }
-
       if (!postEventSummary || !postEventSummary.trim()) {
         res.status(400).json({ error: "Event summary / about the event is required." });
         return;
@@ -529,6 +521,140 @@ router.get("/events/:slugOrId", async (req: Request, res: Response): Promise<voi
   }
 });
 
+// ── GET /api/events/:slugOrId/agenda-likes ──────────────────────────────────────
+// Retrieve aggregate like counts for all agenda slots and the caller's liked slots
+router.get("/events/:slugOrId/agenda-likes", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const slugOrId = String(req.params.slugOrId || "").trim();
+    const userIdentifier = String(req.query.userIdentifier || "").trim();
+    const isNumeric = /^\d+$/.test(slugOrId);
+
+    let event;
+    if (isNumeric) {
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, parseInt(slugOrId, 10)));
+    } else {
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+    }
+
+    if (!event) {
+      res.status(404).json({ error: "Event not found" });
+      return;
+    }
+
+    // 1. Total counts grouped by sessionSlotId
+    const countsResult = await db
+      .select({
+        slotId: sessionLikesTable.sessionSlotId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(sessionLikesTable)
+      .where(eq(sessionLikesTable.eventId, event.id))
+      .groupBy(sessionLikesTable.sessionSlotId);
+
+    const likesCountBySlot: Record<string, number> = {};
+    for (const row of countsResult) {
+      likesCountBySlot[row.slotId] = row.count;
+    }
+
+    // 2. Caller's liked slots
+    let userLikedSlotIds: string[] = [];
+    if (userIdentifier) {
+      const userLikes = await db
+        .select({ slotId: sessionLikesTable.sessionSlotId })
+        .from(sessionLikesTable)
+        .where(
+          and(
+            eq(sessionLikesTable.eventId, event.id),
+            eq(sessionLikesTable.userIdentifier, userIdentifier)
+          )
+        );
+      userLikedSlotIds = userLikes.map((r) => r.slotId);
+    }
+
+    res.json({
+      eventId: event.id,
+      likesCountBySlot,
+      userLikedSlotIds,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to fetch agenda likes" });
+  }
+});
+
+// ── POST /api/events/:slugOrId/agenda-likes/:slotId ─────────────────────────────
+// Toggle like on an agenda session slot
+router.post("/events/:slugOrId/agenda-likes/:slotId", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const slugOrId = String(req.params.slugOrId || "").trim();
+    const slotId = String(req.params.slotId || "").trim();
+    const userIdentifier = String(req.body.userIdentifier || req.ip || "anonymous").trim();
+    const isNumeric = /^\d+$/.test(slugOrId);
+
+    if (!slotId) {
+      res.status(400).json({ error: "slotId is required" });
+      return;
+    }
+
+    let event;
+    if (isNumeric) {
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, parseInt(slugOrId, 10)));
+    } else {
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+    }
+
+    if (!event) {
+      res.status(404).json({ error: "Event not found" });
+      return;
+    }
+
+    // Check if already liked by this user
+    const [existing] = await db
+      .select({ id: sessionLikesTable.id })
+      .from(sessionLikesTable)
+      .where(
+        and(
+          eq(sessionLikesTable.eventId, event.id),
+          eq(sessionLikesTable.sessionSlotId, slotId),
+          eq(sessionLikesTable.userIdentifier, userIdentifier)
+        )
+      );
+
+    let liked = false;
+    if (existing) {
+      // Remove like
+      await db.delete(sessionLikesTable).where(eq(sessionLikesTable.id, existing.id));
+      liked = false;
+    } else {
+      // Add like
+      await db.insert(sessionLikesTable).values({
+        eventId: event.id,
+        sessionSlotId: slotId,
+        userIdentifier,
+      });
+      liked = true;
+    }
+
+    // Return new count
+    const [countRow] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(sessionLikesTable)
+      .where(
+        and(
+          eq(sessionLikesTable.eventId, event.id),
+          eq(sessionLikesTable.sessionSlotId, slotId)
+        )
+      );
+
+    res.json({
+      slotId,
+      liked,
+      count: countRow?.count || 0,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to toggle agenda like" });
+  }
+});
+
 // ── POST /api/events ────────────────────────────────────────────────────────────
 // Create a new event (Super Admin only)
 router.post("/events", requireAuth(["super_admin"]), async (req: Request, res: Response): Promise<void> => {
@@ -563,7 +689,7 @@ router.post("/events", requireAuth(["super_admin"]), async (req: Request, res: R
         isPaid: Boolean(body.isPaid),
         registrationFee: Number(body.registrationFee) || 0,
         currency: body.currency || "INR",
-        requiresApproval: Boolean(body.requiresApproval),
+        requiresApproval: body.requiresApproval !== undefined ? Boolean(body.requiresApproval) : (body.eventType === "internal_staff"),
         registrationOpen: body.registrationOpen !== false,
         maxCapacity: body.maxCapacity ? Number(body.maxCapacity) : null,
         enableAttendance: body.enableAttendance !== false,
@@ -747,6 +873,20 @@ router.put("/events/:id", requireAuth(), async (req: Request, res: Response): Pr
     if (body.badgeSubtitle !== undefined) updates.badgeSubtitle = body.badgeSubtitle;
     if (body.badgeFooterText !== undefined) updates.badgeFooterText = body.badgeFooterText;
     if (body.status !== undefined) updates.status = body.status;
+    if (body.postEventVisitorCount !== undefined) {
+      updates.postEventVisitorCount = body.postEventVisitorCount === null || body.postEventVisitorCount === "" 
+        ? null 
+        : Number(body.postEventVisitorCount);
+    }
+    if (body.postEventCompleted !== undefined) updates.postEventCompleted = Boolean(body.postEventCompleted);
+    if (body.postEventSummary !== undefined) updates.postEventSummary = body.postEventSummary;
+    if (body.postEventDescription !== undefined) updates.postEventDescription = body.postEventDescription;
+    if (body.postEventEndingNotes !== undefined) updates.postEventEndingNotes = body.postEventEndingNotes;
+    if (body.postEventGalleryJson !== undefined) {
+      updates.postEventGalleryJson = typeof body.postEventGalleryJson === "string" 
+        ? body.postEventGalleryJson 
+        : JSON.stringify(body.postEventGalleryJson);
+    }
 
     const [updated] = await db
       .update(eventsTable)

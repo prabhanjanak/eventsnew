@@ -40,6 +40,15 @@ import {
   FileText,
   Ticket,
   Camera,
+  Heart,
+  Bookmark,
+  Search,
+  LayoutList,
+  Table,
+  Filter,
+  X,
+  Award,
+  Lightbulb,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -50,7 +59,7 @@ import { EventHeroBanner } from "@/components/3d/event-hero-banner";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-import { formatDateTextual, formatDateDDMMYYYY, safeDate } from "@/lib/date-utils";
+import { formatDateTextual, formatDateDDMMYYYY, safeDate, formatEventDisplayDate } from "@/lib/date-utils";
 
 export interface AgendaSlot {
   id: string;
@@ -65,16 +74,76 @@ export interface AgendaSlot {
   speakerInstitution?: string;
   moderator?: string;
   description?: string;
+  output?: string;
+  topics?: string[];
+  likesCount?: number;
 }
 
-function formatLumaDateFull(dateStr: string, timeFrom?: string, timeTo?: string) {
+function getSlotDuration(timeFrom?: string, timeTo?: string): string {
+  if (!timeFrom || !timeTo) return "";
+  try {
+    const parseTime = (tStr: string) => {
+      const match = tStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!match) return null;
+      let h = parseInt(match[1], 10);
+      const m = parseInt(match[2], 10);
+      const meridiem = match[3].toUpperCase();
+      if (meridiem === "PM" && h < 12) h += 12;
+      if (meridiem === "AM" && h === 12) h = 0;
+      return h * 60 + m;
+    };
+    const startM = parseTime(timeFrom);
+    const endM = parseTime(timeTo);
+    if (startM !== null && endM !== null && endM > startM) {
+      const diff = endM - startM;
+      if (diff >= 60) {
+        const hrs = Math.floor(diff / 60);
+        const mins = diff % 60;
+        return mins > 0 ? `${hrs}h ${mins}m` : `${hrs} hr`;
+      }
+      return `${diff}m`;
+    }
+  } catch {}
+  return "";
+}
+
+function getInitials(name?: string): string {
+  if (!name) return "SP";
+  const clean = name.replace(/^(Dr\.?|Mr\.?|Mrs\.?|Ms\.?|Prof\.?)\s+/i, "").trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return (parts[0] || name).substring(0, 2).toUpperCase();
+}
+
+function formatLumaDateFull(startDateStr: string, endDateStr?: string, timeFrom?: string, timeTo?: string) {
   const timeDisplay = timeFrom && timeTo ? `${timeFrom} – ${timeTo} IST` : "09:00 – 17:00 IST";
-  if (!dateStr) return { formatted: "Date to be announced", weekday: "", time: timeDisplay };
-  const d = safeDate(dateStr);
-  if (!d) return { formatted: dateStr, weekday: "", time: timeDisplay };
-  
-  const formatted = formatDateTextual(d);
-  const weekday = d.toLocaleDateString("en-IN", { weekday: "long" });
+  if (!startDateStr) return { formatted: "Date to be announced", weekday: "", time: timeDisplay };
+  const dStart = safeDate(startDateStr);
+  if (!dStart) return { formatted: startDateStr, weekday: "", time: timeDisplay };
+
+  const dEnd = safeDate(endDateStr);
+
+  if (dEnd && dEnd.getTime() !== dStart.getTime()) {
+    if (dStart.getFullYear() === dEnd.getFullYear() && dStart.getMonth() === dEnd.getMonth()) {
+      const monthName = dStart.toLocaleDateString("en-IN", { month: "long" });
+      const year = dStart.getFullYear();
+      const startDay = dStart.getDate();
+      const endDay = dEnd.getDate();
+      const weekdayStart = dStart.toLocaleDateString("en-IN", { weekday: "short" });
+      const weekdayEnd = dEnd.toLocaleDateString("en-IN", { weekday: "short" });
+
+      const formatted = `${startDay} and ${endDay} ${monthName} ${year}`;
+      const weekday = `${weekdayStart} & ${weekdayEnd}`;
+      return { formatted, weekday, time: timeDisplay };
+    } else {
+      const formatted = `${formatDateTextual(dStart)} – ${formatDateTextual(dEnd)}`;
+      const weekday = `${dStart.toLocaleDateString("en-IN", { weekday: "short" })} – ${dEnd.toLocaleDateString("en-IN", { weekday: "short" })}`;
+      return { formatted, weekday, time: timeDisplay };
+    }
+  }
+
+  const formatted = formatDateTextual(dStart);
+  const weekday = dStart.toLocaleDateString("en-IN", { weekday: "long" });
   return { formatted, weekday, time: timeDisplay };
 }
 
@@ -286,6 +355,8 @@ export default function EventDetailPage() {
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [agendaCategory, setAgendaCategory] = useState<string>("all");
+  const [agendaSearchQuery, setAgendaSearchQuery] = useState<string>("");
+  const [agendaViewMode, setAgendaViewMode] = useState<"stream" | "grid">("stream");
   const [selectedRoleTierId, setSelectedRoleTierId] = useState<string>("delegate");
   const [calendarModalOpen, setCalendarModalOpen] = useState<boolean>(false);
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
@@ -299,6 +370,97 @@ export default function EventDetailPage() {
     },
     enabled: !!slug,
   });
+
+  // ── Device Identifier for Public / Internal Favoriting ───────────────────────
+  const getDeviceIdentifier = useCallback(() => {
+    if (typeof window === "undefined") return "anon";
+    let id = localStorage.getItem("sankara_device_uuid");
+    if (!id) {
+      id = "dev_" + Math.random().toString(36).substring(2, 10) + "_" + Date.now();
+      localStorage.setItem("sankara_device_uuid", id);
+    }
+    return id;
+  }, []);
+
+  const [likedSlotIds, setLikedSlotIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const stored = localStorage.getItem(`sankara_liked_slots_${slug}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+  const [likesCounts, setLikesCounts] = useState<Record<string, number>>({});
+
+  const { data: likesData } = useQuery<{ likesCountBySlot: Record<string, number>; userLikedSlotIds: string[] }>({
+    queryKey: ["/api/events", slug, "agenda-likes"],
+    queryFn: async () => {
+      const uid = getDeviceIdentifier();
+      const res = await fetch(`${BASE_URL}/api/events/${slug}/agenda-likes?userIdentifier=${encodeURIComponent(uid)}`);
+      if (!res.ok) return { likesCountBySlot: {}, userLikedSlotIds: [] };
+      return res.json();
+    },
+    enabled: !!slug,
+  });
+
+  // Sync server likes with local state
+  useEffect(() => {
+    if (likesData?.likesCountBySlot) {
+      setLikesCounts(likesData.likesCountBySlot);
+    }
+    if (likesData?.userLikedSlotIds && Array.isArray(likesData.userLikedSlotIds)) {
+      setLikedSlotIds((prev) => {
+        const merged = new Set([...prev, ...likesData.userLikedSlotIds]);
+        try {
+          localStorage.setItem(`sankara_liked_slots_${slug}`, JSON.stringify(Array.from(merged)));
+        } catch {}
+        return merged;
+      });
+    }
+  }, [likesData, slug]);
+
+  const toggleSlotLike = async (slotId: string, slotTitle: string) => {
+    const isCurrentlyLiked = likedSlotIds.has(slotId);
+    const nextLiked = !isCurrentlyLiked;
+
+    setLikedSlotIds((prev) => {
+      const next = new Set(prev);
+      if (nextLiked) next.add(slotId);
+      else next.delete(slotId);
+      try {
+        localStorage.setItem(`sankara_liked_slots_${slug}`, JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+
+    setLikesCounts((prev) => ({
+      ...prev,
+      [slotId]: Math.max(0, (prev[slotId] || 0) + (nextLiked ? 1 : -1)),
+    }));
+
+    toast({
+      title: nextLiked ? "Saved to Favorites ❤️" : "Removed from Favorites",
+      description: nextLiked
+        ? `"${slotTitle}" added to your favored sessions.`
+        : `"${slotTitle}" removed from your favorites.`,
+    });
+
+    try {
+      const uid = getDeviceIdentifier();
+      const res = await fetch(`${BASE_URL}/api/events/${slug}/agenda-likes/${slotId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIdentifier: uid }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLikesCounts((prev) => ({ ...prev, [slotId]: data.count }));
+      }
+    } catch (err) {
+      console.error("Failed to sync like:", err);
+    }
+  };
 
   const handleShare = () => {
     if (navigator.clipboard) {
@@ -394,10 +556,12 @@ export default function EventDetailPage() {
     );
   }
 
-  const dateMeta = formatLumaDateFull(event.startDate, event.timeFrom, event.timeTo);
-  const isPaid = event.isPaid && event.registrationFee > 0;
   const todayIso = new Date().toISOString().split("T")[0];
-  const isConcluded = event ? ((event.endDate || event.startDate) < todayIso) : false;
+  const dateMeta = formatLumaDateFull(event.startDate, event.endDate, event.timeFrom, event.timeTo);
+  const isPaid = event.isPaid && event.registrationFee > 0;
+  const isConcluded = event
+    ? ((event.endDate || event.startDate) < todayIso) || event.status === "completed" || Boolean(event.postEventCompleted)
+    : false;
 
   let galleryImages: string[] = [];
   try {
@@ -507,11 +671,37 @@ export default function EventDetailPage() {
     ? agendaItems.filter((item) => item.date === activeDate)
     : agendaItems;
 
+  const isRegistrationDisabled = Boolean(event?.registrationOpen === false);
+
   const filteredItems = currentItems.filter((slot) => {
+    // 1. Live Text Search Filter across all fields
+    if (agendaSearchQuery.trim()) {
+      const q = agendaSearchQuery.toLowerCase().trim();
+      const matchTitle = slot.title?.toLowerCase().includes(q);
+      const matchSpeaker = slot.speaker?.toLowerCase().includes(q);
+      const matchDesig = slot.speakerDesignation?.toLowerCase().includes(q);
+      const matchInst = slot.speakerInstitution?.toLowerCase().includes(q);
+      const matchHall = slot.trackHall?.toLowerCase().includes(q);
+      const matchDesc = slot.description?.toLowerCase().includes(q);
+      const matchOutput = slot.output?.toLowerCase().includes(q);
+      const matchTopics = slot.topics?.some((t: string) => t.toLowerCase().includes(q));
+      if (!matchTitle && !matchSpeaker && !matchDesig && !matchInst && !matchHall && !matchDesc && !matchOutput && !matchTopics) {
+        return false;
+      }
+    }
+
+    // 2. Category Filter
     if (agendaCategory === "all") return true;
+    if (agendaCategory === "favorites") return likedSlotIds.has(slot.id);
     if (agendaCategory === "keynote") return slot.type === "keynote";
-    if (agendaCategory === "sessions") return slot.type === "session" || slot.type === "workshop" || slot.type === "panel";
+    if (agendaCategory === "workshops") return slot.type === "workshop" || slot.title.toLowerCase().includes("exercise") || slot.title.toLowerCase().includes("workshop");
+    if (agendaCategory === "panel") return slot.type === "panel" || slot.title.toLowerCase().includes("panel") || Boolean(slot.moderator);
+    if (agendaCategory === "tqm") {
+      const text = `${slot.title} ${slot.description || ""} ${slot.output || ""} ${(slot.topics || []).join(" ")}`.toLowerCase();
+      return text.includes("quality") || text.includes("tqm") || text.includes("continuous improvement") || text.includes("efficiency") || text.includes("operations") || text.includes("sop") || text.includes("audit") || text.includes("excellence");
+    }
     if (agendaCategory === "breaks") return slot.type === "break_tea" || slot.type === "break_lunch";
+    if (agendaCategory === "sessions") return slot.type === "session";
     return true;
   });
 
@@ -581,12 +771,659 @@ export default function EventDetailPage() {
         },
       ];
 
-  const activeTier = pricingTiers.find((t) => t.id === selectedRoleTierId || t.role === selectedRoleTierId) || pricingTiers[0];
-  const isEarlyBirdActive = isPaid && activeTier?.earlyBirdPrice !== undefined && (activeTier.earlyBirdDeadline ? new Date(activeTier.earlyBirdDeadline) >= new Date() : true);
-  const currentPassPrice = isPaid ? (isEarlyBirdActive ? activeTier.earlyBirdPrice : activeTier.price) : 0;
-  const daysLeftForEarlyBird = activeTier?.earlyBirdDeadline
-    ? Math.max(0, Math.ceil((new Date(activeTier.earlyBirdDeadline).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
-    : 30;
+  const activeTier = pricingTiers.find((t) => t.id === selectedRoleTierId) || pricingTiers[0] || {
+    id: "delegate",
+    name: "General Delegate",
+    price: event.registrationFee || 0,
+    inclusions: [],
+  };
+
+  const isEarlyBirdActive = Boolean(
+    activeTier.earlyBirdPrice &&
+    activeTier.earlyBirdDeadline &&
+    new Date(activeTier.earlyBirdDeadline) > new Date()
+  );
+
+  const currentPassPrice = isEarlyBirdActive ? (activeTier.earlyBirdPrice || activeTier.price) : activeTier.price;
+
+  const daysLeftForEarlyBird = activeTier.earlyBirdDeadline
+    ? Math.max(0, Math.ceil((new Date(activeTier.earlyBirdDeadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const getDaySlotCount = (dateStr: string) => agendaItems.filter((s) => s.date === dateStr).length;
+
+  const agendaCategories = [
+    { id: "all", label: "All Sessions", count: currentItems.length },
+    { id: "favorites", label: `❤️ Saved`, count: likedSlotIds.size },
+    { id: "keynote", label: "Keynotes & Addresses", count: currentItems.filter(s => s.type === "keynote").length },
+    { id: "tqm", label: "Quality & Operations", count: currentItems.filter(s => {
+        const t = `${s.title} ${s.description || ""} ${s.output || ""} ${(s.topics || []).join(" ")}`.toLowerCase();
+        return t.includes("quality") || t.includes("tqm") || t.includes("continuous improvement") || t.includes("efficiency") || t.includes("operations") || t.includes("sop") || t.includes("audit") || t.includes("excellence");
+      }).length },
+    { id: "workshops", label: "Workshops & Exercises", count: currentItems.filter(s => s.type === "workshop" || s.title.toLowerCase().includes("exercise") || s.title.toLowerCase().includes("workshop")).length },
+    { id: "panel", label: "Panel Discussions", count: currentItems.filter(s => s.type === "panel" || s.title.toLowerCase().includes("panel") || Boolean(s.moderator)).length },
+    { id: "breaks", label: "Dining & Breaks", count: currentItems.filter(s => s.type === "break_tea" || s.type === "break_lunch").length },
+  ];
+
+  const renderAgendaSchedule = (isFullWidth: boolean = false) => {
+    return (
+      <div className={`bg-[#121216]/95 border border-zinc-800/90 rounded-3xl p-5 sm:p-7 shadow-2xl backdrop-blur-xl space-y-6 ${isFullWidth ? "w-full" : ""}`}>
+        {/* Top Header & View Switcher */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-zinc-800/80">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400 shrink-0">
+                <CalendarDays className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base sm:text-lg text-white tracking-tight">
+                  Conclave Scientific Agenda &amp; Timetable
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Showing {filteredItems.length} of {currentItems.length} sessions for selected schedule
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+            {/* View Mode Switcher (Stream vs Matrix) */}
+            <div className="flex items-center bg-zinc-950 p-1 rounded-xl border border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setAgendaViewMode("stream")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  agendaViewMode === "stream"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+                title="Detailed Cards Flow View"
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                <span>Stream Cards</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAgendaViewMode("grid")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  agendaViewMode === "grid"
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-white"
+                }`}
+                title="Chronological Timetable Matrix"
+              >
+                <Table className="w-3.5 h-3.5" />
+                <span>Timetable Grid</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Multi-Day Tabs (if more than 1 day) */}
+        {uniqueDates.length > 1 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400 font-mono">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="font-bold text-zinc-300 uppercase tracking-wider text-[11px]">Select Conclave Day</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {uniqueDates.map((dStr, idx) => {
+                const count = getDaySlotCount(dStr);
+                const d = safeDate(dStr);
+                const formattedDay = d
+                  ? d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                  : dStr;
+                const isActive = activeDate === dStr;
+
+                return (
+                  <button
+                    key={dStr}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(dStr);
+                    }}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      isActive
+                        ? "bg-gradient-to-r from-indigo-950/80 via-purple-950/50 to-zinc-900 border-indigo-500/70 shadow-lg ring-1 ring-indigo-500/30"
+                        : "bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                          isActive ? "bg-indigo-500 text-white" : "bg-zinc-800 text-zinc-400"
+                        }`}>
+                          Day {idx + 1}
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-white">
+                          {formattedDay}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 pl-0.5">
+                        {idx === 0 ? "Leadership Vision, Quality Protocols & Operations" : "Interactive Symposia, Case Exercises & Valedictory"}
+                      </p>
+                    </div>
+                    <div className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold shrink-0 ${
+                      isActive ? "bg-indigo-400/20 text-indigo-200 border border-indigo-400/30" : "bg-zinc-900 text-zinc-400 border border-zinc-800"
+                    }`}>
+                      {count} Sessions
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Live Search & Filter Controls */}
+        <div className="space-y-3 pt-1">
+          <div className="relative">
+            <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={agendaSearchQuery}
+              onChange={(e) => setAgendaSearchQuery(e.target.value)}
+              placeholder="Search sessions, speakers, topics, halls, or deliverables..."
+              className="w-full h-11 pl-10 pr-10 rounded-2xl bg-zinc-950 border border-zinc-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs sm:text-sm text-white placeholder:text-zinc-500 transition-all outline-none"
+            />
+            {agendaSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setAgendaSearchQuery("")}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                title="Clear Search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Category Chips Carousel / Horizontal Scroll */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none overscroll-x-contain">
+            {agendaCategories.map((pill) => {
+              const isActive = agendaCategory === pill.id;
+              if (pill.id !== "all" && pill.id !== "favorites" && pill.count === 0) return null;
+
+              return (
+                <button
+                  key={pill.id}
+                  type="button"
+                  onClick={() => setAgendaCategory(pill.id)}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                    isActive
+                      ? "bg-white text-zinc-950 font-bold shadow-md ring-1 ring-white/30"
+                      : "bg-zinc-950 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-white"
+                  }`}
+                >
+                  <span>{pill.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                    isActive ? "bg-zinc-900 text-white" : "bg-zinc-800 text-zinc-400"
+                  }`}>
+                    {pill.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── SESSIONS DISPLAY ── */}
+        {filteredItems.length === 0 ? (
+          <div className="p-10 rounded-3xl bg-zinc-950/60 border border-dashed border-zinc-800 text-center space-y-3">
+            <Heart className="w-10 h-10 text-zinc-600 mx-auto" />
+            <h4 className="text-base font-bold text-white">
+              {agendaCategory === "favorites"
+                ? "No Bookmarked Sessions Saved Yet"
+                : agendaSearchQuery
+                ? `No sessions found matching "${agendaSearchQuery}"`
+                : "No Sessions in this Category"}
+            </h4>
+            <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
+              {agendaCategory === "favorites"
+                ? "Tap the heart icon on any session to bookmark your personalized conclave itinerary!"
+                : "Try resetting your search query or switching to another category tab to view the schedule."}
+            </p>
+            {(agendaSearchQuery || agendaCategory !== "all") && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setAgendaSearchQuery("");
+                  setAgendaCategory("all");
+                }}
+                className="rounded-full border-zinc-700 bg-zinc-900 text-xs font-bold cursor-pointer"
+              >
+                Show All Sessions
+              </Button>
+            )}
+          </div>
+        ) : agendaViewMode === "grid" ? (
+          /* ═════════════════════════════════════════════════════════════════════
+             VIEW MODE 2: CHRONOLOGICAL TIMETABLE MATRIX (TABLE / MOBILE RIBBON)
+             ═════════════════════════════════════════════════════════════════════ */
+          <div className="space-y-4">
+            {/* Desktop View: Timetable Matrix Table */}
+            <div className="hidden md:block overflow-hidden rounded-2xl border border-zinc-800/90 bg-zinc-950/80">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-[#16161C] text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                    <th className="py-3 px-4 w-44">Time &amp; Duration</th>
+                    <th className="py-3 px-4">Session &amp; Core Takeaway</th>
+                    <th className="py-3 px-4 w-36">Track / Format</th>
+                    <th className="py-3 px-4 w-52">Speaker / Faculty</th>
+                    <th className="py-3 px-4 w-44">Hall &amp; Venue</th>
+                    <th className="py-3 px-4 w-20 text-center">Save</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60 text-xs">
+                  {filteredItems.map((slot, idx) => {
+                    const isTea = slot.type === "break_tea";
+                    const isLunch = slot.type === "break_lunch";
+                    const isKeynote = slot.type === "keynote";
+                    const isWorkshop = slot.type === "workshop";
+                    const isPanel = slot.type === "panel";
+                    const isLiked = likedSlotIds.has(slot.id);
+                    const duration = getSlotDuration(slot.timeFrom, slot.timeTo);
+                    const isBreak = isTea || isLunch;
+
+                    return (
+                      <tr
+                        key={slot.id || idx}
+                        className={`transition-colors ${
+                          isBreak
+                            ? isTea
+                              ? "bg-amber-950/15 hover:bg-amber-950/25"
+                              : "bg-blue-950/15 hover:bg-blue-950/25"
+                            : isKeynote
+                            ? "bg-purple-950/10 hover:bg-purple-950/20"
+                            : isWorkshop
+                            ? "bg-emerald-950/10 hover:bg-emerald-950/20"
+                            : isPanel
+                            ? "bg-indigo-950/10 hover:bg-indigo-950/20"
+                            : "hover:bg-zinc-900/60"
+                        }`}
+                      >
+                        {/* Time & Duration */}
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="font-mono font-bold text-white text-xs">
+                            {slot.timeFrom} – {slot.timeTo}
+                          </div>
+                          {duration && (
+                            <span className="text-[10px] text-zinc-400 font-mono">
+                              ({duration})
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Title & Core Deliverable */}
+                        <td className="py-3.5 px-4 align-top space-y-1">
+                          <div className="font-bold text-white text-sm leading-snug">
+                            {slot.title}
+                          </div>
+                          {slot.description && (
+                            <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
+                              {slot.description}
+                            </p>
+                          )}
+                          {slot.output && (
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-950/50 border border-indigo-500/30 text-[11px] text-indigo-200">
+                              <Sparkles className="w-3 h-3 text-indigo-400 shrink-0" />
+                              <span className="font-semibold">{slot.output}</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Format / Type */}
+                        <td className="py-3.5 px-4 align-top">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                            isTea
+                              ? "bg-amber-950/80 text-amber-300 border-amber-800"
+                              : isLunch
+                              ? "bg-blue-950/80 text-blue-300 border-blue-800"
+                              : isKeynote
+                              ? "bg-purple-950/80 text-purple-300 border-purple-800"
+                              : isWorkshop
+                              ? "bg-emerald-950/80 text-emerald-300 border-emerald-800"
+                              : isPanel
+                              ? "bg-indigo-950/80 text-indigo-300 border-indigo-800"
+                              : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                          }`}>
+                            {isTea ? "Tea Break" : isLunch ? "Buffet Lunch" : isKeynote ? "Keynote" : isWorkshop ? "Workshop" : isPanel ? "Panel" : "Session"}
+                          </span>
+                        </td>
+
+                        {/* Speaker */}
+                        <td className="py-3.5 px-4 align-top">
+                          {slot.speaker ? (
+                            <div className="space-y-0.5">
+                              <div className="font-bold text-amber-200 text-xs">
+                                {slot.speaker}
+                              </div>
+                              {(slot.speakerDesignation || slot.speakerInstitution) && (
+                                <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
+                                  {slot.speakerDesignation}{slot.speakerDesignation && slot.speakerInstitution ? " • " : ""}{slot.speakerInstitution}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-zinc-500">—</span>
+                          )}
+                        </td>
+
+                        {/* Hall */}
+                        <td className="py-3.5 px-4 align-top text-[11px] text-zinc-300">
+                          {slot.trackHall || "Main Auditorium"}
+                        </td>
+
+                        {/* Bookmark Action */}
+                        <td className="py-3.5 px-4 align-top text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleSlotLike(slot.id, slot.title)}
+                            className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                              isLiked
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/50"
+                                : "bg-zinc-900 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                            }`}
+                            title={isLiked ? "Saved" : "Save to Itinerary"}
+                          >
+                            <Heart className={`w-4 h-4 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View: Vertical Timetable Ribbon */}
+            <div className="md:hidden space-y-3">
+              {filteredItems.map((slot, idx) => {
+                const isTea = slot.type === "break_tea";
+                const isLunch = slot.type === "break_lunch";
+                const isKeynote = slot.type === "keynote";
+                const isLiked = likedSlotIds.has(slot.id);
+                const duration = getSlotDuration(slot.timeFrom, slot.timeTo);
+
+                return (
+                  <div
+                    key={slot.id || idx}
+                    className={`p-4 rounded-2xl border transition-all space-y-2.5 ${
+                      isLiked ? "ring-1 ring-rose-500/50 " : ""
+                    }${
+                      isTea
+                        ? "bg-amber-950/20 border-amber-900/40"
+                        : isLunch
+                        ? "bg-blue-950/20 border-blue-900/40"
+                        : isKeynote
+                        ? "bg-purple-950/20 border-purple-900/40"
+                        : "bg-zinc-950/80 border-zinc-800"
+                    }`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-black text-xs text-white bg-zinc-900 px-2.5 py-0.5 rounded-lg border border-zinc-800">
+                          {slot.timeFrom} – {slot.timeTo}
+                        </span>
+                        {duration && (
+                          <span className="text-[10px] text-zinc-400 font-mono">
+                            {duration}
+                          </span>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleSlotLike(slot.id, slot.title)}
+                        className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                          isLiked
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/50"
+                            : "bg-zinc-900 text-zinc-400 hover:text-white"
+                        }`}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${isLiked ? "fill-rose-500 text-rose-500" : ""}`} />
+                      </button>
+                    </div>
+
+                    {/* Title */}
+                    <h4 className="font-bold text-sm text-white leading-snug">
+                      {slot.title}
+                    </h4>
+
+                    {/* Core Deliverable */}
+                    {slot.output && (
+                      <div className="p-2.5 rounded-xl bg-indigo-950/40 border border-indigo-500/30 text-[11px] text-indigo-200 space-y-0.5">
+                        <div className="flex items-center gap-1 text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-300">
+                          <Sparkles className="w-3 h-3 text-indigo-400" />
+                          <span>Expected Deliverable</span>
+                        </div>
+                        <p className="leading-snug">{slot.output}</p>
+                      </div>
+                    )}
+
+                    {/* Speaker & Hall */}
+                    <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-400 gap-2">
+                      {slot.speaker ? (
+                        <span className="font-bold text-amber-200 truncate">
+                          {slot.speaker}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-500">General Session</span>
+                      )}
+                      {slot.trackHall && (
+                        <span className="truncate text-zinc-400 text-[10px]">
+                          📍 {slot.trackHall}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* ═════════════════════════════════════════════════════════════════════
+             VIEW MODE 1: DETAILED TIMELINE STREAM (EXECUTIVE CARDS FLOW)
+             ═════════════════════════════════════════════════════════════════════ */
+          <div className={`grid ${isFullWidth ? "grid-cols-1 lg:grid-cols-2" : "grid-cols-1"} gap-4 sm:gap-5`}>
+            {filteredItems.map((slot, idx) => {
+              const isTea = slot.type === "break_tea";
+              const isLunch = slot.type === "break_lunch";
+              const isKeynote = slot.type === "keynote";
+              const isWorkshop = slot.type === "workshop";
+              const isPanel = slot.type === "panel";
+              const isLiked = likedSlotIds.has(slot.id);
+              const likeCount = likesCounts[slot.id] || 0;
+              const duration = getSlotDuration(slot.timeFrom, slot.timeTo);
+
+              return (
+                <div
+                  key={slot.id || idx}
+                  className={`p-5 sm:p-6 rounded-3xl border transition-all flex flex-col justify-between space-y-4 shadow-xl ${
+                    isLiked ? "ring-1 ring-rose-500/50 shadow-rose-500/10 " : ""
+                  }${
+                    isTea
+                      ? "bg-gradient-to-br from-[#1C1610] via-zinc-950 to-zinc-950 border-amber-800/40 hover:border-amber-600/60"
+                      : isLunch
+                      ? "bg-gradient-to-br from-[#101726] via-zinc-950 to-zinc-950 border-blue-800/40 hover:border-blue-600/60"
+                      : isKeynote
+                      ? "bg-gradient-to-br from-[#1E1428] via-zinc-950 to-zinc-950 border-purple-800/40 hover:border-purple-600/60"
+                      : isWorkshop
+                      ? "bg-gradient-to-br from-[#10241A] via-zinc-950 to-zinc-950 border-emerald-800/40 hover:border-emerald-600/60"
+                      : isPanel
+                      ? "bg-gradient-to-br from-[#16142E] via-zinc-950 to-zinc-950 border-indigo-800/40 hover:border-indigo-600/60"
+                      : "bg-zinc-950/90 border-zinc-800 hover:border-zinc-700"
+                  }`}
+                >
+                  <div className="space-y-3">
+                    {/* Top Meta Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Time Pill */}
+                        <div className="px-3 py-1 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white font-mono font-bold text-xs sm:text-sm flex items-center gap-1.5 shadow-sm">
+                          <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>{slot.timeFrom} – {slot.timeTo}</span>
+                          {duration && (
+                            <span className="text-[10px] text-zinc-400 font-medium pl-0.5">
+                              • {duration}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Format Tag */}
+                        <span
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border flex items-center gap-1 ${
+                            isTea
+                              ? "bg-amber-950/80 text-amber-300 border-amber-800/80"
+                              : isLunch
+                              ? "bg-blue-950/80 text-blue-300 border-blue-800/80"
+                              : isKeynote
+                              ? "bg-purple-950/80 text-purple-300 border-purple-800/80"
+                              : isWorkshop
+                              ? "bg-emerald-950/80 text-emerald-300 border-emerald-800/80"
+                              : isPanel
+                              ? "bg-indigo-950/80 text-indigo-300 border-indigo-800/80"
+                              : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                          }`}
+                        >
+                          {isTea && <Coffee className="w-3 h-3" />}
+                          {isLunch && <Utensils className="w-3 h-3" />}
+                          {isKeynote && <Mic className="w-3 h-3" />}
+                          {isWorkshop && <Sparkles className="w-3 h-3" />}
+                          {isPanel && <Users className="w-3 h-3" />}
+                          {!isTea && !isLunch && !isKeynote && !isWorkshop && !isPanel && <Layers className="w-3 h-3" />}
+                          <span>
+                            {isTea
+                              ? "Tea Break"
+                              : isLunch
+                              ? "Lunch Break"
+                              : isKeynote
+                              ? "Keynote"
+                              : isWorkshop
+                              ? "Workshop"
+                              : isPanel
+                              ? "Panel"
+                              : "Session"}
+                          </span>
+                        </span>
+                      </div>
+
+                      {/* Interactive Heart / Save Session CTA */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSlotLike(slot.id, slot.title);
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                          isLiked
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-sm shadow-rose-500/20"
+                            : "bg-zinc-900/90 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800"
+                        }`}
+                        title={isLiked ? "Remove from my bookmarks" : "Save to my itinerary"}
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 transition-transform ${
+                            isLiked ? "fill-rose-500 text-rose-500 scale-110" : "text-zinc-400"
+                          }`}
+                        />
+                        <span className="font-mono">{likeCount > 0 ? likeCount : (isLiked ? 1 : 0)}</span>
+                        <span className="hidden sm:inline text-[10px]">{isLiked ? "Saved" : "Save"}</span>
+                      </button>
+                    </div>
+
+                    {/* Session Title */}
+                    <h4 className="font-black text-base sm:text-lg text-white leading-snug tracking-tight">
+                      {slot.title}
+                    </h4>
+
+                    {/* Session Narrative */}
+                    {slot.description && (
+                      <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed font-normal">
+                        {slot.description}
+                      </p>
+                    )}
+
+                    {/* ═════════════════════════════════════════════════════════════
+                        CORE DELIVERABLE & EXPECTED OUTCOME (REPLACING OLD TARGET)
+                        ═════════════════════════════════════════════════════════════ */}
+                    {slot.output && (
+                      <div className="mt-3 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-indigo-950/50 via-purple-950/30 to-zinc-950/60 border border-indigo-500/35 shadow-sm space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 rounded-md bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center shrink-0">
+                            <Sparkles className="w-3 h-3 text-indigo-300" />
+                          </div>
+                          <span className="text-[10px] sm:text-[11px] font-mono font-black uppercase tracking-wider text-indigo-300">
+                            Core Deliverable &amp; Expected Outcome
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-zinc-200 font-medium leading-relaxed pl-7">
+                          {slot.output}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Speaker & Faculty Section */}
+                    {slot.speaker && (
+                      <div className="pt-3.5 mt-2 border-t border-zinc-800/80 flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500/20 to-indigo-600/30 border border-amber-500/40 flex items-center justify-center text-amber-200 font-black text-xs shrink-0 shadow-inner">
+                          {getInitials(slot.speaker)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs sm:text-sm font-bold text-amber-200">
+                              {slot.speaker}
+                            </p>
+                            {slot.moderator && (
+                              <span className="px-2 py-0.5 rounded-full bg-cyan-950/80 border border-cyan-800 text-[10px] font-bold text-cyan-300">
+                                Moderator: {slot.moderator}
+                              </span>
+                            )}
+                          </div>
+                          {(slot.speakerDesignation || slot.speakerInstitution) && (
+                            <p className="text-[11px] text-zinc-400 leading-snug mt-0.5">
+                              {slot.speakerDesignation}{slot.speakerDesignation && slot.speakerInstitution ? " • " : ""}{slot.speakerInstitution}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Subtopics / Tags */}
+                    {slot.topics && slot.topics.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {slot.topics.map((tag: string, i: number) => (
+                          <span
+                            key={i}
+                            className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-zinc-950 text-zinc-400 border border-zinc-800"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card Bottom: Hall / Room */}
+                  <div className="pt-3 border-t border-zinc-800/60 flex items-center justify-between text-xs text-zinc-400">
+                    <span className="font-semibold text-zinc-300 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>{slot.trackHall || "Main Auditorium, Sankara Eye Hospital, Bangalore"}</span>
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500">
+                      Slot #{idx + 1}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="relative min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
@@ -681,9 +1518,9 @@ export default function EventDetailPage() {
                     <span>Concluded On</span>
                   </div>
                   <div className="text-sm font-bold text-white truncate">
-                    {event.startDate}
+                    {formatEventDisplayDate(event.startDate, event.endDate)}
                   </div>
-                  <p className="text-[10px] text-zinc-500 font-medium">{event.endDate && event.endDate !== event.startDate ? `to ${event.endDate}` : "Single-Day Event"}</p>
+                  <p className="text-[10px] text-zinc-500 font-medium">{event.endDate && event.endDate !== event.startDate ? "Multi-Day Conference" : "Single-Day Event"}</p>
                 </div>
 
                 <div className="p-4 rounded-2xl bg-[#09090C] border border-[#222228] space-y-1">
@@ -698,14 +1535,16 @@ export default function EventDetailPage() {
                 </div>
               </div>
 
-              {/* Access Your Photos / Samaro AI Gallery Action Button */}
+              {/* Access Your Photos Action Button (Only when verified URL is present) */}
               {(() => {
+                const isVision = event?.slug?.toLowerCase().includes("vision") || event?.title?.toLowerCase().includes("vision");
                 const photosGalleryUrl =
                   (event as any)?.photosUrl ||
                   (event as any)?.galleryUrl ||
-                  (event?.slug?.toLowerCase().includes("vision") || event?.title?.toLowerCase().includes("vision")
-                    ? "https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media"
-                    : "https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media");
+                  event?.externalPhotosUrl ||
+                  (isVision ? "https://events.samaro.ai/sankara20thvision2020annualconference/gallery/media" : null);
+
+                if (!photosGalleryUrl) return null;
 
                 return (
                   <div className="pt-2">
@@ -725,11 +1564,11 @@ export default function EventDetailPage() {
                               Access Your Photos &amp; Event Media
                             </span>
                             <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 border border-indigo-500/50 text-[10px] font-black uppercase tracking-wider">
-                              Samaro.ai AI Gallery
+                              Event Gallery
                             </span>
                           </div>
                           <p className="text-xs text-zinc-400 mt-0.5">
-                            Browse, find your photos using AI facial recognition, and download high-resolution event media.
+                            Browse and download high-resolution event media.
                           </p>
                         </div>
                       </div>
@@ -890,6 +1729,214 @@ export default function EventDetailPage() {
               </div>
             )}
           </div>
+        ) : isRegistrationDisabled ? (
+          /* ═════════════════════════════════════════════════════════════════════
+             ACTIVE CONCLAVE / EVENT: FULL-WIDTH EXECUTIVE AGENDA & TIMETABLE PORTAL
+             (Registration Not Needed - Conclave Program is the Centerpiece)
+             ═════════════════════════════════════════════════════════════════════ */
+          <div className="max-w-6xl 2xl:max-w-7xl mx-auto space-y-10">
+            {/* 1. Futuristic Hologram Cover Banner */}
+            <EventHeroBanner event={event} seatsLeft={seatsLeft} isPaid={isPaid} isConcluded={isConcluded} />
+
+            {/* 2. Executive Conclave Header & Title */}
+            <div className="bg-[#121216]/90 border border-zinc-800/90 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                  12th SanQALP Conclave
+                </span>
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                  Total Quality Management (TQM)
+                </span>
+                <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                  Continuous Improvement &amp; Clinical Excellence
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight leading-tight">
+                  {event.title}
+                </h1>
+                <p className="text-sm sm:text-base text-zinc-300 leading-relaxed max-w-4xl">
+                  {event.description || "The premier annual conclave bringing together clinical leadership, healthcare quality administrators, and medical innovators across Sankara Eye Care Institutions to deliberate on Total Quality Management, patient safety benchmarks, and transformative clinical outcomes."}
+                </p>
+              </div>
+
+              {/* 4-Card Executive Highlights Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                {/* Dates */}
+                <div className="p-4 rounded-2xl bg-[#18181F] border border-zinc-800 flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-950 border border-indigo-800/60 flex items-center justify-center text-indigo-400 shrink-0">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">Program Dates</span>
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">{dateMeta.formatted}</p>
+                    <p className="text-[11px] text-zinc-400 font-mono flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-zinc-500" />
+                      <span>{dateMeta.time}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Venue */}
+                <div className="p-4 rounded-2xl bg-[#18181F] border border-zinc-800 flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-950 border border-cyan-800/60 flex items-center justify-center text-cyan-400 shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">Host Venue</span>
+                    <p className="text-xs sm:text-sm font-bold text-white truncate">{event.venue || "Sankara Eye Hospital"}</p>
+                    <p className="text-[11px] text-zinc-400 truncate">{event.city || "Bangalore, Karnataka"}</p>
+                  </div>
+                </div>
+
+                {/* Scope / Sessions */}
+                <div className="p-4 rounded-2xl bg-[#18181F] border border-zinc-800 flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-950 border border-purple-800/60 flex items-center justify-center text-purple-400 shrink-0">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5 min-w-0 flex-1">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">Scientific Agenda</span>
+                    <p className="text-xs sm:text-sm font-bold text-white">{agendaItems.length} Structured Sessions</p>
+                    <p className="text-[11px] text-emerald-400 font-medium">2 Comprehensive Days</p>
+                  </div>
+                </div>
+
+                {/* Quick Action Tools */}
+                <div className="p-4 rounded-2xl bg-[#18181F] border border-zinc-800 flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCalendarModalOpen(true)}
+                    className="flex-1 h-9 rounded-xl border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold gap-1.5 cursor-pointer"
+                  >
+                    <CalendarPlus className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Add to Cal</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleShare}
+                    className="h-9 w-9 p-0 rounded-xl border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-white cursor-pointer"
+                    title="Share Conclave Link"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-zinc-300" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Grand Agenda & Timetable Centerpiece */}
+            {renderAgendaSchedule(true)}
+
+            {/* 4. Conclave Logistics & Support Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 pt-4">
+              {/* Card 1: CME SPOC & Secretariat */}
+              <div className="bg-[#121216]/90 border border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 shrink-0">
+                    <Phone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-white">Conclave Helpdesk &amp; SPOC</h3>
+                    <p className="text-[11px] text-zinc-400">Institutional Secretariat &amp; Delegate Assistance</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-1">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Organizing SPOC</span>
+                  <p className="text-xs font-bold text-white">{event.spocName || "Dr. Kaushik Murali"}</p>
+                  <p className="text-[11px] text-zinc-400">{event.spocDesignation || "President (Medical Administration, Quality & Education)"}</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {(event.spocPhone || event.organizerPhone || "+91 422 4236789") && (
+                    <a
+                      href={`tel:${event.spocPhone || event.organizerPhone || "+914224236789"}`}
+                      className="flex-1 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors font-semibold"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{event.spocPhone || event.organizerPhone || "+91 422 4236789"}</span>
+                    </a>
+                  )}
+                  <a
+                    href={`mailto:${event.spocEmail || event.organizerEmail || "events@sankaraeye.com"}`}
+                    className="flex-1 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors font-semibold"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Email Desk</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Card 2: Venue & Navigation */}
+              <div className="bg-[#121216]/90 border border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-sm sm:text-base text-white">Venue &amp; Location</h3>
+                    <p className="text-[11px] text-zinc-400">Main Auditorium &amp; Breakout Suites</p>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-1">
+                  <p className="text-xs font-bold text-white">{event.venue || "Sankara Eye Hospital"}</p>
+                  <p className="text-[11px] text-zinc-400">{event.city || "Bangalore, Karnataka"}</p>
+                  <p className="text-[10px] text-zinc-500 pt-1">Main Auditorium • Workshop Suites • Dining Foyer</p>
+                </div>
+
+                <a
+                  href={event.locationMapUrl || "https://maps.google.com/?q=Sankara+Eye+Hospital+Bangalore"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-sm"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>Open in Google Maps →</span>
+                </a>
+              </div>
+
+              {/* Card 3: Resources & Calendar */}
+              <div className="bg-[#121216]/90 border border-zinc-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-lg flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
+                      <Download className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm sm:text-base text-white">Conclave Resources</h3>
+                      <p className="text-[11px] text-zinc-400">Official Itinerary &amp; Schedule Sync</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-zinc-400 leading-relaxed">
+                    Sync the comprehensive 2-day conclave agenda with your calendar application or download the official schedule file (.ics).
+                  </p>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <Button
+                    onClick={() => setCalendarModalOpen(true)}
+                    className="w-full h-10 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs shadow-md transition-all cursor-pointer gap-2"
+                  >
+                    <CalendarPlus className="w-4 h-4 text-indigo-600" />
+                    <span>Sync Conclave to Calendar</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    onClick={handleDownloadIcs}
+                    className="w-full h-10 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 font-bold text-xs transition-colors gap-2 cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Download Schedule (.ics)</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         ) : (
           /* ═════════════════════════════════════════════════════════════════════
              ACTIVE UPCOMING/ONGOING EVENT: 2-COLUMN REGISTRATION & DETAILS LAYOUT
@@ -971,170 +2018,8 @@ export default function EventDetailPage() {
                 </div>
               </div>
 
-              {/* ── Compact 2-Column Event Schedule & Agenda ── */}
-              <div className="bg-zinc-900/60 border border-zinc-800/90 rounded-3xl p-5 sm:p-6 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <CalendarDays className="w-4 h-4 text-indigo-400" />
-                      <h3 className="font-extrabold text-sm sm:text-base text-white">Event Schedule &amp; Agenda</h3>
-                      <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-[10px] font-mono text-zinc-300">
-                        {filteredItems.length} {filteredItems.length === 1 ? "Session" : "Sessions"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Day Tabs if multi-day */}
-                  {uniqueDates.length > 1 && (
-                    <div className="flex items-center gap-1 bg-zinc-950 p-1 rounded-xl border border-zinc-800 self-start sm:self-auto overflow-x-auto max-w-full">
-                      {uniqueDates.map((dStr, idx) => (
-                        <button
-                          key={dStr}
-                          onClick={() => setSelectedDate(dStr)}
-                          className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                            activeDate === dStr
-                              ? "bg-white text-zinc-950 font-bold shadow-sm"
-                              : "text-zinc-400 hover:text-white"
-                          }`}
-                        >
-                          Day {idx + 1}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Category Filter Pills for Quick Navigation */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-                  {[
-                    { id: "all", label: "All Sessions" },
-                    { id: "keynote", label: "Keynotes" },
-                    { id: "sessions", label: "Workshops & Tracks" },
-                    { id: "breaks", label: "Dining & Breaks" },
-                  ].map((pill) => (
-                    <button
-                      key={pill.id}
-                      onClick={() => setAgendaCategory(pill.id)}
-                      className={`px-3 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                        agendaCategory === pill.id
-                          ? "bg-white text-zinc-950 font-bold shadow-sm"
-                          : "bg-zinc-950 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-white"
-                      }`}
-                    >
-                      {pill.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 2-Column Responsive Timeline Items Grid with Compact Viewport */}
-                <div className="max-h-[480px] overflow-y-auto pr-1 space-y-3 scrollbar-thin">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {filteredItems.map((slot, idx) => {
-                      const isTea = slot.type === "break_tea";
-                      const isLunch = slot.type === "break_lunch";
-                      const isKeynote = slot.type === "keynote";
-                      const isWorkshop = slot.type === "workshop";
-                      const isPanel = slot.type === "panel";
-
-                      return (
-                        <div
-                          key={slot.id || idx}
-                          className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between space-y-2.5 ${
-                            isTea
-                              ? "bg-amber-950/20 border-amber-900/30 hover:border-amber-700/50"
-                              : isLunch
-                              ? "bg-blue-950/20 border-blue-900/30 hover:border-blue-700/50"
-                              : isKeynote
-                              ? "bg-purple-950/20 border-purple-900/30 hover:border-purple-700/50"
-                              : isWorkshop
-                              ? "bg-emerald-950/20 border-emerald-900/30 hover:border-emerald-700/50"
-                              : isPanel
-                              ? "bg-indigo-950/20 border-indigo-900/30 hover:border-indigo-700/50"
-                              : "bg-zinc-950/70 border-zinc-800/80 hover:border-zinc-700"
-                          }`}
-                        >
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between gap-2">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
-                                  isTea
-                                    ? "bg-amber-950/80 text-amber-300 border-amber-800/60"
-                                    : isLunch
-                                    ? "bg-blue-950/80 text-blue-300 border-blue-800/60"
-                                    : isKeynote
-                                    ? "bg-purple-950/80 text-purple-300 border-purple-800/60"
-                                    : isWorkshop
-                                    ? "bg-emerald-950/80 text-emerald-300 border-emerald-800/60"
-                                    : isPanel
-                                    ? "bg-indigo-950/80 text-indigo-300 border-indigo-800/60"
-                                    : "bg-zinc-800 text-zinc-300 border-zinc-700"
-                                }`}
-                              >
-                                {isTea
-                                  ? "Tea Break"
-                                  : isLunch
-                                  ? "Lunch Break"
-                                  : isKeynote
-                                  ? "Keynote"
-                                  : isWorkshop
-                                  ? "Workshop"
-                                  : isPanel
-                                  ? "Panel"
-                                  : "Session"}
-                              </span>
-                              <span className="text-[10px] font-mono text-zinc-400 font-semibold">
-                                {slot.timeFrom} – {slot.timeTo}
-                              </span>
-                            </div>
-
-                            <h4 className="font-bold text-xs sm:text-sm text-white leading-snug">
-                              {slot.title}
-                            </h4>
-
-                            {slot.description && (
-                              <p className="text-[11px] text-zinc-400 line-clamp-2 leading-relaxed">
-                                {slot.description}
-                              </p>
-                            )}
-
-                            {/* Speaker & Faculty Mapping Against Topic */}
-                            {slot.speaker && (
-                              <div className="pt-2 mt-1 border-t border-zinc-800/50 flex items-start gap-2">
-                                <div className="w-6 h-6 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center shrink-0 mt-0.5">
-                                  <User className="w-3.5 h-3.5 text-amber-300" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-bold text-amber-200 truncate">
-                                    {slot.speaker}
-                                  </p>
-                                  {(slot.speakerDesignation || slot.speakerInstitution) && (
-                                    <p className="text-[10px] text-zinc-400 truncate">
-                                      {slot.speakerDesignation}{slot.speakerDesignation && slot.speakerInstitution ? " • " : ""}{slot.speakerInstitution}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between text-[10px] text-zinc-400">
-                            {slot.trackHall && (
-                              <span className="truncate max-w-[150px] text-zinc-300 font-medium">
-                                📍 {slot.trackHall}
-                              </span>
-                            )}
-                            {slot.moderator && (
-                              <span className="truncate max-w-[130px] text-cyan-300 font-medium">
-                                Mod: {slot.moderator}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              {/* ── Conclave Event Schedule & Agenda ── */}
+              {renderAgendaSchedule(false)}
 
               {/* ── CME SPOC & HELPDESK CARD ── */}
               {(event.spocName || event.organizerPhone || event.organizerEmail) && (
@@ -1248,216 +2133,370 @@ export default function EventDetailPage() {
 
             {/* ─── RIGHT SIDEBAR / REGISTRATION COLUMN (5 cols) ─── */}
             <div className="lg:col-span-5 xl:col-span-5 sticky top-20 space-y-5">
-              {/* Main Registration Card */}
-              <div className="bg-[#141417]/95 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl backdrop-blur-xl space-y-5">
-                <div className="space-y-1">
-                  <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
-                    Select Registration Pass
-                  </h2>
-                  <p className="text-xs text-zinc-400">
-                    Choose your delegation category to receive dynamic QR access.
-                  </p>
-                </div>
-
-                {/* Role / Tier Multi-button Tabs Grid */}
-                <div className="space-y-1.5">
-                  <div className="grid grid-cols-2 gap-2 bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800/90">
-                    {pricingTiers.map((tier) => {
-                      const isSelected = activeTier.id === tier.id;
-                      return (
-                        <button
-                          key={tier.id}
-                          onClick={() => setSelectedRoleTierId(tier.id)}
-                          className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between min-h-[58px] ${
-                            isSelected
-                              ? "bg-white text-zinc-950 shadow-md font-bold ring-1 ring-white/50"
-                              : "text-zinc-400 hover:text-white hover:bg-zinc-900/80"
-                          }`}
-                        >
-                          <span className="text-[11px] font-bold leading-tight block line-clamp-2">
-                            {tier.name}
-                          </span>
-                          <span className={`text-[11px] font-mono font-bold mt-1 ${isSelected ? "text-zinc-950 font-black" : "text-zinc-400"}`}>
-                            {isPaid ? `₹${(tier.earlyBirdPrice || tier.price).toLocaleString("en-IN")}` : "Free"}
-                          </span>
-                        </button>
-                      );
-                    })}
+              {isRegistrationDisabled ? (
+                /* ── REGISTRATION CLOSED CARD ── */
+                <div className="bg-[#141417]/95 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl backdrop-blur-xl space-y-5">
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Registration Closed</span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      {event.title}
+                    </h2>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Public registration for this event is currently closed. You can view the full scientific schedule and sessions below.
+                    </p>
                   </div>
-                </div>
 
-                {/* Price Display with Early Bird Callout */}
-                <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <div>
-                      <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold block">
-                        {activeTier.name} Tariff
+                  {/* Key Logistics Quick Card */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-3">
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Program Schedule</span>
                       </span>
-                      <div className="flex items-baseline gap-2 pt-0.5">
-                        <h3 className="text-2xl sm:text-3xl font-black text-white">
-                          {isPaid ? `₹${currentPassPrice.toLocaleString("en-IN")}` : "Free Pass"}
-                        </h3>
-                        {isEarlyBirdActive && activeTier.price > currentPassPrice && (
-                          <span className="text-sm text-zinc-500 line-through font-semibold font-mono">
-                            ₹{activeTier.price.toLocaleString("en-IN")}
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-xs font-bold text-zinc-200">
+                        {dateMeta.formatted}
+                      </span>
                     </div>
 
-                    {isEarlyBirdActive && activeTier.price > currentPassPrice && (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                        Save ₹{activeTier.price - currentPassPrice}
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Timings</span>
                       </span>
+                      <span className="text-xs font-bold text-zinc-200 font-mono">
+                        {dateMeta.time}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Location</span>
+                      </span>
+                      <span className="text-xs font-bold text-zinc-200 truncate max-w-[170px]">
+                        {event.venue || "Sankara Eye Hospital"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <Button
+                      onClick={() => setCalendarModalOpen(true)}
+                      className="w-full h-11 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs shadow-md transition-all cursor-pointer gap-2"
+                    >
+                      <CalendarPlus className="w-4 h-4 text-blue-600" />
+                      <span>Add to Calendar</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : event.eventType === "internal_staff" ? (
+                /* ── INTERNAL STAFF REGISTRATION CARD ── */
+                <div className="bg-[#141417]/95 border border-blue-500/30 rounded-3xl p-5 sm:p-6 shadow-2xl backdrop-blur-xl space-y-5">
+                  <div className="space-y-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Internal Staff Conclave • Approval Required</span>
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                      {event.title}
+                    </h2>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Official internal conclave pass for Sankara Eye Care Institutions staff, faculty, and hospital unit delegates. Register below with your Employee ID and Unit to obtain your verified QR pass.
+                    </p>
+                  </div>
+
+                  {/* Key Logistics Quick Card */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-3">
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Program Schedule</span>
+                      </span>
+                      <span className="text-xs font-bold text-zinc-200">
+                        {dateMeta.formatted}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Timings</span>
+                      </span>
+                      <span className="text-xs font-bold text-zinc-200 font-mono">
+                        {dateMeta.time}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Location</span>
+                      </span>
+                      <span className="text-xs font-bold text-zinc-200 truncate max-w-[170px]">
+                        {event.venue || "Sankara Eye Hospital"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-zinc-400 font-medium flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Admission</span>
+                      </span>
+                      <span className="text-xs font-bold text-emerald-400 font-mono">
+                        Complimentary (Internal Staff)
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Primary CTA button */}
+                  <div className="space-y-2 pt-1">
+                    <Button
+                      asChild
+                      className="w-full h-12 rounded-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-lg shadow-blue-500/25 transition-all cursor-pointer gap-2"
+                    >
+                      <Link href={`/events/${event.slug}/register`}>
+                        <span>Register Internal Staff Pass →</span>
+                      </Link>
+                    </Button>
+
+                    <Button
+                      onClick={() => setCalendarModalOpen(true)}
+                      variant="outline"
+                      className="w-full h-10 rounded-full border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 font-bold text-xs transition-all cursor-pointer gap-2"
+                    >
+                      <CalendarPlus className="w-4 h-4 text-blue-400" />
+                      <span>Add Conclave to Calendar</span>
+                    </Button>
+
+                    <Button
+                      onClick={handleShare}
+                      variant="outline"
+                      className="w-full h-10 rounded-full border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 font-bold text-xs transition-all cursor-pointer gap-2"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-zinc-400" />
+                      <span>Share Conclave Details</span>
+                    </Button>
+                  </div>
+
+                  <p className="text-[11px] text-center text-zinc-500 font-medium">
+                    Delegates will receive entry QR codes via email once registration is approved.
+                  </p>
+                </div>
+              ) : (
+                /* Main Registration Card */
+                <div className="bg-[#141417]/95 border border-zinc-800 rounded-3xl p-5 sm:p-6 shadow-2xl backdrop-blur-xl space-y-5">
+                  <div className="space-y-1">
+                    <h2 className="text-base sm:text-lg font-black text-white tracking-tight">
+                      Select Registration Pass
+                    </h2>
+                    <p className="text-xs text-zinc-400">
+                      Choose your delegation category to receive dynamic QR access.
+                    </p>
+                  </div>
+
+                  {/* Role / Tier Multi-button Tabs Grid */}
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-2 bg-zinc-950 p-1.5 rounded-2xl border border-zinc-800/90">
+                      {pricingTiers.map((tier) => {
+                        const isSelected = activeTier.id === tier.id;
+                        return (
+                          <button
+                            key={tier.id}
+                            onClick={() => setSelectedRoleTierId(tier.id)}
+                            className={`px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer flex flex-col justify-between min-h-[58px] ${
+                              isSelected
+                                ? "bg-white text-zinc-950 shadow-md font-bold ring-1 ring-white/50"
+                                : "text-zinc-400 hover:text-white hover:bg-zinc-900/80"
+                            }`}
+                          >
+                            <span className="text-[11px] font-bold leading-tight block line-clamp-2">
+                              {tier.name}
+                            </span>
+                            <span className={`text-[11px] font-mono font-bold mt-1 ${isSelected ? "text-zinc-950 font-black" : "text-zinc-400"}`}>
+                              {isPaid ? `₹${(tier.earlyBirdPrice || tier.price).toLocaleString("en-IN")}` : "Free"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Price Display with Early Bird Callout */}
+                  <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800/80 space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <div>
+                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold block">
+                          {activeTier.name} Tariff
+                        </span>
+                        <div className="flex items-baseline gap-2 pt-0.5">
+                          <h3 className="text-2xl sm:text-3xl font-black text-white">
+                            {isPaid ? `₹${currentPassPrice.toLocaleString("en-IN")}` : "Free Pass"}
+                          </h3>
+                          {isEarlyBirdActive && activeTier.price > currentPassPrice && (
+                            <span className="text-sm text-zinc-500 line-through font-semibold font-mono">
+                              ₹{activeTier.price.toLocaleString("en-IN")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEarlyBirdActive && activeTier.price > currentPassPrice && (
+                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                          Save ₹{activeTier.price - currentPassPrice}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Early Bird Deadline Notification */}
+                    {isEarlyBirdActive && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-950/40 px-2.5 py-1.5 rounded-xl border border-amber-800/40 font-medium">
+                        <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <span>
+                          Early Bird Price active! Deadline in <strong className="font-bold">{daysLeftForEarlyBird} days</strong>
+                        </span>
+                      </div>
+                    )}
+
+                    {activeTier.description && (
+                      <p className="text-xs text-zinc-400 leading-relaxed pt-1">
+                        {activeTier.description}
+                      </p>
+                    )}
+
+                    {/* Inclusions checklist for this role */}
+                    {activeTier.inclusions && activeTier.inclusions.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-zinc-800/80">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">
+                          Role Pass Privileges:
+                        </span>
+                        <ul className="space-y-1 text-xs text-zinc-300">
+                          {activeTier.inclusions.map((inc: string, i: number) => (
+                            <li key={i} className="flex items-center gap-1.5">
+                              <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span>{inc}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     )}
                   </div>
 
-                  {/* Early Bird Deadline Notification */}
-                  {isEarlyBirdActive && (
-                    <div className="flex items-center gap-1.5 text-[11px] text-amber-300 bg-amber-950/40 px-2.5 py-1.5 rounded-xl border border-amber-800/40 font-medium">
-                      <Flame className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                      <span>
-                        Early Bird Price active! Deadline in <strong className="font-bold">{daysLeftForEarlyBird} days</strong>
-                      </span>
-                    </div>
-                  )}
-
-                  {activeTier.description && (
-                    <p className="text-xs text-zinc-400 leading-relaxed pt-1">
-                      {activeTier.description}
-                    </p>
-                  )}
-
-                  {/* Inclusions checklist for this role */}
-                  {activeTier.inclusions && activeTier.inclusions.length > 0 && (
-                    <div className="space-y-1.5 pt-2 border-t border-zinc-800/80">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500">
-                        Role Pass Privileges:
-                      </span>
-                      <ul className="space-y-1 text-xs text-zinc-300">
-                        {activeTier.inclusions.map((inc: string, i: number) => (
-                          <li key={i} className="flex items-center gap-1.5">
-                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span>{inc}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-
-                {/* Status details */}
-                <div className="space-y-2 pt-1 text-xs text-zinc-400">
-                  {event.requiresApproval ? (
-                    <div className="flex items-center gap-2 text-amber-300 bg-amber-950/40 p-3 rounded-xl border border-amber-800/50 font-medium">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-amber-400" />
-                      <span>Requires Coordinator Review &amp; Approval</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-emerald-300 bg-emerald-950/40 p-3 rounded-xl border border-emerald-800/50 font-medium">
-                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
-                      <span>Instant Digital Pass &amp; QR Badge</span>
-                    </div>
-                  )}
-
-                  {isPaid && (
-                    <div className="flex items-center gap-1.5 text-xs text-zinc-400 pt-0.5">
-                      <Tag className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Discount coupons &amp; sponsored passes accepted at checkout</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Capacity and Seats Left Telemetry Box */}
-                {!isConcluded && (
-                  <div className="bg-[#141417] border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-inner">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-zinc-200 flex items-center gap-1.5">
-                        <Users className="w-4 h-4 text-blue-400" />
-                        Seats Availability
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          seatsLeft === 0
-                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                            : seatsLeft <= 25
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
-                            : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                        }`}
-                      >
-                        {seatsLeft === 0 ? "Sold Out" : seatsLeft <= 25 ? "Filling Fast 🔥" : "Available"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-between text-xs pt-1">
-                      <div className="space-y-0.5">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                          Seats Remaining
-                        </span>
-                        <span className="text-xl font-black text-white font-mono">
-                          {seatsLeft} <span className="text-xs text-zinc-400 font-normal">left</span>
-                        </span>
+                  {/* Status details */}
+                  <div className="space-y-2 pt-1 text-xs text-zinc-400">
+                    {event.requiresApproval ? (
+                      <div className="flex items-center gap-2 text-amber-300 bg-amber-950/40 p-3 rounded-xl border border-amber-800/50 font-medium">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-amber-400" />
+                        <span>Requires Coordinator Review &amp; Approval</span>
                       </div>
-                      <div className="text-right space-y-0.5">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
-                          Total Capacity
-                        </span>
-                        <span className="text-sm font-black text-zinc-300 font-mono">
-                          {maxCapacity} Max
-                        </span>
+                    ) : (
+                      <div className="flex items-center gap-2 text-emerald-300 bg-emerald-950/40 p-3 rounded-xl border border-emerald-800/50 font-medium">
+                        <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                        <span>Instant Digital Pass &amp; QR Badge</span>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Visual Progress Bar */}
-                    <div className="space-y-1.5 pt-1">
-                      <div className="w-full h-2.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800 p-0.5">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            percentBooked >= 90
-                              ? "bg-gradient-to-r from-amber-500 to-rose-500"
-                              : "bg-gradient-to-r from-blue-500 to-emerald-400"
-                          }`}
-                          style={{ width: `${percentBooked}%` }}
-                        />
+                    {isPaid && (
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-400 pt-0.5">
+                        <Tag className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Discount coupons &amp; sponsored passes accepted at checkout</span>
                       </div>
-                      <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium">
-                        <span>{totalRegistered} Registered ({percentBooked}% filled)</span>
-                        <span>{seatsLeft} Available</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
-                )}
 
-                {/* Primary CTA Buttons (Individual & Group) */}
-                <div className="space-y-2 pt-1">
-                  <Button
-                    asChild
-                    className="w-full h-12 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer"
-                  >
-                    <Link href={`/events/${event.slug}/register?tier=${activeTier.id}`}>
-                      {event.requiresApproval ? "Request to Join" : `Register as ${activeTier.name}`}
-                    </Link>
-                  </Button>
+                  {/* Capacity and Seats Left Telemetry Box */}
+                  {!isConcluded && (
+                    <div className="bg-[#141417] border border-zinc-800/80 rounded-2xl p-4 space-y-3 shadow-inner">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-zinc-200 flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-blue-400" />
+                          Seats Availability
+                        </span>
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            seatsLeft === 0
+                              ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                              : seatsLeft <= 25
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse"
+                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                          }`}
+                        >
+                          {seatsLeft === 0 ? "Sold Out" : seatsLeft <= 25 ? "Filling Fast 🔥" : "Available"}
+                        </span>
+                      </div>
 
-                  {/* Group Registration Button */}
-                  {event.groupRegistrationEnabled !== false && (
+                      <div className="flex items-baseline justify-between text-xs pt-1">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                            Seats Remaining
+                          </span>
+                          <span className="text-xl font-black text-white font-mono">
+                            {seatsLeft} <span className="text-xs text-zinc-400 font-normal">left</span>
+                          </span>
+                        </div>
+                        <div className="text-right space-y-0.5">
+                          <span className="text-[10px] text-zinc-400 uppercase tracking-wider font-semibold block">
+                            Total Capacity
+                          </span>
+                          <span className="text-sm font-black text-zinc-300 font-mono">
+                            {maxCapacity} Max
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Visual Progress Bar */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="w-full h-2.5 rounded-full bg-zinc-950 overflow-hidden border border-zinc-800 p-0.5">
+                          <div
+                            className={`h-full rounded-full transition-all duration-500 ${
+                              percentBooked >= 90
+                                ? "bg-gradient-to-r from-amber-500 to-rose-500"
+                                : "bg-gradient-to-r from-blue-500 to-emerald-400"
+                            }`}
+                            style={{ width: `${percentBooked}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center text-[10px] text-zinc-400 font-medium">
+                          <span>{totalRegistered} Registered ({percentBooked}% filled)</span>
+                          <span>{seatsLeft} Available</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Primary CTA Buttons (Individual & Group) */}
+                  <div className="space-y-2 pt-1">
                     <Button
                       asChild
-                      variant="outline"
-                      className="w-full h-10 rounded-full border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 font-bold text-xs transition-all cursor-pointer"
+                      className="w-full h-12 rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer"
                     >
-                      <Link href={`/events/${event.slug}/register?mode=group`}>
-                        <Users className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
-                        <span>Register Group / Institutional Delegation</span>
+                      <Link href={`/events/${event.slug}/register?tier=${activeTier.id}`}>
+                        {event.requiresApproval ? "Request to Join" : `Register as ${activeTier.name}`}
                       </Link>
                     </Button>
-                  )}
-                </div>
 
-                <p className="text-[11px] text-center text-zinc-500 font-medium">
-                  Digital pass with dynamic QR check-in sent immediately after confirmation.
-                </p>
-              </div>
+                    {/* Group Registration Button */}
+                    {event.groupRegistrationEnabled !== false && (
+                      <Button
+                        asChild
+                        variant="outline"
+                        className="w-full h-10 rounded-full border-zinc-700 bg-zinc-900/80 hover:bg-zinc-800 text-zinc-200 font-bold text-xs transition-all cursor-pointer"
+                      >
+                        <Link href={`/events/${event.slug}/register?mode=group`}>
+                          <Users className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
+                          <span>Register Group / Institutional Delegation</span>
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-center text-zinc-500 font-medium">
+                    Digital pass with dynamic QR check-in sent immediately after confirmation.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

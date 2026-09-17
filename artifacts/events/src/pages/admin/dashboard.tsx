@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Layers,
+  Pencil,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,18 @@ export default function AdminDashboard() {
                 <Link href={`/events/${currentEvent.slug}`} target="_blank">
                   <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
                   <span>Public Page</span>
+                </Link>
+              </Button>
+
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 px-3.5 rounded-xl border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 hover:text-white text-xs font-bold shadow-sm"
+              >
+                <Link href={`/admin/events?editEventId=${currentEvent.id}`}>
+                  <Pencil className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                  <span>Edit Event</span>
                 </Link>
               </Button>
 

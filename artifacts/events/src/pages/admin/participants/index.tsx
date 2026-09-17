@@ -17,6 +17,7 @@ import {
   Trash2,
   Plus,
   Download,
+  Upload,
   Check,
   XCircle,
   ShieldCheck,
@@ -30,6 +31,10 @@ import {
   Loader2,
   RefreshCw,
   Users,
+  IdCard,
+  MapPin,
+  Clock,
+  Send,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -37,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveEvent } from "@/hooks/use-active-event";
 import { ParticipantQRDialog } from "@/components/participant-qr-dialog";
+import { AttendeeExcelImportDialog } from "@/components/attendee-excel-import-dialog";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -46,6 +52,11 @@ type EditForm = {
   email: string;
   institution: string;
   designation?: string;
+  employeeId?: string;
+  unit?: string;
+  state?: string;
+  district?: string;
+  address?: string;
   isPaid: boolean;
   isSponsored: boolean;
   sponsorType: string;
@@ -60,6 +71,11 @@ interface AddForm {
   email: string;
   institution: string;
   designation?: string;
+  employeeId?: string;
+  unit?: string;
+  state?: string;
+  district?: string;
+  address?: string;
   isPaid: boolean;
   isSponsored: boolean;
   sponsorType: string;
@@ -71,9 +87,22 @@ export default function AdminParticipants() {
   const [activeTab, setActiveTab] = useState<"all" | "prior_attendee" | "prior_faculty" | "on_spot">("all");
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 300);
-  const [selectedEventId, setSelectedEventId] = useState<string>(() => (activeEventId ? String(activeEventId) : "all"));
+  const [selectedEventId, setSelectedEventId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const urlParam = new URLSearchParams(window.location.search).get("eventId");
+      if (urlParam) return urlParam;
+    }
+    return activeEventId ? String(activeEventId) : "all";
+  });
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParam = new URLSearchParams(window.location.search).get("eventId");
+      if (urlParam) {
+        setSelectedEventId(urlParam);
+        return;
+      }
+    }
     if (activeEventId) {
       setSelectedEventId(String(activeEventId));
     }
@@ -85,6 +114,11 @@ export default function AdminParticipants() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
+
+  // Approval Loading & View Modal State
+  const [approvingId, setApprovingId] = useState<number | null>(null);
+  const [viewParticipant, setViewParticipant] = useState<any | null>(null);
 
   // Edit Dialog States
   const [editOpen, setEditOpen] = useState(false);
@@ -95,6 +129,11 @@ export default function AdminParticipants() {
     email: "",
     institution: "",
     designation: "",
+    employeeId: "",
+    unit: "",
+    state: "",
+    district: "",
+    address: "",
     isPaid: false,
     isSponsored: false,
     sponsorType: "",
@@ -176,23 +215,68 @@ export default function AdminParticipants() {
     enabled: !!token,
   });
 
-  const handleApprove = async (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleApprove = async (id: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setApprovingId(id);
     try {
       const res = await fetch(`${BASE_URL}/api/participants/${id}/approve`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error("Failed to approve");
-      toast({ title: "Approved!", description: "Delegate registration approved." });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to approve delegate");
+      toast({
+        title: "Delegate Approved! 🎉",
+        description: data.emailSent
+          ? "Official Entry Pass & Gate QR code successfully dispatched to the delegate's email."
+          : "Delegate registration approved.",
+      });
+      if (viewParticipant && viewParticipant.id === id) {
+        setViewParticipant((prev: any) => prev ? { ...prev, approvalStatus: "approved" } : null);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/participants"] });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Approval Error", description: err.message, variant: "destructive" });
+    } finally {
+      setApprovingId(null);
     }
   };
 
-  const handleReject = async (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const [sendingQrId, setSendingQrId] = useState<number | null>(null);
+
+  const handleSendQrPass = async (p: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!p.email) {
+      toast({
+        title: "Email Required",
+        description: `Please edit ${p.name} to enter an email address before sending their QR pass.`,
+        variant: "destructive",
+      });
+      openEdit(p);
+      return;
+    }
+    setSendingQrId(p.id);
+    try {
+      const res = await fetch(`${BASE_URL}/api/participants/${p.id}/send-qr`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send QR pass");
+      toast({
+        title: "QR Pass Dispatched! ✉️",
+        description: data.message || `Entry QR pass sent to ${p.email}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/participants"] });
+    } catch (err: any) {
+      toast({ title: "Email Error", description: err.message, variant: "destructive" });
+    } finally {
+      setSendingQrId(null);
+    }
+  };
+
+  const handleReject = async (id: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     try {
       const res = await fetch(`${BASE_URL}/api/participants/${id}/reject`, {
         method: "POST",
@@ -201,6 +285,9 @@ export default function AdminParticipants() {
       });
       if (!res.ok) throw new Error("Failed to reject");
       toast({ title: "Rejected", description: "Registration marked as rejected." });
+      if (viewParticipant && viewParticipant.id === id) {
+        setViewParticipant((prev: any) => prev ? { ...prev, approvalStatus: "rejected" } : null);
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/participants"] });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -215,6 +302,11 @@ export default function AdminParticipants() {
       email: p.email ?? "",
       institution: p.institution ?? "",
       designation: p.designation ?? "",
+      employeeId: p.employeeId ?? "",
+      unit: p.unit ?? "",
+      state: p.state ?? "",
+      district: p.district ?? "",
+      address: p.address ?? "",
       isPaid: Boolean(p.isPaid),
       isSponsored: Boolean(p.isSponsored),
       sponsorType: p.sponsorType ?? "",
@@ -236,6 +328,11 @@ export default function AdminParticipants() {
           email: editForm.email.trim() || undefined,
           institution: editForm.institution.trim() || undefined,
           designation: editForm.designation?.trim() || undefined,
+          employeeId: editForm.employeeId?.trim() || undefined,
+          unit: editForm.unit?.trim() || undefined,
+          state: editForm.state?.trim() || undefined,
+          district: editForm.district?.trim() || undefined,
+          address: editForm.address?.trim() || undefined,
           isPaid: editForm.isPaid,
           isSponsored: editForm.isSponsored,
           sponsorType: editForm.sponsorType || undefined,
@@ -289,6 +386,11 @@ export default function AdminParticipants() {
           email: addForm.email.trim() || undefined,
           institution: addForm.institution.trim() || undefined,
           designation: addForm.designation?.trim() || undefined,
+          employeeId: addForm.employeeId?.trim() || undefined,
+          unit: addForm.unit?.trim() || undefined,
+          state: addForm.state?.trim() || undefined,
+          district: addForm.district?.trim() || undefined,
+          address: addForm.address?.trim() || undefined,
           isPaid: addForm.isPaid,
           isSponsored: addForm.isSponsored,
           sponsorType: addForm.sponsorType || undefined,
@@ -309,6 +411,11 @@ export default function AdminParticipants() {
         email: "",
         institution: "",
         designation: "",
+        employeeId: "",
+        unit: "",
+        state: "",
+        district: "",
+        address: "",
         isPaid: false,
         isSponsored: false,
         sponsorType: "",
@@ -440,7 +547,7 @@ export default function AdminParticipants() {
     window.location.href = `${BASE_URL}/api/participants/qr-batch${eventParam}${eventParam ? "&" : "?"}token=${encodeURIComponent(token || "")}`;
   };
 
-  const participantsList = data?.participants || [];
+  const participantsList = Array.isArray(data) ? data : (data?.participants || []);
 
   return (
     <div className="space-y-6 text-zinc-100 max-w-7xl mx-auto animate-in fade-in duration-300">
@@ -511,6 +618,17 @@ export default function AdminParticipants() {
             <Download className="w-3.5 h-3.5" />
             <span>Download QRs</span>
           </Button>
+
+          {!isCoordinatorViewOnly && (
+            <Button
+              variant="outline"
+              onClick={() => setExcelImportOpen(true)}
+              className="h-10 px-3.5 gap-1.5 bg-[#18181C] hover:bg-[#25252E] border-[#2A2A32] text-zinc-200 hover:text-white rounded-2xl text-xs font-bold cursor-pointer"
+            >
+              <Upload className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Import Excel</span>
+            </Button>
+          )}
 
           <Button
             variant="outline"
@@ -740,6 +858,12 @@ export default function AdminParticipants() {
                       {p.designation && (
                         <div className="text-[11px] text-zinc-400 mt-0.5">{p.designation}</div>
                       )}
+                      {p.employeeId && (
+                        <div className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-950/70 text-indigo-300 border border-indigo-800/40 text-[10px] font-mono mt-1 w-max">
+                          <IdCard className="w-3 h-3" />
+                          <span>ID: {p.employeeId}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex flex-col gap-0.5 text-xs">
@@ -754,7 +878,14 @@ export default function AdminParticipants() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-zinc-300">
-                      <div className="truncate max-w-[200px]">{p.institution || "—"}</div>
+                      <div className="font-medium text-xs text-white truncate max-w-[200px]">
+                        {p.unit || p.institution || "—"}
+                      </div>
+                      {(p.district || p.state) && (
+                        <div className="text-[10px] text-zinc-400 truncate max-w-[200px]">
+                          {[p.district, p.state].filter(Boolean).join(", ")}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3.5">
                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#202028] text-zinc-200 border border-[#2E2E38]">
@@ -785,9 +916,23 @@ export default function AdminParticipants() {
                     </td>
                     <td className="px-4 py-3.5 text-center">
                       {p.approvalStatus === "approved" ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
-                          Approved ✓
-                        </span>
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 inline-flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Approved ✓
+                          </span>
+                          <button
+                            disabled={sendingQrId === p.id}
+                            onClick={(e) => handleSendQrPass(p, e)}
+                            className="p-1 rounded-md bg-[#202026] hover:bg-zinc-700 text-zinc-300 hover:text-white text-[10px] font-bold cursor-pointer inline-flex items-center"
+                            title={p.email ? `Send entry QR pass to ${p.email}` : "Add email to send QR pass"}
+                          >
+                            {sendingQrId === p.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                            ) : (
+                              <Send className="w-3 h-3 text-indigo-400" />
+                            )}
+                          </button>
+                        </div>
                       ) : p.approvalStatus === "rejected" ? (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-950/60 text-rose-300 border border-rose-800/40">
                           Rejected
@@ -795,11 +940,13 @@ export default function AdminParticipants() {
                       ) : (
                         <div className="flex items-center justify-center gap-1">
                           <button
+                            disabled={approvingId === p.id}
                             onClick={(e) => handleApprove(p.id, e)}
-                            className="px-2 py-1 rounded-lg bg-white text-zinc-950 hover:bg-zinc-200 text-[10px] font-bold cursor-pointer"
-                            title="Approve registration"
+                            className="px-2.5 py-1 rounded-lg bg-white text-zinc-950 hover:bg-zinc-200 text-[10px] font-bold cursor-pointer inline-flex items-center gap-1 disabled:opacity-50"
+                            title="Approve registration & send QR pass via email"
                           >
-                            Approve
+                            {approvingId === p.id && <Loader2 className="w-3 h-3 animate-spin" />}
+                            <span>Approve</span>
                           </button>
                           <button
                             onClick={(e) => handleReject(p.id, e)}
@@ -825,6 +972,20 @@ export default function AdminParticipants() {
                         >
                           <QrCode className="w-3.5 h-3.5" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title={p.email ? `Send / Resend QR Pass to ${p.email}` : "Add email to send QR pass"}
+                          disabled={sendingQrId === p.id}
+                          onClick={(e) => handleSendQrPass(p, e)}
+                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-indigo-400 hover:text-indigo-300"
+                        >
+                          {sendingQrId === p.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Send className="w-3.5 h-3.5" />
+                          )}
+                        </Button>
                         {!isCoordinatorViewOnly && (
                           <>
                             <Button
@@ -847,16 +1008,15 @@ export default function AdminParticipants() {
                             </Button>
                           </>
                         )}
-                        <Link href={`/admin/participants/${p.id}`}>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="View Full Profile"
-                            className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Quick View Details"
+                          onClick={() => setViewParticipant(p)}
+                          className="h-8 w-8 p-0 rounded-xl hover:bg-[#25252E] text-zinc-400 hover:text-white"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -894,13 +1054,146 @@ export default function AdminParticipants() {
         />
       )}
 
+      {/* ── QUICK VIEW PARTICIPANT DETAILS MODAL ────────────────────────────── */}
+      {viewParticipant && (
+        <Dialog open={!!viewParticipant} onOpenChange={() => setViewParticipant(null)}>
+          <DialogContent className="max-w-lg bg-[#141417] border border-[#2B2B32] text-zinc-100 rounded-3xl p-6 shadow-2xl">
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="text-xl font-black text-white flex items-center gap-2">
+                  <span>Delegate Details</span>
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-300">
+                    {viewParticipant.registrationNumber}
+                  </span>
+                </DialogTitle>
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    viewParticipant.approvalStatus === "approved"
+                      ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/50"
+                      : viewParticipant.approvalStatus === "rejected"
+                      ? "bg-rose-950/70 text-rose-300 border-rose-800/50"
+                      : "bg-amber-950/70 text-amber-300 border-amber-800/50"
+                  }`}
+                >
+                  {viewParticipant.approvalStatus?.toUpperCase() || "PENDING"}
+                </span>
+              </div>
+              <DialogDescription className="text-xs text-zinc-400">
+                Detailed profile &amp; staff credential audit.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 py-2 text-xs">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228]">
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Full Name</span>
+                  <span className="text-white font-bold text-sm block">{viewParticipant.name}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Employee ID</span>
+                  <span className="text-indigo-300 font-mono font-bold text-sm block">
+                    {viewParticipant.employeeId || "—"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228]">
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Designation</span>
+                  <span className="text-zinc-200 font-medium block">{viewParticipant.designation || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Sankara Unit / Institution</span>
+                  <span className="text-zinc-200 font-medium block truncate">{viewParticipant.unit || viewParticipant.institution || "—"}</span>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
+                <span className="text-zinc-500 font-medium block text-[11px]">Location &amp; Address</span>
+                <span className="text-zinc-200 block">
+                  {[viewParticipant.district, viewParticipant.state].filter(Boolean).join(", ") || "—"}
+                </span>
+                {viewParticipant.address && (
+                  <p className="text-[11px] text-zinc-400 font-sans mt-1">
+                    {viewParticipant.address}
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228]">
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Email Address</span>
+                  <span className="text-zinc-200 font-mono text-[11px] block truncate">{viewParticipant.email || "—"}</span>
+                </div>
+                <div>
+                  <span className="text-zinc-500 font-medium block text-[11px]">Mobile Number</span>
+                  <span className="text-zinc-200 font-mono text-[11px] block">{viewParticipant.mobile || "—"}</span>
+                </div>
+              </div>
+
+              {viewParticipant.approvalStatus === "pending" && (
+                <div className="p-3 rounded-2xl bg-amber-950/30 border border-amber-800/40 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-amber-300">
+                    <Clock className="w-4 h-4 shrink-0" />
+                    <span className="text-[11px]">Pending admin gate pass approval</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={approvingId === viewParticipant.id}
+                    onClick={() => handleApprove(viewParticipant.id)}
+                    className="h-8 rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 font-bold text-xs cursor-pointer"
+                  >
+                    {approvingId === viewParticipant.id && <Loader2 className="w-3 h-3 animate-spin mr-1" />}
+                    Approve &amp; Send QR Pass
+                  </Button>
+                </div>
+              )}
+
+              {viewParticipant.approvalStatus === "approved" && (
+                <div className="p-3 rounded-2xl bg-emerald-950/30 border border-emerald-800/40 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span className="text-[11px]">Verified registration • Pass ready</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={sendingQrId === viewParticipant.id}
+                    onClick={() => handleSendQrPass(viewParticipant)}
+                    className="h-8 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer gap-1.5"
+                  >
+                    {sendingQrId === viewParticipant.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3" />}
+                    Send QR Pass via Email
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter className="gap-2 pt-2 border-t border-[#242429]">
+              <Link href={`/admin/participants/${viewParticipant.id}`}>
+                <Button variant="outline" size="sm" className="rounded-xl border-[#2A2A32] text-xs">
+                  Open Full Audit Page
+                </Button>
+              </Link>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewParticipant(null)}
+                className="rounded-xl text-xs text-zinc-400 hover:text-white"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* ── EDIT MODAL ──────────────────────────────────────────────────────── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-md bg-[#141417] border border-[#2B2B32] text-zinc-100 rounded-3xl p-6 shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-xl font-black text-white">Edit Delegate Profile</DialogTitle>
             <DialogDescription className="text-xs text-zinc-400">
-              Update participant contact information and registration status.
+              Update participant contact information, staff credentials, and registration status.
             </DialogDescription>
           </DialogHeader>
 
@@ -912,6 +1205,27 @@ export default function AdminParticipants() {
                 onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                 className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">Employee ID</Label>
+                <Input
+                  placeholder="e.g. SEH-10492"
+                  value={editForm.employeeId || ""}
+                  onChange={(e) => setEditForm({ ...editForm, employeeId: e.target.value })}
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">Designation / Role</Label>
+                <Input
+                  value={editForm.designation || ""}
+                  onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -945,13 +1259,44 @@ export default function AdminParticipants() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-zinc-300 font-bold">Designation / Role</Label>
+                <Label className="text-zinc-300 font-bold">Sankara Unit</Label>
                 <Input
-                  value={editForm.designation || ""}
-                  onChange={(e) => setEditForm({ ...editForm, designation: e.target.value })}
+                  placeholder="e.g. Sankara Eye Hospital, Bangalore"
+                  value={editForm.unit || ""}
+                  onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
                   className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">State</Label>
+                <Input
+                  value={editForm.state || ""}
+                  onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">District</Label>
+                <Input
+                  value={editForm.district || ""}
+                  onChange={(e) => setEditForm({ ...editForm, district: e.target.value })}
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 font-bold">Address</Label>
+              <Input
+                placeholder="Residential / Hospital address"
+                value={editForm.address || ""}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+              />
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#101013] border border-[#2B2B32] mt-2">
@@ -1079,6 +1424,80 @@ export default function AdminParticipants() {
                   className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">Employee ID (Staff)</Label>
+                <Input
+                  value={addForm.employeeId || ""}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  onChange={(e) => setAddForm({ ...addForm, employeeId: e.target.value })}
+                  placeholder="e.g. SEH-10492"
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">Sankara Unit / Branch</Label>
+                <Input
+                  value={addForm.unit || ""}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  onChange={(e) => setAddForm({ ...addForm, unit: e.target.value })}
+                  placeholder="e.g. Bangalore"
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">State</Label>
+                <Input
+                  value={addForm.state || ""}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  onChange={(e) => setAddForm({ ...addForm, state: e.target.value })}
+                  placeholder="e.g. Karnataka"
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-zinc-300 font-bold">District</Label>
+                <Input
+                  value={addForm.district || ""}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-lpignore="true"
+                  onChange={(e) => setAddForm({ ...addForm, district: e.target.value })}
+                  placeholder="e.g. Bangalore Urban"
+                  className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-zinc-300 font-bold">Communication Address</Label>
+              <Input
+                value={addForm.address || ""}
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                data-lpignore="true"
+                onChange={(e) => setAddForm({ ...addForm, address: e.target.value })}
+                placeholder="Hospital unit campus or residential address"
+                className="bg-[#101013] border-[#2B2B32] text-zinc-200 rounded-xl h-9 text-xs"
+              />
             </div>
 
             <div className="flex items-center justify-between p-3 rounded-2xl bg-[#101013] border border-[#2B2B32] mt-2">
@@ -1264,6 +1683,17 @@ export default function AdminParticipants() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── EXCEL ATTENDEE IMPORT DIALOG ──────────────────────────────────── */}
+      <AttendeeExcelImportDialog
+        open={excelImportOpen}
+        onOpenChange={setExcelImportOpen}
+        defaultEventId={selectedEventId !== "all" ? selectedEventId : (activeEventId ? String(activeEventId) : "")}
+        events={events}
+        onImportSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/participants"] });
+        }}
+      />
     </div>
   );
 }

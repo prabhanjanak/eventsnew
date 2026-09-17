@@ -27,7 +27,16 @@ import {
   AlertTriangle,
   AlertCircle,
   ShieldAlert,
+  ShieldCheck,
+  MapPin,
+  Building2,
+  IdCard,
+  Clock,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { SANKARA_UNITS, INDIA_STATES_DISTRICTS, getDistrictsForState } from "@/lib/india-geo";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { GoogleWalletButton } from "@/components/google-wallet-button";
@@ -54,6 +63,21 @@ export default function EventRegisterPage() {
   const [documentUrl, setDocumentUrl] = useState("");
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [foodPreference, setFoodPreference] = useState<"veg" | "non_veg">("veg");
+
+  // Internal Staff Event Specific States
+  const [employeeId, setEmployeeId] = useState("");
+  const [unit, setUnit] = useState<string>(SANKARA_UNITS[0]);
+  const [customUnit, setCustomUnit] = useState("");
+  const [address, setAddress] = useState("");
+  const [selectedState, setSelectedState] = useState<string>("Karnataka");
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("Bangalore Urban");
+
+  useEffect(() => {
+    const districts = getDistrictsForState(selectedState);
+    if (districts.length > 0 && !districts.includes(selectedDistrict)) {
+      setSelectedDistrict(districts[0]);
+    }
+  }, [selectedState]);
 
   // Initial mode from URL query param (?mode=group)
   const searchParams = new URLSearchParams(window.location.search);
@@ -279,6 +303,11 @@ export default function EventRegisterPage() {
     e.preventDefault();
     setValidationError(null);
 
+    const isInternal = event.eventType === "internal_staff";
+    const finalUnit = isInternal
+      ? (unit === "Other Unit / External Institution" ? customUnit.trim() : (unit || institution).trim())
+      : institution.trim();
+
     if (!name.trim()) {
       setValidationError("Full Name is required.");
       toast({ title: "Name is required", variant: "destructive" });
@@ -299,22 +328,47 @@ export default function EventRegisterPage() {
       });
       return;
     }
-    if (!institution.trim()) {
-      setValidationError("Institution / Organization is required.");
-      toast({ title: "Institution / Organization is required", variant: "destructive" });
-      return;
-    }
 
-    if (event.eventType === "internal_staff") {
-      const cleanEm = email.trim().toLowerCase();
-      if (!cleanEm || (!cleanEm.endsWith("@sankaraeye.com") && !cleanEm.endsWith("@sankaraeye.in"))) {
-        const staffErr = "This internal event is restricted strictly to Sankara staff. Please use your official @sankaraeye.com email.";
-        setValidationError(staffErr);
-        toast({
-          title: "Internal Event Restricted",
-          description: staffErr,
-          variant: "destructive",
-        });
+    if (isInternal) {
+      if (!employeeId.trim()) {
+        setValidationError("Employee ID is required for internal staff registration.");
+        toast({ title: "Employee ID is required", variant: "destructive" });
+        return;
+      }
+      if (!designation.trim()) {
+        setValidationError("Designation is required for internal staff registration.");
+        toast({ title: "Designation is required", variant: "destructive" });
+        return;
+      }
+      if (!finalUnit) {
+        setValidationError("Hospital Unit details are required.");
+        toast({ title: "Hospital Unit details are required", variant: "destructive" });
+        return;
+      }
+      if (!address.trim()) {
+        setValidationError("Address is required.");
+        toast({ title: "Address is required", variant: "destructive" });
+        return;
+      }
+      if (!selectedState.trim()) {
+        setValidationError("State is required.");
+        toast({ title: "State is required", variant: "destructive" });
+        return;
+      }
+      if (!selectedDistrict.trim()) {
+        setValidationError("District is required.");
+        toast({ title: "District is required", variant: "destructive" });
+        return;
+      }
+      if (!email.trim()) {
+        setValidationError("Email address is required to receive your entry pass & QR code.");
+        toast({ title: "Email is required", variant: "destructive" });
+        return;
+      }
+    } else {
+      if (!finalUnit) {
+        setValidationError("Institution / Organization is required.");
+        toast({ title: "Institution / Organization is required", variant: "destructive" });
         return;
       }
     }
@@ -333,7 +387,7 @@ export default function EventRegisterPage() {
           name: name.trim(),
           email: email.trim() || undefined,
           mobile: cleanMob,
-          institution: institution.trim(),
+          institution: finalUnit,
           couponCode: appliedCoupon?.code || couponInput.trim() || undefined,
           tierId: activeTier?.id,
           role: activeTier?.role,
@@ -541,23 +595,33 @@ export default function EventRegisterPage() {
   };
 
   const completeRegistration = async (paymentDetails: any) => {
+    const isInternal = event.eventType === "internal_staff";
+    const finalUnit = isInternal
+      ? (unit === "Other Unit / External Institution" ? customUnit.trim() : (unit || institution).trim())
+      : institution.trim();
+
     try {
       const res = await fetch(`${BASE_URL}/api/events/${event.slug}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          email,
-          mobile,
-          institution,
-          designation,
+          name: name.trim(),
+          email: email.trim(),
+          mobile: mobile.replace(/[^0-9]/g, "").slice(-10),
+          institution: finalUnit,
+          employeeId: isInternal ? employeeId.trim() : undefined,
+          unit: isInternal ? finalUnit : undefined,
+          address: isInternal ? address.trim() : undefined,
+          state: isInternal ? selectedState : undefined,
+          district: isInternal ? selectedDistrict : undefined,
+          designation: designation.trim() || undefined,
           medicalCouncilRegNumber: medicalCouncilRegNumber.trim() || undefined,
           documentUrl: documentUrl || undefined,
           documentType: documentUrl ? "medical_council_cert" : undefined,
           foodPreference,
-          tierId: activeTier.id,
-          role: activeTier.role,
-          delegateType: activeTier.role,
+          tierId: activeTier?.id || "internal-staff",
+          role: activeTier?.role || "internal_staff",
+          delegateType: activeTier?.role || "internal_staff",
           couponCode: appliedCoupon?.code || null,
           payment: paymentDetails,
         }),
@@ -634,6 +698,42 @@ export default function EventRegisterPage() {
     );
   }
 
+  // ─── Registration Closed Guard Screen ───────────────────────
+  if (event && event.registrationOpen === false) {
+    return (
+      <div className="relative min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans overflow-hidden">
+        <ThreeAmbientScene particleCount={60} className="z-0 opacity-80" />
+        <header className="border-b border-zinc-800/80 bg-[#09090B]/80 backdrop-blur-xl sticky top-0 z-40">
+          <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+            <Link href={`/events/${slug}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer">
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Event</span>
+            </Link>
+            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Registration Closed</span>
+          </div>
+        </header>
+        <main className="max-w-md mx-auto px-4 py-16 w-full flex-1 flex flex-col justify-center space-y-6 relative z-10">
+          <div className="p-8 rounded-3xl bg-[#141417] border border-[#2B2B32] shadow-2xl space-y-5 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+              <AlertCircle className="w-8 h-8" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-black text-white tracking-tight">Registration Closed</h2>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Registration for <strong>{event.title}</strong> is currently closed. You can view the full scientific schedule and sessions on the event agenda.
+              </p>
+            </div>
+            <Button asChild className="w-full rounded-full bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-sm shadow-md transition-all cursor-pointer">
+              <Link href={`/events/${slug}`}>
+                View Event Agenda →
+              </Link>
+            </Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // ─── Group Registration Confirmation Screen ──────────────────────────────
   if (groupRegisteredData) {
     return (
@@ -702,9 +802,126 @@ export default function EventRegisterPage() {
   }
 
   // ─── 3D Holographic Pass View (Post-Registration) ─────────────────────────
+  // ─── Post-Registration Screen (Holographic Pass or Pending Approval) ──────
   if (registeredData) {
     const participant = registeredData.participant;
-    const isApproved = participant?.approvalStatus === "approved";
+    const isPending = participant?.approvalStatus === "pending";
+
+    if (isPending) {
+      return (
+        <div className="relative min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
+          <ThreeAmbientScene particleCount={60} className="z-0 opacity-80" />
+
+          <header className="border-b border-zinc-800/80 bg-[#09090B]/80 backdrop-blur-xl sticky top-0 z-40">
+            <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
+              <Link href="/events" className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back to Events</span>
+              </Link>
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 animate-pulse" />
+                <span>Under Review</span>
+              </span>
+            </div>
+          </header>
+
+          <main className="max-w-lg mx-auto px-4 py-8 w-full flex-1 flex flex-col justify-center space-y-6 relative z-10">
+            <div className="p-6 sm:p-8 rounded-3xl bg-[#141417]/95 border border-amber-500/30 shadow-2xl space-y-5 text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto text-amber-400">
+                <Clock className="w-8 h-8 animate-pulse" />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>Internal Staff Registration Submitted</span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">Registration Under Review</h2>
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                  Your internal staff pass request for <strong>{event.title}</strong> has been received and submitted for coordinator verification.
+                </p>
+              </div>
+
+              {/* Delegate Summary Card */}
+              <div className="p-4 rounded-2xl bg-zinc-950/80 border border-zinc-800 text-left space-y-2.5 font-mono text-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-zinc-800/80">
+                  <span className="text-zinc-500">Reg. Number:</span>
+                  <span className="text-amber-300 font-bold">{participant?.registrationNumber}</span>
+                </div>
+                {participant?.employeeId && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Employee ID:</span>
+                    <span className="text-white font-bold">{participant.employeeId}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Delegate Name:</span>
+                  <span className="text-white">{participant?.name}</span>
+                </div>
+                {participant?.designation && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Designation:</span>
+                    <span className="text-zinc-300">{participant.designation}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Sankara Unit:</span>
+                  <span className="text-zinc-300 truncate max-w-[200px] text-right">{participant?.unit || participant?.institution}</span>
+                </div>
+                {(participant?.district || participant?.state) && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-zinc-500">Location:</span>
+                    <span className="text-zinc-300">{[participant.district, participant.state].filter(Boolean).join(", ")}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Official / Registered Email:</span>
+                  <span className="text-zinc-300 text-[11px]">{participant?.email}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-zinc-500">Mobile Contact:</span>
+                  <span className="text-zinc-300">{participant?.mobile}</span>
+                </div>
+              </div>
+
+              {/* Email Delivery Notice */}
+              <div className="p-3.5 rounded-2xl bg-indigo-950/30 border border-indigo-800/40 text-left flex items-start gap-3">
+                <QrCode className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+                <div className="space-y-1 text-xs">
+                  <p className="font-bold text-indigo-200">Entry QR Pass Sent via Email Upon Approval</p>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    Once the administrative committee validates your credentials, an official confirmation email containing your high-resolution <strong>Gate Entry QR Pass</strong> and event schedule will be sent directly to <strong className="text-zinc-200">{participant?.email}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <TactileButton
+                  variant="glass"
+                  size="md"
+                  onClick={handleDownloadIcs}
+                  className="flex-1"
+                  icon={<CalendarPlus className="w-4 h-4" />}
+                >
+                  Add to Calendar
+                </TactileButton>
+
+                <TactileButton
+                  variant="primary"
+                  size="md"
+                  onClick={() => {
+                    window.location.href = "/events";
+                  }}
+                  className="flex-1"
+                >
+                  Back to Events
+                </TactileButton>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
+    }
 
     return (
       <div className="relative min-h-screen bg-transparent text-zinc-100 flex flex-col font-sans selection:bg-zinc-800 selection:text-white overflow-hidden">
@@ -813,8 +1030,8 @@ export default function EventRegisterPage() {
           </div>
         </PerspectiveCard>
 
-        {/* ── Mode Switcher: Single vs Group Registration ── */}
-        {event.groupRegistrationEnabled !== false && (
+        {/* ── Mode Switcher: Single vs Group Registration (Disabled for internal conclaves) ── */}
+        {event.eventType !== "internal_staff" && event.groupRegistrationEnabled !== false && (
           <div className="grid grid-cols-2 gap-2 bg-[#141417] p-1.5 rounded-2xl border border-zinc-800">
             <button
               type="button"
@@ -841,8 +1058,278 @@ export default function EventRegisterPage() {
           </div>
         )}
 
-        {/* ── GROUP REGISTRATION FORM ── */}
-        {regMode === "group" ? (
+        {/* ── INTERNAL STAFF REGISTRATION FORM ── */}
+        {event.eventType === "internal_staff" ? (
+          <PerspectiveCard depth={8} className="bg-[#141417]/90 border border-[#2B2B32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                <Building2 className="w-3 h-3" />
+                <span>Internal Staff Pass</span>
+              </div>
+              <h2 className="text-xl font-black text-white tracking-tight">Staff Conclave Registration</h2>
+              <p className="text-xs text-zinc-400">Please provide your employee details, Sankara hospital unit, and address for coordinator verification.</p>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Full Name *</Label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Input
+                    required
+                    placeholder="e.g. Dr. Rajesh Kumar / Ms. Ananya Sharma"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                  />
+                </div>
+              </div>
+
+              {/* Employee ID and Designation */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Employee ID *</Label>
+                  <div className="relative">
+                    <IdCard className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      placeholder="e.g. SEH-10492"
+                      value={employeeId}
+                      onChange={(e) => setEmployeeId(e.target.value)}
+                      className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm font-mono focus-visible:ring-1 focus-visible:ring-zinc-600"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Designation *</Label>
+                  <div className="relative">
+                    <Briefcase className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      placeholder="e.g. Senior Consultant / Optometrist / Staff Nurse"
+                      value={designation}
+                      onChange={(e) => setDesignation(e.target.value)}
+                      className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sankara Hospital Unit Details */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Sankara Hospital Unit / Location *</Label>
+                <Select value={unit} onValueChange={setUnit}>
+                  <SelectTrigger className="h-11 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs sm:text-sm">
+                    <SelectValue placeholder="Select Sankara Hospital Unit" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-64">
+                    {SANKARA_UNITS.map((u) => (
+                      <SelectItem key={u} value={u} className="text-xs focus:bg-zinc-800 focus:text-white">
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {unit === "Other Unit / External Institution" && (
+                  <Input
+                    required
+                    placeholder="Enter Institution / Unit Name *"
+                    value={customUnit}
+                    onChange={(e) => setCustomUnit(e.target.value)}
+                    className="h-10 mt-2 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs"
+                  />
+                )}
+              </div>
+
+              {/* Address */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-zinc-300">Address *</Label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-zinc-500 absolute left-3.5 top-3" />
+                  <Textarea
+                    required
+                    placeholder="Enter your residential address or department/hospital branch location"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    rows={2}
+                    className="pl-9.5 min-h-[64px] bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* State and District Dropdowns (Cascading) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">State *</Label>
+                  <Select
+                    value={selectedState}
+                    onValueChange={(val) => {
+                      setSelectedState(val);
+                      const dists = getDistrictsForState(val);
+                      if (dists.length > 0) setSelectedDistrict(dists[0]);
+                    }}
+                  >
+                    <SelectTrigger className="h-11 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs sm:text-sm">
+                      <SelectValue placeholder="Select State" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-64">
+                      {Object.keys(INDIA_STATES_DISTRICTS).map((st) => (
+                        <SelectItem key={st} value={st} className="text-xs focus:bg-zinc-800 focus:text-white">
+                          {st}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">District *</Label>
+                  <Select value={selectedDistrict} onValueChange={setSelectedDistrict}>
+                    <SelectTrigger className="h-11 bg-zinc-950 border-zinc-800 text-white rounded-xl text-xs sm:text-sm">
+                      <SelectValue placeholder="Select District" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-900 border-zinc-800 text-white max-h-64">
+                      {getDistrictsForState(selectedState).map((dist) => (
+                        <SelectItem key={dist} value={dist} className="text-xs focus:bg-zinc-800 focus:text-white">
+                          {dist}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Mobile and Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-zinc-300">Mobile Number (10-Digits) *</Label>
+                    {mobile && mobile.length === 10 && (
+                      <span className="text-[10px] text-emerald-400 font-mono font-bold">✓ 10 Digits</span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      type="tel"
+                      maxLength={10}
+                      autoComplete="off"
+                      placeholder="9876543210"
+                      value={mobile}
+                      onChange={(e) => {
+                        setMobile(e.target.value.replace(/[^0-9]/g, "").slice(0, 10));
+                        setMobileWarning(null);
+                        setValidationError(null);
+                      }}
+                      onBlur={() => {
+                        if (mobile) checkMobileAvailability(mobile);
+                      }}
+                      className={`pl-9.5 h-11 bg-zinc-950 border text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 font-mono transition-colors ${
+                        mobileWarning
+                          ? "border-rose-500/80 focus-visible:ring-rose-500"
+                          : "border-zinc-800 focus-visible:ring-zinc-600"
+                      }`}
+                    />
+                    {checkingMobile && (
+                      <Loader2 className="w-3.5 h-3.5 text-zinc-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+                  {mobileWarning && (
+                    <p className="text-[11px] text-rose-400 font-medium flex items-center gap-1 pt-0.5 animate-in fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{mobileWarning}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-zinc-300">Email Address *</Label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Input
+                      required
+                      type="email"
+                      autoComplete="off"
+                      placeholder="name@sankaraeye.in or gmail.com"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setValidationError(null);
+                      }}
+                      className="pl-9.5 h-11 bg-zinc-950 border-zinc-800 text-white placeholder:text-zinc-500 rounded-xl text-xs sm:text-sm focus-visible:ring-1 focus-visible:ring-zinc-600"
+                    />
+                  </div>
+                  {email && (email.toLowerCase().endsWith("@sankaraeye.in") || email.toLowerCase().endsWith("@sankaraeye.com")) ? (
+                    <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-1 pt-0.5">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Official Sankara Institutional Email</span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-zinc-500 pt-0.5">
+                      Sankara email preferred; personal email is also accepted.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Culinary note */}
+              {event.enableFood && (
+                <div className="pt-1">
+                  <div className="p-3.5 rounded-2xl bg-[#0F1410] border border-emerald-900/40 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+                        <span className="text-xs font-bold text-emerald-300">
+                          Culinary Philosophy: Pure Vegetarian
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 uppercase">
+                        Included
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      All meals and refreshments provided during the conclave are strictly pure vegetarian.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {validationError && (
+                <div className="p-3.5 rounded-2xl bg-rose-950/60 border border-rose-800/80 text-xs text-rose-300 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Registration Issue</span>
+                  </div>
+                  <p className="leading-relaxed">{validationError}</p>
+                </div>
+              )}
+
+              <div className="space-y-2 pt-1">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full h-12 text-sm font-bold shadow-xl rounded-full bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer"
+                >
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Submitting Pass for Approval...</span>
+                    </span>
+                  ) : (
+                    <span>Submit Internal Staff Pass for Approval →</span>
+                  )}
+                </Button>
+                <p className="text-[11px] text-zinc-500 text-center">
+                  Upon coordinator review &amp; approval, your official entry pass with gate QR code will be emailed immediately.
+                </p>
+              </div>
+            </form>
+          </PerspectiveCard>
+        ) : regMode === "group" ? (
           <PerspectiveCard depth={8} className="bg-[#141417]/90 border border-[#2B2B32] rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
             <div>
               <h2 className="text-xl font-black text-white tracking-tight">Institutional / Group Booking</h2>

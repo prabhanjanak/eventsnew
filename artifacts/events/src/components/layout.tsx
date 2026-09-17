@@ -82,8 +82,7 @@ export function AppLayout({ children }: LayoutProps) {
             { label: "Agenda & PDF Editor", href: `/admin/event-sessions?eventId=${eid}`, icon: CalendarDays },
             { label: "Google Sheets Sync", href: `/admin/sync-sessions?eventId=${eid}`, icon: RefreshCw },
             { label: "WhatsApp Broadcast", href: `/admin/whatsapp?eventId=${eid}`, icon: MessageSquare },
-            { label: "AI Escalations & KB", href: `/admin/unresolved-queries`, icon: HelpCircle },
-            { label: "AI Chatbot Logs", href: `/admin/chat-logs`, icon: Bot }
+            { label: "AI Escalations & KB", href: `/admin/unresolved-queries`, icon: HelpCircle }
           );
 
           return items;
@@ -96,7 +95,6 @@ export function AppLayout({ children }: LayoutProps) {
           { label: "Staff Active Sessions", href: "/admin/sessions", icon: Shield },
           { label: "Traffic Telemetry", href: "/admin/traffic", icon: BarChart2 },
           { label: "AI Escalations & KB", href: "/admin/unresolved-queries", icon: HelpCircle },
-          { label: "AI Chatbot Logs", href: "/admin/chat-logs", icon: MessageSquare },
           { label: "Audit & System Logs", href: "/admin/logs", icon: ClipboardList },
           { label: "Global Settings", href: "/admin/settings", icon: Settings },
         ];

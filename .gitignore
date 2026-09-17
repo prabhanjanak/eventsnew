@@ -106,3 +106,6 @@ logs/
 
 # OS / sync metadata
 .OneDrive/
+promote-admin.js
+test.html
+create_sefi_project.sh

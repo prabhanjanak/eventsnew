@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import QRCode from "qrcode";
 import { db, submissionSettingsTable, participantsTable, systemUsersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import path from "path";
@@ -151,7 +152,8 @@ export async function sendEmail(
   subject: string,
   html: string,
   mirrorToWhatsapp = true,
-  cc?: string | string[]
+  cc?: string | string[],
+  extraAttachments?: any[]
 ): Promise<{ success: boolean; error?: string }> {
   const isOtp = subject.toLowerCase().includes("verification") ||
     subject.toLowerCase().includes("otp") ||
@@ -216,7 +218,7 @@ export async function sendEmail(
         ...(cc ? { cc } : {}),
         subject,
         html: finalHtml,
-        attachments,
+        attachments: [...attachments, ...(extraAttachments || [])],
       });
 
       console.log(`[MAILER] Email sent to ${to}${cc ? ` (CC: ${Array.isArray(cc) ? cc.join(", ") : cc})` : ""} — "${subject}"`);
@@ -1105,6 +1107,233 @@ export async function sendRegistrationConfirmationEmail(params: {
 </html>`;
 
   const res = await sendEmail(toEmail, subject, html, true);
+  return res.success;
+}
+
+/**
+ * Send official entry pass with embedded QR code via SMTP upon admin approval
+ */
+export async function sendAttendeeApprovedQrEmail(params: {
+  toEmail: string;
+  participantName: string;
+  registrationNumber: string;
+  qrToken?: string | null;
+  employeeId?: string | null;
+  designation?: string | null;
+  unit?: string | null;
+  institution?: string | null;
+  address?: string | null;
+  state?: string | null;
+  district?: string | null;
+  eventTitle: string;
+  eventSlug?: string | null;
+  startDate: string;
+  endDate: string;
+  venue: string;
+  city: string;
+  timeFrom?: string | null;
+  timeTo?: string | null;
+  appBaseUrl?: string;
+}): Promise<boolean> {
+  const {
+    toEmail,
+    participantName,
+    registrationNumber,
+    qrToken,
+    employeeId,
+    designation,
+    unit,
+    institution,
+    eventTitle,
+    eventSlug,
+    startDate,
+    endDate,
+    venue,
+    city,
+    timeFrom,
+    timeTo,
+    appBaseUrl,
+  } = params;
+
+  const subject = `🎟️ Verified Entry Pass & QR Code: ${eventTitle} — ${registrationNumber}`;
+  const timings = timeFrom && timeTo ? `${timeFrom} – ${timeTo}` : "09:00 AM – 05:00 PM";
+  const dates = startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+  const displayUnit = unit || institution || "Sankara Eye Hospital";
+
+  const baseUrl = appBaseUrl || process.env.APP_BASE_URL || "http://10.150.139.170:3000";
+  const passUrl = qrToken ? `${baseUrl}/q/${qrToken}` : `${baseUrl}/events/${eventSlug || "sanqualp-bangalore"}`;
+
+  // Generate high-resolution QR code PNG buffer
+  const qrData = qrToken ? `${baseUrl}/q/${qrToken}` : registrationNumber;
+  let qrBuffer: Buffer;
+  try {
+    qrBuffer = await QRCode.toBuffer(qrData, {
+      type: "png",
+      width: 440,
+      margin: 2,
+      color: {
+        dark: "#0F172A",
+        light: "#FFFFFF",
+      },
+    });
+  } catch (qrErr) {
+    console.error("[MAILER] Error generating QR code buffer:", qrErr);
+    qrBuffer = Buffer.from("");
+  }
+
+  const attachments: any[] = [];
+  if (qrBuffer.length > 0) {
+    attachments.push({
+      filename: `pass-${registrationNumber}.png`,
+      content: qrBuffer,
+      cid: "attendee-qr-pass",
+      contentType: "image/png",
+    });
+  }
+
+  const startIso = startDate.replace(/-/g, "");
+  const endIso = (endDate || startDate).replace(/-/g, "");
+  const titleEnc = encodeURIComponent(eventTitle);
+  const detailsEnc = encodeURIComponent(`Pass ID: ${registrationNumber}\nDelegate: ${participantName}\nEmp ID: ${employeeId || "N/A"}\nUnit: ${displayUnit}\nVenue: ${venue}, ${city}\nOrganized by Sankara Eye Foundation`);
+  const locEnc = encodeURIComponent(`${venue}, ${city}`);
+  
+  const googleCalLink = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${titleEnc}&dates=${startIso}T033000Z/${endIso}T123000Z&details=${detailsEnc}&location=${locEnc}`;
+  const outlookCalLink = `https://outlook.office.com/calendar/0/deeplink/compose?subject=${titleEnc}&startdt=${startDate}T09:00:00&enddt=${endDate || startDate}T18:00:00&body=${detailsEnc}&location=${locEnc}`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin:0;padding:0;background:#09090b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#ffffff;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;background:#09090b;">
+    <tr><td align="center">
+      <table width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#141417;border-radius:24px;border:1px solid #2B2B33;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.7);">
+        
+        <!-- Header Banner -->
+        <tr>
+          <td style="background:#18181D;padding:32px 32px 24px;border-bottom:1px solid #282830;text-align:center;">
+            <div style="display:inline-block;padding:6px 14px;background:#10B98120;border-radius:30px;border:1px solid #10B98150;margin-bottom:12px;">
+              <span style="font-size:11px;font-weight:800;letter-spacing:1px;color:#34D399;text-transform:uppercase;">✓ Registration Verified &amp; Approved</span>
+            </div>
+            <h1 style="color:#ffffff;margin:0 0 6px;font-size:22px;font-weight:900;letter-spacing:-0.5px;">${eventTitle}</h1>
+            <p style="color:#A1A1AA;margin:0;font-size:13px;font-weight:600;">Sankara Eye Care Institutions (SEFI)</p>
+          </td>
+        </tr>
+
+        <!-- Main Body -->
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 16px;font-size:16px;color:#FFFFFF;line-height:1.5;">
+              Dear <strong>${participantName}</strong>,
+            </p>
+            <p style="margin:0 0 24px;font-size:14px;color:#A1A1AA;line-height:1.6;">
+              We are delighted to confirm that your internal staff registration has been <strong>verified and approved</strong> by the organizing committee. Your official event admission pass and unique gate check-in QR code have been issued below.
+            </p>
+
+            <!-- QR PASS HERO CARD -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#1B1B22;border:2px solid #3B82F640;border-radius:20px;margin:0 0 28px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,0.4);">
+              <tr>
+                <td style="padding:24px;text-align:center;background:#0F172A;border-bottom:1px solid #2B2B38;">
+                  <span style="display:block;font-size:11px;font-weight:700;color:#94A3B8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;">Official Delegate QR Code</span>
+                  ${qrBuffer.length > 0 ? `
+                  <div style="display:inline-block;padding:12px;background:#ffffff;border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,0.5);line-height:0;">
+                    <img src="cid:attendee-qr-pass" width="200" height="200" style="display:block;width:200px;height:200px;border-radius:8px;" alt="Admission QR Pass" />
+                  </div>
+                  ` : `
+                  <div style="font-family:monospace;font-size:24px;color:#60A5FA;padding:20px;">${registrationNumber}</div>
+                  `}
+                  <div style="margin-top:14px;">
+                    <span style="font-size:12px;font-weight:600;color:#94A3B8;display:block;">Pass / Registration Number:</span>
+                    <span style="font-size:20px;font-weight:900;color:#38BDF8;font-family:monospace;letter-spacing:1.5px;">${registrationNumber}</span>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Attendee & Event Metadata -->
+              <tr>
+                <td style="padding:24px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    ${employeeId ? `
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;width:38%;">🆔 Employee ID:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:700;color:#FFFFFF;font-family:monospace;">${employeeId}</td>
+                    </tr>
+                    ` : ""}
+                    ${designation ? `
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">💼 Designation:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#E4E4E7;">${designation}</td>
+                    </tr>
+                    ` : ""}
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">🏥 Unit / Hospital:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#38BDF8;">${displayUnit}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">📅 Event Dates:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:700;color:#FFFFFF;">${dates}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">⏰ Daily Timings:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#E4E4E7;">${timings} IST</td>
+                    </tr>
+                    <tr>
+                      <td style="padding-bottom:10px;font-size:13px;color:#A1A1AA;">📍 Venue:</td>
+                      <td style="padding-bottom:10px;font-size:13px;font-weight:600;color:#E4E4E7;">${venue}, ${city}</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size:13px;color:#A1A1AA;">🎫 Pass Status:</td>
+                      <td style="font-size:13px;font-weight:800;color:#34D399;">Authorized &amp; Active</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Digital Pass CTA -->
+            <div style="text-align:center;padding:8px 0 24px;">
+              <a href="${passUrl}" target="_blank" style="display:inline-block;padding:14px 32px;background:#3B82F6;color:#ffffff;font-size:14px;font-weight:800;text-decoration:none;border-radius:14px;box-shadow:0 8px 20px rgba(59,130,246,0.4);margin-bottom:16px;">
+                🎟️ Open Digital Holographic Pass →
+              </a>
+              <div style="font-size:12px;color:#71717A;line-height:1.5;margin-top:6px;">
+                Keep this email handy or save your pass on your smartphone. Scanning this QR code will instantly mark your attendance and issue your conclave kit.
+              </div>
+            </div>
+
+            <!-- Calendar Add -->
+            <div style="background:#18181D;border:1px solid #282830;border-radius:14px;padding:16px;text-align:center;margin-bottom:24px;">
+              <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:#A1A1AA;text-transform:uppercase;letter-spacing:0.5px;">Add to your schedule:</p>
+              <a href="${googleCalLink}" target="_blank" style="display:inline-block;padding:8px 16px;margin:0 4px 6px;background:#ffffff;color:#09090B;font-size:12px;font-weight:700;text-decoration:none;border-radius:8px;">
+                📅 Google Calendar
+              </a>
+              <a href="${outlookCalLink}" target="_blank" style="display:inline-block;padding:8px 16px;margin:0 4px 6px;background:#27272D;color:#ffffff;border:1px solid #3E3E48;font-size:12px;font-weight:700;text-decoration:none;border-radius:8px;">
+                💼 Outlook / Teams
+              </a>
+            </div>
+
+            <p style="margin:0;font-size:12px;color:#71717A;line-height:1.5;">
+              If you have any questions regarding your travel or conclave schedule, please contact your unit quality coordinator or the secretariat at <strong>quality@sankaraeye.in</strong>.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#111114;border-top:1px solid #24242A;padding:20px 32px;text-align:center;">
+            <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#A1A1AA;">Sankara Eye Foundation India</p>
+            <p style="margin:0;font-size:11px;color:#52525B;">Total Quality Management (TQM) Conclave Secretariat · © ${new Date().getFullYear()}</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  const res = await sendEmail(toEmail, subject, html, true, undefined, attachments);
   return res.success;
 }
 

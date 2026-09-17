@@ -258,67 +258,72 @@ router.post("/food/scan", requireAuth(["admin", "food_coordinator"]), async (req
 
 // GET /food/logs
 router.get("/food/logs", requireAuth(["admin", "super_admin", "food_coordinator", "coordinator_view_only"]), async (req, res): Promise<void> => {
-  const parsed = ListFoodLogsQueryParams.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const { foodSessionId, search } = parsed.data;
-  const conditions = [];
+  try {
+    const parsed = ListFoodLogsQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const { foodSessionId, search } = parsed.data;
+    const conditions = [];
 
-  const eventIdParam = req.query.eventId ? Number(req.query.eventId) : null;
-  if (eventIdParam && !isNaN(eventIdParam)) {
-    conditions.push(or(eq(foodLogsTable.eventId, eventIdParam), eq(foodSessionsTable.eventId, eventIdParam), eq(participantsTable.eventId, eventIdParam)));
-  }
+    const eventIdParam = req.query.eventId ? Number(req.query.eventId) : null;
+    if (eventIdParam && !isNaN(eventIdParam)) {
+      conditions.push(or(eq(foodLogsTable.eventId, eventIdParam), eq(foodSessionsTable.eventId, eventIdParam), eq(participantsTable.eventId, eventIdParam)));
+    }
 
-  if (foodSessionId) {
-    conditions.push(eq(foodLogsTable.foodSessionId, foodSessionId));
-  }
-  if (search) {
-    conditions.push(
-      or(
-        ilike(participantsTable.name, `%${search}%`),
-        ilike(participantsTable.registrationNumber, `%${search}%`)
-      )
+    if (foodSessionId) {
+      conditions.push(eq(foodLogsTable.foodSessionId, foodSessionId));
+    }
+    if (search) {
+      conditions.push(
+        or(
+          ilike(participantsTable.name, `%${search}%`),
+          ilike(participantsTable.registrationNumber, `%${search}%`)
+        )
+      );
+    }
+
+    let query = db
+      .select({
+        id: foodLogsTable.id,
+        participantId: foodLogsTable.participantId,
+        participantName: participantsTable.name,
+        registrationNumber: participantsTable.registrationNumber,
+        foodSessionId: foodLogsTable.foodSessionId,
+        foodSessionName: foodSessionsTable.name,
+        coordinatorName: systemUsersTable.name,
+        collectedAt: foodLogsTable.collectedAt,
+      })
+      .from(foodLogsTable)
+      .innerJoin(participantsTable, eq(foodLogsTable.participantId, participantsTable.id))
+      .innerJoin(foodSessionsTable, eq(foodLogsTable.foodSessionId, foodSessionsTable.id))
+      .leftJoin(systemUsersTable, eq(foodLogsTable.coordinatorId, systemUsersTable.id))
+      .orderBy(foodLogsTable.collectedAt)
+      .$dynamic();
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const result = await query;
+
+    res.json(
+      result.map((l) => ({
+        id: l.id,
+        participantId: l.participantId,
+        participantName: l.participantName,
+        registrationNumber: l.registrationNumber,
+        foodSessionId: l.foodSessionId,
+        foodSessionName: l.foodSessionName,
+        coordinatorName: l.coordinatorName,
+        collectedAt: l.collectedAt ? (l.collectedAt instanceof Date ? l.collectedAt.toISOString() : new Date(l.collectedAt).toISOString()) : new Date().toISOString(),
+      }))
     );
+  } catch (err: any) {
+    console.error("[food/logs] Error:", err);
+    res.status(500).json({ error: err.message || "Failed to fetch food logs" });
   }
-
-  let query = db
-    .select({
-      id: foodLogsTable.id,
-      participantId: foodLogsTable.participantId,
-      participantName: participantsTable.name,
-      registrationNumber: participantsTable.registrationNumber,
-      foodSessionId: foodLogsTable.foodSessionId,
-      foodSessionName: foodSessionsTable.name,
-      coordinatorName: systemUsersTable.name,
-      collectedAt: foodLogsTable.collectedAt,
-    })
-    .from(foodLogsTable)
-    .innerJoin(participantsTable, eq(foodLogsTable.participantId, participantsTable.id))
-    .innerJoin(foodSessionsTable, eq(foodLogsTable.foodSessionId, foodSessionsTable.id))
-    .leftJoin(systemUsersTable, eq(foodLogsTable.coordinatorId, systemUsersTable.id))
-    .orderBy(foodLogsTable.collectedAt)
-    .$dynamic();
-
-  if (conditions.length > 0) {
-    query = query.where(and(...conditions));
-  }
-
-  const result = await query;
-
-  res.json(
-    result.map((l) => ({
-      id: l.id,
-      participantId: l.participantId,
-      participantName: l.participantName,
-      registrationNumber: l.registrationNumber,
-      foodSessionId: l.foodSessionId,
-      foodSessionName: l.foodSessionName,
-      coordinatorName: l.coordinatorName,
-      collectedAt: l.collectedAt.toISOString(),
-    }))
-  );
 });
 
 // GET /food/export

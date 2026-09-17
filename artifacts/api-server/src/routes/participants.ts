@@ -21,7 +21,7 @@ import QRCode from "qrcode";
 import { getClientBaseUrl } from "../lib/ip-helper";
 import { ZipArchive } from "archiver";
 import { getGoogleAuthClient, getSpreadsheetRows, updateSpreadsheetParticipant } from "../lib/googleSheets";
-import { sendRegistrationConfirmationEmail } from "../lib/mailer";
+import { sendRegistrationConfirmationEmail, sendAttendeeApprovedQrEmail } from "../lib/mailer";
 import crypto from "crypto";
 
 const router = Router();
@@ -125,12 +125,12 @@ router.post("/events/:slugOrId/validate-registration", async (req, res): Promise
       return;
     }
 
-    // Internal Staff Event Access Gate (@sankaraeye.com required)
+    // Internal Staff Event Access Check (valid email required)
     if (event.eventType === "internal_staff") {
-      if (!cleanEmail || (!cleanEmail.endsWith("@sankaraeye.com") && !cleanEmail.endsWith("@sankaraeye.in"))) {
-        res.status(403).json({
+      if (!cleanEmail) {
+        res.status(400).json({
           valid: false,
-          error: "This internal event is restricted strictly to Sankara staff. Please use your official @sankaraeye.com email address.",
+          error: "Email address is required for internal staff registration.",
           field: "email",
         });
         return;
@@ -208,6 +208,10 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
       mobile,
       institution,
       designation,
+      employeeId,
+      unit,
+      state,
+      district,
       address,
       age,
       gender,
@@ -218,8 +222,17 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
       role,
       delegateType,
     } = req.body;
-    if (!name || !institution) {
-      res.status(400).json({ error: "Name and Institution are required" });
+
+    const isInternal = event.eventType === "internal_staff";
+    const effectiveInstitution = institution?.trim() || unit?.trim() || (isInternal ? "Sankara Eye Hospital" : "");
+
+    if (!name || !name.trim()) {
+      res.status(400).json({ error: "Full Name is required" });
+      return;
+    }
+
+    if (!effectiveInstitution) {
+      res.status(400).json({ error: "Institution / Unit details are required" });
       return;
     }
 
@@ -232,12 +245,18 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
       return;
     }
 
-    // Internal Staff Event Access Gate (@sankaraeye.com required)
-    if (event.eventType === "internal_staff") {
-      if (!cleanEmail || (!cleanEmail.endsWith("@sankaraeye.com") && !cleanEmail.endsWith("@sankaraeye.in"))) {
-        res.status(403).json({
-          error: "This internal event is restricted strictly to Sankara staff. Please register using your official @sankaraeye.com email address.",
-        });
+    // For internal staff events: employeeId, designation, and valid email are mandatory
+    if (isInternal) {
+      if (!employeeId || !employeeId.trim()) {
+        res.status(400).json({ error: "Employee ID is required for internal staff registration." });
+        return;
+      }
+      if (!designation || !designation.trim()) {
+        res.status(400).json({ error: "Designation is required for internal staff registration." });
+        return;
+      }
+      if (!cleanEmail) {
+        res.status(400).json({ error: "Email address is required to receive your entry pass & QR code." });
         return;
       }
     }
@@ -324,9 +343,10 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
     }
 
     const regNumber = await generateEventRegNumber(event.id, event.slug);
-    const requiresPayment = event.isPaid && finalAmount > 0 && !payment?.paymentId;
-    const isFullyPaid = (!event.isPaid) || finalAmount === 0 || Boolean(payment?.paymentId);
-    const initialApproval = event.requiresApproval ? "pending" : (requiresPayment ? "pending" : "approved");
+    const requiresPayment = !isInternal && event.isPaid && finalAmount > 0 && !payment?.paymentId;
+    const isFullyPaid = isInternal || (!event.isPaid) || finalAmount === 0 || Boolean(payment?.paymentId);
+    const initialApproval = (event.requiresApproval || isInternal) ? "pending" : (requiresPayment ? "pending" : "approved");
+    const qrToken = generateParticipantQrToken(regNumber);
 
     const resolvedRole = matchedTier?.role || delegateType || "delegate";
 
@@ -335,12 +355,17 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
       .values({
         eventId: event.id,
         registrationNumber: regNumber,
+        qrToken,
         name: name.trim(),
         cleanName: getCleanName(name),
         email: cleanEmail,
         mobile: cleanMob,
-        institution: institution.trim(),
+        institution: effectiveInstitution,
         designation: designation ? designation.trim() : null,
+        employeeId: employeeId ? employeeId.trim() : null,
+        unit: unit ? unit.trim() : effectiveInstitution,
+        state: state ? state.trim() : null,
+        district: district ? district.trim() : null,
         address: address ? address.trim() : null,
         age: age ? String(age).trim() : null,
         gender: gender || null,
@@ -353,7 +378,7 @@ router.post("/events/:slugOrId/register", async (req, res): Promise<void> => {
         categoryTierName: matchedTier?.name || resolvedRole,
         isPaid: isFullyPaid,
         paymentStatus: isFullyPaid ? (finalAmount === 0 ? "waived" : "paid") : "unpaid",
-        paymentAmount: finalAmount,
+        paymentAmount: isInternal ? 0 : finalAmount,
         paymentId: payment?.paymentId || null,
         orderId: payment?.orderId || null,
         isSponsored: isSponsoredTicket,
@@ -443,6 +468,8 @@ router.post(
       }
 
       const user = req.user!;
+      const effectiveQrToken = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
+
       const [updated] = await db
         .update(participantsTable)
         .set({
@@ -450,13 +477,129 @@ router.post(
           approvedAt: new Date(),
           approvedBy: user.id,
           rejectionReason: null,
+          qrToken: effectiveQrToken,
         })
         .where(eq(participantsTable.id, id))
         .returning();
 
-      res.json({ success: true, message: "Participant approved", participant: updated });
+      // Fetch event details
+      let event = null;
+      if (updated.eventId) {
+        [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, updated.eventId));
+      }
+
+      // Send approval confirmation email with QR code via SMTP
+      let emailSent = false;
+      if (updated.email) {
+        try {
+          const appBaseUrl = `${req.protocol}://${req.get("host")}`;
+          emailSent = await sendAttendeeApprovedQrEmail({
+            toEmail: updated.email,
+            participantName: updated.name,
+            registrationNumber: updated.registrationNumber,
+            qrToken: effectiveQrToken,
+            employeeId: updated.employeeId,
+            designation: updated.designation,
+            unit: updated.unit,
+            institution: updated.institution,
+            address: updated.address,
+            state: updated.state,
+            district: updated.district,
+            eventTitle: event?.title || "Sankara Event",
+            eventSlug: event?.slug,
+            startDate: event?.startDate || new Date().toISOString().split("T")[0],
+            endDate: event?.endDate || event?.startDate || new Date().toISOString().split("T")[0],
+            venue: event?.venue || "Sankara Eye Hospital",
+            city: event?.city || "Bangalore",
+            timeFrom: event?.timeFrom,
+            timeTo: event?.timeTo,
+            appBaseUrl,
+          });
+        } catch (mailErr: any) {
+          console.warn("[MAILER] Error sending approval email with QR code:", mailErr.message);
+        }
+      }
+
+      res.json({
+        success: true,
+        message: emailSent
+          ? `Participant approved and entry QR pass sent to ${updated.email}`
+          : "Participant approved successfully",
+        emailSent,
+        participant: buildParticipantResponse(updated),
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message || "Failed to approve participant" });
+    }
+  }
+);
+
+// POST /participants/:id/send-qr — Re-send entry QR pass and registration confirmation email via SMTP
+router.post(
+  "/participants/:id/send-qr",
+  requireAuth(["admin", "super_admin", "event_coordinator"]),
+  async (req, res): Promise<void> => {
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ error: "Invalid participant ID" });
+        return;
+      }
+
+      const [participant] = await db.select().from(participantsTable).where(eq(participantsTable.id, id));
+      if (!participant) {
+        res.status(404).json({ error: "Participant not found" });
+        return;
+      }
+
+      if (!participant.email) {
+        res.status(400).json({ error: "Participant does not have an email address on file. Please edit delegate and add an email address first." });
+        return;
+      }
+
+      const effectiveQrToken = participant.qrToken || generateParticipantQrToken(participant.registrationNumber);
+      if (!participant.qrToken) {
+        await db.update(participantsTable).set({ qrToken: effectiveQrToken }).where(eq(participantsTable.id, id));
+      }
+
+      let event = null;
+      if (participant.eventId) {
+        [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, participant.eventId));
+      }
+
+      const appBaseUrl = `${req.protocol}://${req.get("host")}`;
+      const emailSent = await sendAttendeeApprovedQrEmail({
+        toEmail: participant.email,
+        participantName: participant.name,
+        registrationNumber: participant.registrationNumber,
+        qrToken: effectiveQrToken,
+        employeeId: participant.employeeId,
+        designation: participant.designation,
+        unit: participant.unit,
+        institution: participant.institution,
+        address: participant.address,
+        state: participant.state,
+        district: participant.district,
+        eventTitle: event?.title || "Sankara Event",
+        eventSlug: event?.slug,
+        startDate: event?.startDate || new Date().toISOString().split("T")[0],
+        endDate: event?.endDate || event?.startDate || new Date().toISOString().split("T")[0],
+        venue: event?.venue || "Sankara Eye Hospital",
+        city: event?.city || "Bangalore",
+        timeFrom: event?.timeFrom,
+        timeTo: event?.timeTo,
+        appBaseUrl,
+      });
+
+      res.json({
+        success: true,
+        emailSent,
+        message: emailSent
+          ? `Verified entry QR pass successfully delivered to ${participant.email}`
+          : `Email dispatch attempted to ${participant.email}. Please verify Zoho SMTP connection.`,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to send QR pass" });
     }
   }
 );
@@ -718,6 +861,12 @@ function buildParticipantResponse(p: any, roles?: any) {
     mobile: p.mobile || "",
     institution: p.institution,
     designation: p.designation,
+    employeeId: p.employeeId || null,
+    unit: p.unit || p.institution || "",
+    state: p.state || "",
+    district: p.district || "",
+    address: p.address || "",
+    qrToken: p.qrToken || null,
     createdAt: dateStr,
     hasPassword: !!p.passwordHash,
     isPaid: p.isPaid,
@@ -995,10 +1144,22 @@ router.post(
       return;
     }
 
+    const extraFields: any = {};
+    if (req.body.employeeId !== undefined) extraFields.employeeId = req.body.employeeId ? String(req.body.employeeId).trim() : null;
+    if (req.body.unit !== undefined) extraFields.unit = req.body.unit ? String(req.body.unit).trim() : null;
+    if (req.body.state !== undefined) extraFields.state = req.body.state ? String(req.body.state).trim() : null;
+    if (req.body.district !== undefined) extraFields.district = req.body.district ? String(req.body.district).trim() : null;
+    if (req.body.address !== undefined) extraFields.address = req.body.address ? String(req.body.address).trim() : null;
+    if (req.body.designation !== undefined) extraFields.designation = req.body.designation ? String(req.body.designation).trim() : null;
+
+    const qrToken = generateParticipantQrToken(regNum);
     const [participant] = await db
       .insert(participantsTable)
       .values({
         ...parsed.data,
+        ...extraFields,
+        eventId: eventId || null,
+        qrToken,
         registrationNumber: regNum,
         cleanName: getCleanName(parsed.data.name),
       })
@@ -1121,17 +1282,39 @@ function cleanMobileNumber(mobile: any): string | null {
 
 
 
+function normalizeKey(s: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function findRowValue(row: Record<string, any>, aliases: string[]): string {
   const keys = Object.keys(row);
+  const normalizedKeys = keys.map((k) => ({ raw: k, norm: normalizeKey(k) }));
+
+  // 1. Exact normalized match (ignoring spaces, slashes, hyphens, punctuation)
   for (const alias of aliases) {
-    const cleanAlias = alias.toLowerCase().replace(/[\s\r\n\t_]/g, "");
-    for (const key of keys) {
-      const cleanKey = key.toLowerCase().replace(/[\s\r\n\t_]/g, "");
-      if (cleanKey === cleanAlias) {
-        return String(row[key] ?? "").trim();
+    const normAlias = normalizeKey(alias);
+    for (const k of normalizedKeys) {
+      if (k.norm === normAlias && row[k.raw] !== undefined && String(row[k.raw]).trim() !== "") {
+        return String(row[k.raw]).trim();
       }
     }
   }
+
+  // 2. Substring match for composite headers (e.g. "Or Unit/ Organizartion" matching "unit" or "organization")
+  for (const alias of aliases) {
+    const normAlias = normalizeKey(alias);
+    if (normAlias.length < 3) continue;
+    for (const k of normalizedKeys) {
+      if (
+        (k.norm.includes(normAlias) || normAlias.includes(k.norm)) &&
+        row[k.raw] !== undefined &&
+        String(row[k.raw]).trim() !== ""
+      ) {
+        return String(row[k.raw]).trim();
+      }
+    }
+  }
+
   return "";
 }
 
@@ -2533,6 +2716,488 @@ router.get(
 );
 
 
+// GET /participants/template
+// Download clean Excel template with sample rows for bulk attendee upload
+router.get(
+  "/participants/template",
+  requireAuth(["admin", "super_admin", "event_coordinator", "coordinator_view_only"]),
+  async (req, res): Promise<void> => {
+    try {
+      const wb = xlsx.utils.book_new();
+      const headers = [
+        "Name",
+        "Mobile",
+        "Organization / Unit",
+        "Designation",
+        "Address",
+        "Email",
+        "Gender",
+        "Registration No (Optional)",
+        "Payment Status (Paid/Unpaid)",
+      ];
+      const sampleData = [
+        headers,
+        [
+          "Dr. Renu Wadhwa",
+          "9764001918",
+          "Sadhu Vaswani Mission Trust",
+          "CEO",
+          "Lane No.1, Vaswani Nagar, Koregaon Park, Pune, Maharashtra 411001",
+          "renu@sadhuvaswani.org",
+          "Female",
+          "",
+          "Paid",
+        ],
+        [
+          "Mr. Anil Mahto",
+          "9981042741",
+          "MGM Eye Institute",
+          "Head - Community Eye Care Programs",
+          "5th Mile, Vidhan Sabha Road, Raipur, Chhattisgarh",
+          "outreach@mgmeye.org",
+          "Male",
+          "",
+          "Paid",
+        ],
+      ];
+      const ws = xlsx.utils.aoa_to_sheet(sampleData);
+      ws["!cols"] = [
+        { wch: 25 },
+        { wch: 15 },
+        { wch: 30 },
+        { wch: 25 },
+        { wch: 45 },
+        { wch: 25 },
+        { wch: 10 },
+        { wch: 22 },
+        { wch: 15 },
+      ];
+      xlsx.utils.book_append_sheet(wb, ws, "Attendee Template");
+      const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", 'attachment; filename="attendee_import_template.xlsx"');
+      res.send(buf);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to generate template" });
+    }
+  }
+);
+
+// POST /participants/import-attendees
+// Upload an Excel (.xlsx, .xls) or CSV sheet of attendees/delegates
+router.post(
+  "/participants/import-attendees",
+  requireAuth(["admin", "super_admin", "event_coordinator"]),
+  upload.single("file"),
+  async (req, res): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded. Please upload an Excel (.xlsx, .xls) or CSV file." });
+      return;
+    }
+
+    try {
+      const targetEventId = req.body.eventId ? Number(req.body.eventId) : undefined;
+      const duplicateAction = (req.body.duplicateAction || "update").toLowerCase();
+      const defaultPayment = (req.body.defaultPayment || "auto").toLowerCase();
+      const defaultDelegateType = (req.body.defaultDelegateType || "delegate").toLowerCase();
+      const isDryRun = req.body.dryRun === "true" || req.query.dryRun === "true";
+
+      let eventSlug = "";
+      if (targetEventId && !isNaN(targetEventId)) {
+        const [evt] = await db
+          .select({ slug: eventsTable.slug })
+          .from(eventsTable)
+          .where(eq(eventsTable.id, targetEventId))
+          .limit(1);
+        if (evt?.slug) eventSlug = evt.slug;
+      }
+
+      const workbook = xlsx.read(req.file.buffer, { type: "buffer" });
+      const sheetName = workbook.SheetNames[0];
+      if (!sheetName) {
+        res.status(400).json({ error: "Excel file has no valid sheets." });
+        return;
+      }
+
+      const sheet = workbook.Sheets[sheetName];
+      const matrix = xlsx.utils.sheet_to_json<any[]>(sheet, { header: 1, defval: "" });
+
+      if (!matrix || matrix.length === 0) {
+        res.status(400).json({ error: "The uploaded sheet appears to be empty." });
+        return;
+      }
+
+      // Detect header row by scanning first 15 rows
+      let headerRowIndex = 0;
+      for (let i = 0; i < Math.min(15, matrix.length); i++) {
+        const row = matrix[i];
+        if (!Array.isArray(row)) continue;
+        const rowStr = row.map((cell) => String(cell || "").toLowerCase().trim()).join(" ");
+        if (
+          rowStr.includes("name") &&
+          (rowStr.includes("mobile") ||
+            rowStr.includes("phone") ||
+            rowStr.includes("contact") ||
+            rowStr.includes("org") ||
+            rowStr.includes("unit") ||
+            rowStr.includes("inst") ||
+            rowStr.includes("address") ||
+            rowStr.includes("adress") ||
+            rowStr.includes("designation") ||
+            rowStr.includes("reg") ||
+            rowStr.includes("s.no"))
+        ) {
+          headerRowIndex = i;
+          break;
+        }
+      }
+
+      const rawHeaders = matrix[headerRowIndex].map((c) => String(c || "").trim());
+      const dataRows = matrix.slice(headerRowIndex + 1);
+
+      // Identify mapped headers
+      const headerNamesLower = rawHeaders.map((h) => h.toLowerCase().replace(/[\s\r\n\t_]/g, ""));
+      const hasMapped = {
+        name: headerNamesLower.some((h) => h.includes("name")),
+        mobile: headerNamesLower.some((h) => h.includes("mobil") || h.includes("phone") || h.includes("contact")),
+        organization: headerNamesLower.some(
+          (h) => h.includes("org") || h.includes("unit") || h.includes("inst") || h.includes("hospital")
+        ),
+        designation: headerNamesLower.some((h) => h.includes("desig") || h.includes("title") || h.includes("role")),
+        address: headerNamesLower.some((h) => h.includes("address") || h.includes("adress") || h.includes("state") || h.includes("city")),
+        email: headerNamesLower.some((h) => h.includes("email") || h.includes("mail")),
+      };
+
+      // Extract rows into structured objects
+      const parsedRows: any[] = [];
+      for (let r = 0; r < dataRows.length; r++) {
+        const rowArr = dataRows[r];
+        if (!rowArr || rowArr.length === 0) continue;
+
+        const rowObj: Record<string, any> = {};
+        rawHeaders.forEach((h, colIdx) => {
+          if (h) rowObj[h] = rowArr[colIdx] ?? "";
+        });
+
+        const nameVal = findRowValue(rowObj, [
+          "name",
+          "full name",
+          "attendee name",
+          "delegate name",
+          "participant name",
+          "dr./mr./ms.",
+          "names",
+        ]);
+
+        if (!nameVal || !nameVal.trim()) continue;
+
+        const mobileRaw = findRowValue(rowObj, [
+          "mobile",
+          "mobile number",
+          "mobile numbe",
+          "mobile no",
+          "mobile no.",
+          "mobilenumber",
+          "phone",
+          "phone number",
+          "phone no",
+          "phoneno",
+          "phonenumber",
+          "contact",
+          "contact number",
+          "cell",
+          "whatsapp",
+        ]);
+        const mobileVal = cleanMobileNumber(mobileRaw);
+
+        const emailRaw = findRowValue(rowObj, [
+          "email",
+          "email id",
+          "emailid",
+          "email address",
+          "e-mail",
+          "mail",
+        ]).toLowerCase();
+        const emailVal = emailRaw && !["na", "n/a", "nil", "none", "-", "null"].includes(emailRaw) ? emailRaw : null;
+
+        const orgVal = findRowValue(rowObj, [
+          "organization / institution",
+          "organization/institution",
+          "institution / organization",
+          "unit / organization",
+          "unit/organization",
+          "org details",
+          "unit",
+          "organization",
+          "organizartion",
+          "organisation",
+          "org",
+          "institution",
+          "hospital name",
+          "hospital",
+          "company",
+          "institute",
+          "college",
+          "trust",
+        ]) || "Not Specified";
+
+        const designationVal = findRowValue(rowObj, [
+          "designation",
+          "job title",
+          "title",
+          "post",
+          "position",
+          "occupation",
+          "role",
+          "designation / title",
+        ]) || null;
+
+        const employeeIdVal = findRowValue(rowObj, [
+          "employee id",
+          "employee_id",
+          "emp id",
+          "empid",
+          "staff id",
+          "employee no",
+          "emp no",
+          "employee code",
+          "emp code",
+        ]) || null;
+
+        const unitVal = findRowValue(rowObj, [
+          "unit",
+          "hospital unit",
+          "sankara unit",
+          "unit details",
+          "branch",
+          "center",
+          "centre",
+          "unit / organization",
+          "unit/organization",
+          "org details",
+        ]) || (orgVal !== "Not Specified" ? orgVal : null);
+
+        const districtVal = findRowValue(rowObj, [
+          "district",
+          "dist",
+          "dist.",
+        ]) || null;
+
+        const stateDirectVal = findRowValue(rowObj, ["state", "province"]) || null;
+
+        let addressVal = findRowValue(rowObj, [
+          "address",
+          "adress",
+          "full address",
+          "communication address",
+          "residential address",
+          "location",
+          "place",
+          "city",
+        ]);
+        const stateVal = stateDirectVal;
+        if (stateVal && addressVal && !addressVal.toLowerCase().includes(stateVal.toLowerCase())) {
+          addressVal = `${addressVal}, ${stateVal}`;
+        } else if (!addressVal && stateVal) {
+          addressVal = stateVal;
+        }
+
+        const genderVal = findRowValue(rowObj, ["gender", "sex"]) || null;
+        const regNoProvided = findRowValue(rowObj, [
+          "reg no",
+          "reg. no.",
+          "reg no.",
+          "registration no",
+          "registration number",
+          "reg number",
+        ]);
+
+        const paymentVal = findRowValue(rowObj, [
+          "payment status",
+          "payment",
+          "paid",
+          "is paid",
+          "fee status",
+          "fees status",
+        ]).toLowerCase();
+        const utrVal = findRowValue(rowObj, ["utr", "utr number", "transaction id", "payment id"]);
+
+        let isPaid = false;
+        if (defaultPayment === "paid") {
+          isPaid = true;
+        } else if (defaultPayment === "unpaid") {
+          isPaid = false;
+        } else {
+          isPaid =
+            paymentVal.includes("paid") ||
+            paymentVal.includes("yes") ||
+            paymentVal.includes("done") ||
+            paymentVal.includes("success") ||
+            !!utrVal;
+        }
+
+        parsedRows.push({
+          name: nameVal.trim(),
+          mobile: mobileVal,
+          email: emailVal,
+          institution: orgVal.trim(),
+          designation: designationVal?.trim() || null,
+          employeeId: employeeIdVal?.trim() || null,
+          unit: unitVal?.trim() || null,
+          state: stateDirectVal?.trim() || null,
+          district: districtVal?.trim() || null,
+          address: addressVal?.trim() || null,
+          gender: genderVal?.trim() || null,
+          regNoProvided: regNoProvided?.trim() || null,
+          isPaid,
+          utrNumber: utrVal?.trim() || (isPaid ? "EXCEL-IMPORT" : null),
+        });
+      }
+
+      // If dryRun preview mode
+      if (isDryRun) {
+        const sampleRows = parsedRows.slice(0, 5);
+        res.json({
+          preview: true,
+          totalRows: parsedRows.length,
+          detectedHeaders: rawHeaders.filter(Boolean),
+          mappedFields: hasMapped,
+          sampleRows,
+        });
+        return;
+      }
+
+      // Actual Import Execution
+      let addedCount = 0;
+      let updatedCount = 0;
+      let skippedCount = 0;
+      const errors: string[] = [];
+
+      // Fetch existing participants for duplicate resolution
+      let existingQuery = db.select().from(participantsTable).$dynamic();
+      if (targetEventId && !isNaN(targetEventId)) {
+        existingQuery = existingQuery.where(eq(participantsTable.eventId, targetEventId));
+      }
+      const existingParticipants = await existingQuery;
+
+      const existingByMobile = new Map<string, typeof participantsTable.$inferSelect>();
+      const existingByEmail = new Map<string, typeof participantsTable.$inferSelect>();
+      const existingByRegNo = new Map<string, typeof participantsTable.$inferSelect>();
+
+      for (const p of existingParticipants) {
+        if (p.mobile) existingByMobile.set(p.mobile, p);
+        if (p.email) existingByEmail.set(p.email.toLowerCase(), p);
+        if (p.registrationNumber) existingByRegNo.set(p.registrationNumber.toUpperCase(), p);
+      }
+
+      for (const row of parsedRows) {
+        try {
+          // Check duplicate
+          let match: typeof participantsTable.$inferSelect | undefined;
+          if (row.regNoProvided && existingByRegNo.has(row.regNoProvided.toUpperCase())) {
+            match = existingByRegNo.get(row.regNoProvided.toUpperCase());
+          } else if (row.mobile && existingByMobile.has(row.mobile)) {
+            match = existingByMobile.get(row.mobile);
+          } else if (row.email && existingByEmail.has(row.email)) {
+            match = existingByEmail.get(row.email);
+          }
+
+          if (match) {
+            if (duplicateAction === "skip") {
+              skippedCount++;
+              continue;
+            }
+
+            // Update existing record
+            const updatePayload: Record<string, any> = {
+              name: row.name,
+              cleanName: getCleanName(row.name),
+              updatedAt: new Date(),
+            };
+            if (row.institution && row.institution !== "Not Specified") updatePayload.institution = row.institution;
+            if (row.designation) updatePayload.designation = row.designation;
+            if (row.employeeId) updatePayload.employeeId = row.employeeId;
+            if (row.unit) updatePayload.unit = row.unit;
+            if (row.state) updatePayload.state = row.state;
+            if (row.district) updatePayload.district = row.district;
+            if (row.address) updatePayload.address = row.address;
+            if (row.gender) updatePayload.gender = row.gender;
+            if (row.mobile && !match.mobile) updatePayload.mobile = row.mobile;
+            if (row.email && !match.email) updatePayload.email = row.email;
+            if (row.isPaid && !match.isPaid) {
+              updatePayload.isPaid = true;
+              updatePayload.paymentStatus = "paid";
+              if (row.utrNumber) updatePayload.utrNumber = row.utrNumber;
+            }
+
+            await db.update(participantsTable).set(updatePayload).where(eq(participantsTable.id, match.id));
+            updatedCount++;
+          } else {
+            // New participant insert
+            let regNum = row.regNoProvided;
+            if (!regNum || existingByRegNo.has(regNum.toUpperCase())) {
+              regNum = await generateEventRegNumber(targetEventId, eventSlug);
+            }
+            const qrToken = generateParticipantQrToken(regNum);
+
+            const [inserted] = await db
+              .insert(participantsTable)
+              .values({
+                eventId: targetEventId || null,
+                registrationNumber: regNum,
+                qrToken,
+                name: row.name,
+                cleanName: getCleanName(row.name),
+                mobile: row.mobile || null,
+                email: row.email || null,
+                institution: row.institution || "Not Specified",
+                designation: row.designation || null,
+                employeeId: row.employeeId || null,
+                unit: row.unit || null,
+                state: row.state || null,
+                district: row.district || null,
+                address: row.address || null,
+                gender: row.gender || null,
+                isPaid: row.isPaid,
+                paymentStatus: row.isPaid ? "paid" : "unpaid",
+                utrNumber: row.utrNumber || null,
+                delegateType: defaultDelegateType,
+                approvalStatus: "approved",
+              })
+              .returning();
+
+            // Cache in maps for within-file duplicate detection
+            if (inserted.mobile) existingByMobile.set(inserted.mobile, inserted);
+            if (inserted.email) existingByEmail.set(inserted.email.toLowerCase(), inserted);
+            if (inserted.registrationNumber) existingByRegNo.set(inserted.registrationNumber.toUpperCase(), inserted);
+
+            addedCount++;
+          }
+        } catch (rowErr: any) {
+          errors.push(`Row (${row.name}): ${rowErr.message}`);
+        }
+      }
+
+      await db.insert(activityLogsTable).values({
+        type: "registration",
+        message: `Excel Attendee Upload (${req.file.originalname}): ${addedCount} added, ${updatedCount} updated, ${skippedCount} skipped.`,
+      });
+
+      res.json({
+        success: true,
+        totalProcessed: parsedRows.length,
+        addedCount,
+        updatedCount,
+        skippedCount,
+        errors,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to process attendee Excel file" });
+    }
+  }
+);
+
 // GET /participants/export
 // Export all participants to Excel with QR code links (for ID card variable printing)
 router.get(
@@ -2962,10 +3627,19 @@ router.patch(
       return;
     }
 
+    const extraFields: any = {};
+    if (req.body.employeeId !== undefined) extraFields.employeeId = req.body.employeeId ? String(req.body.employeeId).trim() : null;
+    if (req.body.unit !== undefined) extraFields.unit = req.body.unit ? String(req.body.unit).trim() : null;
+    if (req.body.state !== undefined) extraFields.state = req.body.state ? String(req.body.state).trim() : null;
+    if (req.body.district !== undefined) extraFields.district = req.body.district ? String(req.body.district).trim() : null;
+    if (req.body.address !== undefined) extraFields.address = req.body.address ? String(req.body.address).trim() : null;
+    if (req.body.designation !== undefined) extraFields.designation = req.body.designation ? String(req.body.designation).trim() : null;
+
     const [participant] = await db
       .update(participantsTable)
       .set({
         ...parsed.data,
+        ...extraFields,
         cleanName: parsed.data.name ? getCleanName(parsed.data.name) : undefined,
       })
       .where(eq(participantsTable.id, params.data.id))
@@ -3206,3 +3880,4 @@ router.get(
 
 
 export default router;
+

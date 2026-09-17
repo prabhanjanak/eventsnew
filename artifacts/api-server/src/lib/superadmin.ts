@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { db, systemUsersTable, ensureDatabaseExists } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { SANQALP_AGENDA } from "./sanqualp-agenda";
 
 export async function ensureSuperAdmin() {
   // ── 0. AUTO-PROVISION DATABASE IF NOT EXISTS ──────────────────────────────────
@@ -536,6 +537,12 @@ export async function ensureSuperAdmin() {
       `ALTER TABLE food_sessions ADD COLUMN IF NOT EXISTS event_id integer`,
       `ALTER TABLE attendance_logs ADD COLUMN IF NOT EXISTS event_id integer`,
       `ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS event_id integer`,
+      `ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS coordinator_id integer REFERENCES system_users(id)`,
+      `ALTER TABLE food_logs ADD COLUMN IF NOT EXISTS collected_at timestamp with time zone DEFAULT now() NOT NULL`,
+      `ALTER TABLE participants ADD COLUMN IF NOT EXISTS employee_id text`,
+      `ALTER TABLE participants ADD COLUMN IF NOT EXISTS unit text`,
+      `ALTER TABLE participants ADD COLUMN IF NOT EXISTS state text`,
+      `ALTER TABLE participants ADD COLUMN IF NOT EXISTS district text`,
       `ALTER TABLE assignments ADD COLUMN IF NOT EXISTS event_id integer`,
       `ALTER TABLE event_coupons ADD COLUMN IF NOT EXISTS event_id integer`,
       `ALTER TABLE rsvp ADD COLUMN IF NOT EXISTS event_id integer`,
@@ -613,44 +620,44 @@ export async function ensureSuperAdmin() {
     logger.error({ err: error }, "Failed to automatically seed super admin on startup.");
   }
 
-  // ── 3. DEFAULT FLAGSHIP EVENT INITIALIZATION & BACKFILL ─────────────────────
+  // ── 3. DEFAULT EVENTS INITIALIZATION & SEED (VISION 2020 & SANQALP) ────────
   try {
-    // Check if any primary event exists
-    const eventCheck: any = await db.execute(sql.raw(`
-      SELECT id, slug, title, post_event_visitor_count, external_photos_url FROM events ORDER BY id ASC LIMIT 1
+    // 3.1. Ensure Vision 2020 exists as completed flagship conference
+    const visionCheck: any = await db.execute(sql.raw(`
+      SELECT id, slug, title, post_event_visitor_count FROM events WHERE slug = 'vision-2020-annual-conference' LIMIT 1
     `));
 
-    let primaryEventId: number;
+    let visionEventId: number;
 
-    if (eventCheck.rows && eventCheck.rows.length > 0) {
-      primaryEventId = eventCheck.rows[0].id;
-      // Ensure primary event has footfall and AI photos button
+    if (visionCheck.rows && visionCheck.rows.length > 0) {
+      visionEventId = visionCheck.rows[0].id;
       await db.execute(sql.raw(`
         UPDATE events 
         SET 
-          post_event_visitor_count = COALESCE(post_event_visitor_count, 3164),
+          post_event_visitor_count = COALESCE(post_event_visitor_count, 1580),
           external_photos_url = COALESCE(external_photos_url, 'https://app.samaro.ai/e/sankara-events'),
           external_photos_button_text = COALESCE(external_photos_button_text, 'Find My Photos with AI (Samaro)'),
-          status = 'completed'
-        WHERE id = ${primaryEventId}
+          status = 'completed',
+          post_event_completed = true
+        WHERE slug = 'vision-2020-annual-conference';
       `));
     } else {
-      // Create primary Flagship Annual Ophthalmology Conference event
-      const insertResult: any = await db.execute(sql.raw(`
+      const insertVision: any = await db.execute(sql.raw(`
         INSERT INTO events (
-          slug, title, event_type, description, venue, city, 
+          slug, title, event_type, description, short_description, venue, city, 
           start_date, end_date, time_from, time_to, is_paid, registration_fee, 
           status, enable_attendance, enable_food, enable_goodies, enable_google_wallet,
-          post_event_visitor_count, external_photos_url, external_photos_button_text
+          post_event_visitor_count, post_event_completed, external_photos_url, external_photos_button_text
         ) VALUES (
-          'annual-ophthalmology-2026',
-          '18th Annual National Ophthalmology Conference',
+          'vision-2020-annual-conference',
+          '20th Annual National Conference — VISION 2020: The Right to Sight India',
           'conference',
-          'Flagship annual clinical ophthalmology conference and symposium organized by Sankara Eye Hospital.',
+          'The 20th Annual National Conference of VISION 2020: The Right to Sight India, hosted at Sankara Eye Hospital, Coimbatore. Bringing together over 1,500 ophthalmologists, optometrists, healthcare leaders, and policy makers from across India and South Asia.',
+          '20th Annual National Conference — VISION 2020: The Right to Sight India (10–12 July 2026, Coimbatore).',
           'Sankara Eye Hospital, Auditorium Complex',
           'Coimbatore',
-          '2026-06-05',
-          '2026-06-07',
+          '2026-07-10',
+          '2026-07-12',
           '08:30 AM',
           '06:00 PM',
           false,
@@ -660,24 +667,115 @@ export async function ensureSuperAdmin() {
           true,
           true,
           true,
-          3164,
+          1580,
+          true,
           'https://app.samaro.ai/e/sankara-events',
           'Find My Photos with AI (Samaro)'
         ) RETURNING id
       `));
-      primaryEventId = insertResult.rows[0].id;
-      logger.info({ primaryEventId }, "Default Flagship Event created with 3164 footfall and Samaro AI integration.");
+      visionEventId = insertVision.rows[0].id;
+      logger.info({ visionEventId }, "Seeded Flagship VISION 2020 Event (concluded, 1580 footfall).");
     }
 
-    // Automatically link all records with event_id IS NULL to primary event
+    // 3.2. Ensure 12th SanQALP Conclave exists as upcoming internal staff conclave
+    const sanqualpCheck: any = await db.execute(sql.raw(`
+      SELECT id, slug, title, post_event_visitor_count, agenda_json FROM events WHERE slug = 'sanqualp-bangalore' LIMIT 1
+    `));
+
+    const sanqualpAgendaJsonStr = JSON.stringify(SANQALP_AGENDA);
+
+    if (sanqualpCheck.rows && sanqualpCheck.rows.length > 0) {
+      const existing = sanqualpCheck.rows[0];
+      const hasAgenda = existing.agenda_json && String(existing.agenda_json).length > 50 && existing.agenda_json !== "[]";
+
+      // Important: Preserve post_event_visitor_count if updated after the event!
+      await db.execute(sql.raw(`
+        UPDATE events
+        SET
+          status = 'published',
+          registration_open = false,
+          event_type = 'internal_staff',
+          requires_approval = true,
+          start_date = '2026-09-21',
+          end_date = '2026-09-22',
+          external_photos_url = NULL,
+          external_photos_button_text = NULL
+          ${!hasAgenda ? `, agenda_json = '${sanqualpAgendaJsonStr.replace(/'/g, "''")}'` : ""}
+        WHERE slug = 'sanqualp-bangalore';
+      `));
+      logger.info({ id: existing.id }, "Verified 12th SanQALP Conclave (dates: 21-22 Sep 2026, preserved post-event attendee counts).");
+    } else {
+      const insertSanqualp: any = await db.execute(sql.raw(`
+        INSERT INTO events (
+          slug, title, event_type, description, short_description, venue, city, 
+          location_map_url, start_date, end_date, time_from, time_to, is_paid, registration_fee, 
+          currency, requires_approval, registration_open, max_capacity, enable_attendance, 
+          attendance_days_count, enable_food, enable_goodies, enable_google_wallet,
+          organizer_name, organizer_email, organizer_phone, spoc_name, spoc_designation, 
+          spoc_email, spoc_phone, cancellation_policy, theme_color, accent_color, 
+          badge_subtitle, badge_footer_text, agenda_json, pricing_tiers_json, status, 
+          post_event_completed, external_photos_url, external_photos_button_text
+        ) VALUES (
+          'sanqualp-bangalore',
+          '12th SanQALP Conclave',
+          'internal_staff',
+          'The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery, the conclave explores policy management, daily work management (DWM), clinical safety protocols, patient value streams, and sustainable healthcare operations.',
+          '12th SanQALP Conclave on 21st & 22nd September 2026 at Sankara Eye Hospital, Bangalore. Theme: From Vision to Value (TQM). Internal staff delegation.',
+          'Sankara Eye Hospital, Bangalore',
+          'Bangalore',
+          'https://maps.google.com/?q=Sankara+Eye+Hospital+Varthur+Main+Road+Kundalahalli+Bangalore',
+          '2026-09-21',
+          '2026-09-22',
+          '09:00 AM',
+          '07:00 PM',
+          false,
+          0,
+          'INR',
+          true,
+          false,
+          350,
+          true,
+          2,
+          true,
+          false,
+          false,
+          'Sankara Eye Care Institutions (SEFI)',
+          'quality@sankaraeye.in',
+          '+91 80 2854 2727',
+          'Dr. Kaushik Murali',
+          'President (Medical Administration, Quality & Education)',
+          'quality@sankaraeye.in',
+          '+91 80 2854 2728',
+          'Internal staff conclave. Participation is by institutional delegation and nomination across Sankara Eye Hospital units.',
+          '#0F172A',
+          '#3B82F6',
+          '12TH SANQALP CONCLAVE · BANGALORE',
+          'Sankara Quality Assurance Learning Program · Internal Staff',
+          '${sanqualpAgendaJsonStr.replace(/'/g, "''")}',
+          '[{"id":"internal_staff","name":"Internal Staff Delegate","role":"delegate","price":0,"earlyBirdPrice":0,"description":"Official internal delegation pass for nominated Sankara Eye Hospital staff.","inclusions":["All TQM Scientific Tracks & Workshops","Conclave Delegate Kit","Hospitality & Dining (All 2 Days)"],"popular":true}]',
+          'published',
+          false,
+          NULL,
+          NULL
+        ) RETURNING id
+      `));
+      logger.info({ id: insertSanqualp.rows[0].id }, "Seeded 12th SanQALP Conclave (30 agenda sessions, 21-22 Sep 2026).");
+    }
+
+    // 3.3. Clean up any dummy / unwanted events (only Vision 2020 and SanQALP are valid)
+    await db.execute(sql.raw(`
+      DELETE FROM events WHERE slug NOT IN ('vision-2020-annual-conference', 'sanqualp-bangalore');
+    `));
+
+    // 3.4. Automatically link all records with event_id IS NULL to visionEventId
     const backfillStatements = [
-      `UPDATE participants SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE food_sessions SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE attendance_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE food_logs SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE assignments SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE coupons SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
-      `UPDATE rsvp SET event_id = ${primaryEventId} WHERE event_id IS NULL`,
+      `UPDATE participants SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE food_sessions SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE attendance_logs SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE food_logs SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE assignments SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE coupons SET event_id = ${visionEventId} WHERE event_id IS NULL`,
+      `UPDATE rsvp SET event_id = ${visionEventId} WHERE event_id IS NULL`,
     ];
 
     for (const statement of backfillStatements) {
@@ -688,7 +786,7 @@ export async function ensureSuperAdmin() {
       }
     }
 
-    logger.info({ primaryEventId }, "Event data and statistics successfully linked and verified in events database.");
+    logger.info({ visionEventId }, "Event data and statistics successfully linked and verified in events database.");
   } catch (e: any) {
     logger.warn({ err: e.message }, "Notice: Automated database migration check completed with warnings.");
   }

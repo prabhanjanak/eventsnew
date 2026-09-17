@@ -59,6 +59,7 @@ COPY --from=builder --chown=nodeuser:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nodeuser:nodejs /app/lib ./lib
 COPY --from=builder --chown=nodeuser:nodejs /app/artifacts ./artifacts
 COPY --from=builder --chown=nodeuser:nodejs /app/attached_assets ./attached_assets
+COPY --from=builder --chown=nodeuser:nodejs /app/scripts ./scripts
 
 # Create uploads directory with appropriate permissions
 RUN mkdir -p /app/uploads && chmod -R 777 /app/uploads && chown -R nodeuser:nodejs /app/uploads

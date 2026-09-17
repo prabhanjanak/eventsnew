@@ -20,3 +20,4 @@ export * from "./knowledge-base";
 export * from "./feedback";
 export * from "./certificates";
 export * from "./groups";
+export * from "./session-likes";

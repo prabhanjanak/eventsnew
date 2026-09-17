@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } from "framer-motion";
 import { Users, Award, Sparkles, MapPin, Calendar } from "lucide-react";
+import { formatEventDisplayDate } from "@/lib/date-utils";
 
 interface EventHeroBannerProps {
   event: any;
@@ -185,7 +186,7 @@ export function EventHeroBanner({
             {event.startDate && (
               <span className="flex items-center gap-1.5 text-zinc-300">
                 <Calendar className="w-3.5 h-3.5 text-indigo-400" />
-                <span>{event.startDate}</span>
+                <span>{formatEventDisplayDate(event.startDate, event.endDate)}</span>
               </span>
             )}
             {(event.venue || event.city) && (

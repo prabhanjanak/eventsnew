@@ -33,7 +33,6 @@ import AdminParticipants from "@/pages/admin/participants";
 import AdminChatLogs from "@/pages/admin/chat-logs";
 import AdminUnresolvedQueries from "@/pages/admin/unresolved-queries";
 import AdminCrewVendors from "@/pages/admin/crew-vendors";
-import { SankaraAIChatbot } from "@/components/chat/sankara-ai-chatbot";
 import AdminOnSpot from "@/pages/admin/on-spot";
 import AdminParticipantDetail from "@/pages/admin/participants/detail";
 import FoodSessions from "@/pages/admin/food-sessions";
@@ -212,8 +211,6 @@ function App() {
             <AuthProvider>
               <EventProvider>
                 <Router />
-                {/* Sankara AI Event & Hospital Concierge */}
-                <SankaraAIChatbot />
               </EventProvider>
             </AuthProvider>
           </WouterRouter>

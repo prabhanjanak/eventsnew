@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useParams, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,8 +19,13 @@ import {
   AlertCircle,
   Award,
   Sparkles,
+  IdCard,
+  MapPin,
+  Loader2,
+  Check,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 import { HolographicPassCard } from "@/components/3d/holographic-pass-card";
 
 const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
@@ -28,6 +34,9 @@ export default function AdminParticipantDetail() {
   const params = useParams<{ id: string }>();
   const id = parseInt(params.id || "0", 10);
   const { token } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [approving, setApproving] = useState(false);
 
   const { data: participant, isLoading } = useQuery<any>({
     queryKey: ["/api/participants", id],
@@ -40,6 +49,29 @@ export default function AdminParticipantDetail() {
     },
     enabled: !!id && !!token,
   });
+
+  const handleApprove = async () => {
+    setApproving(true);
+    try {
+      const resp = await fetch(`${BASE_URL}/api/participants/${id}/approve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Failed to approve delegate");
+      toast({
+        title: "Delegate Approved! 🎉",
+        description: data.emailSent
+          ? "Official Entry Pass & Gate QR Code dispatched via email."
+          : "Delegate approved.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/participants", id] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setApproving(false);
+    }
+  };
 
   const assignments = participant?.assignments || [];
 
@@ -94,6 +126,34 @@ export default function AdminParticipantDetail() {
             <div className="flex items-center gap-2">
               <span
                 className={`text-xs font-bold px-3 py-1 rounded-xl border ${
+                  participant.approvalStatus === "approved"
+                    ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/40"
+                    : participant.approvalStatus === "rejected"
+                    ? "bg-rose-950/70 text-rose-300 border-rose-800/40"
+                    : "bg-amber-950/70 text-amber-300 border-amber-800/40"
+                }`}
+              >
+                {participant.approvalStatus === "approved"
+                  ? "Approved ✓"
+                  : participant.approvalStatus === "rejected"
+                  ? "Rejected"
+                  : "Approval Pending"}
+              </span>
+
+              {participant.approvalStatus === "pending" && (
+                <Button
+                  size="sm"
+                  disabled={approving}
+                  onClick={handleApprove}
+                  className="rounded-xl bg-white text-zinc-950 hover:bg-zinc-200 text-xs font-bold shadow-md cursor-pointer"
+                >
+                  {approving && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />}
+                  <span>Approve &amp; Send QR Pass</span>
+                </Button>
+              )}
+
+              <span
+                className={`text-xs font-bold px-3 py-1 rounded-xl border ${
                   participant.isPaid
                     ? "bg-emerald-950/70 text-emerald-300 border-emerald-800/40"
                     : "bg-rose-950/70 text-rose-300 border-rose-800/40"
@@ -115,6 +175,18 @@ export default function AdminParticipantDetail() {
                 </h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  {participant.employeeId && (
+                    <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
+                      <span className="text-zinc-500 font-medium block">Employee ID</span>
+                      <span className="font-mono text-indigo-300 font-bold block">{participant.employeeId}</span>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
+                    <span className="text-zinc-500 font-medium block">Designation</span>
+                    <span className="text-zinc-200 font-bold block">{participant.designation || "—"}</span>
+                  </div>
+
                   <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
                     <span className="text-zinc-500 font-medium block">Registered Email</span>
                     <span className="font-mono text-zinc-200 font-bold block">{participant.email || "No email registered"}</span>
@@ -128,11 +200,27 @@ export default function AdminParticipantDetail() {
                   </div>
 
                   <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
-                    <span className="text-zinc-500 font-medium block">Institution / Hospital</span>
-                    <span className="text-zinc-200 font-bold block">{participant.institution || "—"}</span>
+                    <span className="text-zinc-500 font-medium block">Hospital Unit / Institution</span>
+                    <span className="text-zinc-200 font-bold block">{participant.unit || participant.institution || "—"}</span>
                   </div>
 
-                  <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
+                  {(participant.district || participant.state) && (
+                    <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1">
+                      <span className="text-zinc-500 font-medium block">State &amp; District</span>
+                      <span className="text-zinc-200 font-bold block">
+                        {[participant.district, participant.state].filter(Boolean).join(", ")}
+                      </span>
+                    </div>
+                  )}
+
+                  {participant.address && (
+                    <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1 sm:col-span-2">
+                      <span className="text-zinc-500 font-medium block">Address</span>
+                      <span className="text-zinc-300 block">{participant.address}</span>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 rounded-2xl bg-[#0D0D10] border border-[#222228] space-y-1 sm:col-span-2">
                     <span className="text-zinc-500 font-medium block">Registration Date</span>
                     <span className="font-mono text-zinc-200 font-bold block">
                       {participant.createdAt
