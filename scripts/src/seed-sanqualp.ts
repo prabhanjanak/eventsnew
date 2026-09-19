@@ -15,7 +15,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Welcome address and context setting for the 12th SanQALP conclave.",
     output: "Context setting",
-    trackHall: "Main Auditorium, Sankara Eye Hospital, Bangalore",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor), Sankara Eye Hospital, Bangalore",
     topics: ["Context Setting", "SanQALP", "TQM Introduction"],
   },
   {
@@ -30,7 +30,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Highlighting TQM as a culture of continuous improvement, aligning people and processes to enhance efficiency, patient value, and excellence.",
     output: "Inspiring teams to move from vision to measurable value by making quality and continuous improvement everyone's responsibility.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Leadership", "Vision to Value", "TQM Culture"],
   },
   {
@@ -45,7 +45,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "TVS Motor Company / IFQM",
     description: "Exploring the key steps, practices, and mindset required to move from compliance to continuous improvement and excellence.",
     output: "Identify practical actions to strengthen quality culture and sustain a journey of continuous improvement.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Operational Excellence", "Mindset", "Culture Shift"],
   },
   {
@@ -74,7 +74,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "TVS Motor Company / IFQM",
     description: "Exploring the key steps, practices, and mindset required to move from compliance to continuous improvement and excellence through interactive group exercises.",
     output: "Identify practical actions to strengthen quality culture and sustain a journey of continuous improvement.",
-    trackHall: "Main Auditorium & Breakout Tables",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Breakout Tables",
     topics: ["Team Exercises", "Continuous Improvement", "Practical Actions"],
   },
   {
@@ -89,7 +89,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "BSC–DWM linkage, task prioritisation, planning and execution through DWM.",
     output: "Understand the BSC-to-DWM flow and effectively plan, track and execute priorities.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["BSC-DWM Linkage", "Task Prioritisation", "Daily Execution"],
   },
   {
@@ -104,7 +104,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Swastika National Business School",
     description: "Explore how clear, timely, and structured communication across teams can reduce errors, strengthen coordination, and support a TQM-driven culture of continuous improvement.",
     output: "Identify key communication gaps and develop practical strategies to improve information flow, teamwork, and patient safety.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Patient Safety", "Clinical Communication", "Error Reduction"],
   },
   {
@@ -147,7 +147,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Swastika National Business School",
     description: "Explore how clear, timely, and structured communication across teams can reduce errors, strengthen coordination, and support a TQM-driven culture of continuous improvement.",
     output: "Identify key communication gaps and develop practical strategies to improve information flow, teamwork, and patient safety.",
-    trackHall: "Main Auditorium & Interactive Pods",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Interactive Pods",
     topics: ["Simulation Exercises", "Active Listening", "Coordination"],
   },
   {
@@ -162,7 +162,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Hospital, Shimoga",
     description: "Strengthening committee functioning through effective meetings, meaningful event reporting, data-based review, and action-oriented follow-up.",
     output: "Enabling committees to drive timely actions, accountability, and measurable quality improvement.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Committee Functioning", "Incident Reporting", "NABH Compliance"],
   },
   {
@@ -177,7 +177,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "An activity-led experience that invites us to discover what happens when we think, act and work together. The meaning comes alive in the conversation that follows.",
     output: "A shared reflection on what creates quality and what each of us contributes to it.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Organizational Psychology", "Team Synergies", "Collective Ownership"],
   },
   {
@@ -206,7 +206,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "All SEFI Units",
     description: "Presentations by Units and MHq teams. Reexplore the Kaizen approach of making small, incremental improvements by engaging employees, identifying process gaps, and eliminating waste in everyday healthcare practices.",
     output: "Best practices learning and implementation across Units. Identify improvement opportunities and apply simple Kaizen techniques to achieve measurable, sustainable improvements in quality and efficiency.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Kaizen Innovations", "Lean Healthcare", "Waste Elimination", "Unit Showcase"],
   },
   {
@@ -237,7 +237,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "SEH Anand & SEH Guntur",
     description: "Major changes from 1st edition to 2nd edition of NABH standards.",
     output: "Better compliance with standards to enhance overall quality and patient safety.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["NABH 2nd Edition", "Standards Migration", "Audit Readiness"],
   },
   {
@@ -252,7 +252,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Indian Society for Quality (ISQ)",
     description: "Using simple data visualization tools to understand process variation, identify patterns, and distinguish common from special causes.",
     output: "Enabling teams to make data-driven decisions and address process variation effectively.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Data Visualization", "Process Variation", "Statistical Thinking"],
   },
   {
@@ -267,7 +267,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Indian Society for Quality (ISQ)",
     description: "Hands-on application using simple graphs to evaluate hospital trends and process variances.",
     output: "Practical charting and analysis skills for unit coordinators.",
-    trackHall: "Main Auditorium & Work Tables",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Work Tables",
     topics: ["Hands-on Charting", "Data Analysis", "Decision Making"],
   },
   {
@@ -296,7 +296,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Bosch",
     description: "Understanding Poka-Yoke principles and their application in healthcare to identify potential errors and build simple mistake-proofing mechanisms into processes.",
     output: "Identify opportunities for error prevention and apply practical Poka-Yoke solutions to improve patient safety, process reliability, and quality.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Poka-Yoke", "Mistake-Proofing", "Zero Errors", "Reliable Processes"],
   },
   {
@@ -311,7 +311,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Bosch",
     description: "Interactive team exercise designing mistake-proofing solutions for ophthalmic outpatient and surgical workflows.",
     output: "Formulate practical Poka-Yoke mechanisms for unit deployment.",
-    trackHall: "Main Auditorium & Breakouts",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Breakouts",
     topics: ["Poka-Yoke Workshop", "Clinical Workflow Design", "Error Prevention"],
   },
   {
@@ -326,7 +326,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Understanding QAI accreditation requirements for Vision Centres, key standards, documentation, processes, and readiness for assessment.",
     output: "Enabling Vision Centres to achieve accreditation readiness through standardised processes, compliance, and continuous quality improvement.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Vision Centres", "QAI Accreditation", "Primary Eye Care Quality"],
   },
   {
@@ -341,7 +341,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Updation of policies across departments and hospital branches.",
     output: "Streamlining of policies towards ensuring standardized patient care.",
-    trackHall: "Main Auditorium & Department Tables",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Department Tables",
     topics: ["Policy Updation", "Clinical Protocols", "Standard Operating Procedures"],
   },
   {
@@ -370,7 +370,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Deep-dive continuation of policy standardization and departmental alignment.",
     output: "Streamlining of policies towards ensuring standardized patient care.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Policy Finalization", "Standardization", "Consensus"],
   },
   {
@@ -385,7 +385,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "TVS Motors",
     description: "PDCA cycle as a structured framework for planning, executing, checking, and acting to drive continuous quality improvement.",
     output: "Atleast 3 PDCAs documented as part of continuous improvements.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["PDCA Cycle", "Quality Outcomes", "Actionable Frameworks"],
   },
   {
@@ -400,7 +400,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "TVS Motors",
     description: "PDCA cycle as a structured framework for planning, executing, checking, and acting to drive continuous quality improvement through hands-on group work.",
     output: "Documenting PDCAs as part of continuous improvements.",
-    trackHall: "Main Auditorium & Work Tables",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor) & Work Tables",
     topics: ["PDCA Exercises", "Documentation", "Project Milestones"],
   },
   {
@@ -429,7 +429,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "Sankara Eye Foundation India",
     description: "Consolidation of key insights from all sessions and identification of actionable opportunities for implementation across units.",
     output: "Clear action plan to translate quality learnings into measurable improvements in patient safety, operational excellence, and TQM practices.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Strategic Roadmap", "Unit Action Plans", "Leadership Vision"],
   },
   {
@@ -444,7 +444,7 @@ export const SANQALP_AGENDA = [
     speakerInstitution: "SEFI",
     description: "Program feedback, evaluation, and valedictory close.",
     output: "Continuous improvement feedback and formal closing.",
-    trackHall: "Main Auditorium",
+    trackHall: "Shri Shankara Vijayendram Auditorium (3rd floor)",
     topics: ["Evaluation", "Feedback", "Valedictory"],
   },
 ];

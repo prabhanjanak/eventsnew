@@ -1845,22 +1845,22 @@ export default function EventDetailPage() {
 
                 <div className="p-3.5 rounded-2xl bg-zinc-950/80 border border-zinc-800 space-y-1">
                   <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Organizing SPOC</span>
-                  <p className="text-xs font-bold text-white">{event.spocName || "Dr. Kaushik Murali"}</p>
-                  <p className="text-[11px] text-zinc-400">{event.spocDesignation || "President (Medical Administration, Quality & Education)"}</p>
+                  <p className="text-xs font-bold text-white">{event.spocName || "Dr Geeta"}</p>
+                  <p className="text-[11px] text-zinc-400">{event.spocDesignation || "DGM - Quality Assurance"}</p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {(event.spocPhone || event.organizerPhone || "+91 422 4236789") && (
+                  {(event.spocPhone || event.organizerPhone || "+91 99169 73590") && (
                     <a
-                      href={`tel:${event.spocPhone || event.organizerPhone || "+914224236789"}`}
+                      href={`tel:${event.spocPhone || event.organizerPhone || "+919916973590"}`}
                       className="flex-1 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors font-semibold"
                     >
                       <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>{event.spocPhone || event.organizerPhone || "+91 422 4236789"}</span>
+                      <span>{event.spocPhone || event.organizerPhone || "+91 99169 73590"}</span>
                     </a>
                   )}
                   <a
-                    href={`mailto:${event.spocEmail || event.organizerEmail || "events@sankaraeye.com"}`}
+                    href={`mailto:${event.spocEmail || event.organizerEmail || "quality@sankaraeye.in"}`}
                     className="flex-1 px-3 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-xs text-zinc-200 border border-zinc-700 flex items-center justify-center gap-1.5 transition-colors font-semibold"
                   >
                     <Mail className="w-3.5 h-3.5 text-blue-400" />
@@ -2030,8 +2030,8 @@ export default function EventDetailPage() {
                         <Phone className="w-4 h-4" />
                       </div>
                       <div>
-                        <h3 className="font-extrabold text-sm sm:text-base text-white">Event Helpdesk &amp; CME SPOC</h3>
-                        <p className="text-[11px] text-zinc-400">Single Point of Contact for queries, cancellations &amp; logistics</p>
+                        <h3 className="font-extrabold text-sm sm:text-base text-white">Event Helpdesk &amp; Secretariat SPOC</h3>
+                        <p className="text-[11px] text-zinc-400">Single Point of Contact for queries, logistics &amp; assistance</p>
                       </div>
                     </div>
                   </div>
@@ -2039,8 +2039,8 @@ export default function EventDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
                       <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Event SPOC</span>
-                      <p className="text-xs font-bold text-white">{event.spocName || event.organizerName || "Sankara CME Secretariat"}</p>
-                      <p className="text-[11px] text-zinc-400">{event.spocDesignation || "Organizing Secretary"}</p>
+                      <p className="text-xs font-bold text-white">{event.spocName || "Dr Geeta"}</p>
+                      <p className="text-[11px] text-zinc-400">{event.spocDesignation || "DGM - Quality Assurance"}</p>
                     </div>
 
                     <div className="p-3.5 rounded-2xl bg-zinc-950 border border-zinc-800 flex flex-col justify-between space-y-2">

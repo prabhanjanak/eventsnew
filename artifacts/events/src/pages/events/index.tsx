@@ -854,8 +854,14 @@ export default function EventsDirectory() {
                                   <div className="flex items-center gap-1.5">
                                     <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                                     <span className="truncate">
-                                      {event.venue ? `${event.venue}, ` : ""}
-                                      {event.city}
+                                      {(() => {
+                                        const v = (event.venue || "").trim();
+                                        const c = (event.city || "").trim();
+                                        if (!v) return c;
+                                        if (!c) return v;
+                                        if (v.toLowerCase().includes(c.toLowerCase())) return v;
+                                        return `${v}, ${c}`;
+                                      })()}
                                     </span>
                                   </div>
                                 )}

@@ -147,11 +147,18 @@ export function EventHeroBanner({
               </span>
             )}
 
-            {/* Accreditation Badge */}
-            <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 backdrop-blur-md text-emerald-300 border border-emerald-500/30 items-center gap-1">
-              <Award className="w-3 h-3 text-emerald-400" />
-              <span>Accredited CME</span>
-            </span>
+            {/* Category Badge */}
+            {event.eventType === "internal_staff" || event.slug?.includes("sanqualp") ? (
+              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 backdrop-blur-md text-purple-300 border border-purple-500/30 items-center gap-1">
+                <Award className="w-3 h-3 text-purple-400" />
+                <span>Quality Conclave</span>
+              </span>
+            ) : (
+              <span className="hidden sm:inline-flex px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 backdrop-blur-md text-emerald-300 border border-emerald-500/30 items-center gap-1">
+                <Award className="w-3 h-3 text-emerald-400" />
+                <span>National Conference</span>
+              </span>
+            )}
           </div>
 
           {/* Pricing Highlight */}

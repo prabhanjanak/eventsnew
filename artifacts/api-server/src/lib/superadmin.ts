@@ -698,12 +698,18 @@ export async function ensureSuperAdmin() {
           requires_approval = true,
           start_date = '2026-09-21',
           end_date = '2026-09-22',
+          venue = 'Shri Shankara Vijayendram Auditorium (3rd floor), Sankara Eye Hospital',
+          city = 'Bangalore',
+          spoc_name = 'Dr Geeta',
+          spoc_designation = 'DGM - Quality Assurance',
+          spoc_phone = '+91 99169 73590',
+          spoc_email = 'quality@sankaraeye.in',
+          agenda_json = '${sanqualpAgendaJsonStr.replace(/'/g, "''")}',
           external_photos_url = NULL,
           external_photos_button_text = NULL
-          ${!hasAgenda ? `, agenda_json = '${sanqualpAgendaJsonStr.replace(/'/g, "''")}'` : ""}
         WHERE slug = 'sanqualp-bangalore';
       `));
-      logger.info({ id: existing.id }, "Verified 12th SanQALP Conclave (dates: 21-22 Sep 2026, preserved post-event attendee counts).");
+      logger.info({ id: existing.id }, "Verified 12th SanQALP Conclave (dates: 21-22 Sep 2026, SPOC: Dr Geeta).");
     } else {
       const insertSanqualp: any = await db.execute(sql.raw(`
         INSERT INTO events (
@@ -720,8 +726,8 @@ export async function ensureSuperAdmin() {
           '12th SanQALP Conclave',
           'internal_staff',
           'The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery, the conclave explores policy management, daily work management (DWM), clinical safety protocols, patient value streams, and sustainable healthcare operations.',
-          '12th SanQALP Conclave on 21st & 22nd September 2026 at Sankara Eye Hospital, Bangalore. Theme: From Vision to Value (TQM). Internal staff delegation.',
-          'Sankara Eye Hospital, Bangalore',
+          '12th SanQALP Conclave on 21st & 22nd September 2026 at Shri Shankara Vijayendram Auditorium (3rd floor), Sankara Eye Hospital, Bangalore. Theme: From Vision to Value (TQM). Internal staff delegation.',
+          'Shri Shankara Vijayendram Auditorium (3rd floor), Sankara Eye Hospital',
           'Bangalore',
           'https://maps.google.com/?q=Sankara+Eye+Hospital+Varthur+Main+Road+Kundalahalli+Bangalore',
           '2026-09-21',
@@ -742,10 +748,10 @@ export async function ensureSuperAdmin() {
           'Sankara Eye Care Institutions (SEFI)',
           'quality@sankaraeye.in',
           '+91 80 2854 2727',
-          'Dr. Kaushik Murali',
-          'President (Medical Administration, Quality & Education)',
+          'Dr Geeta',
+          'DGM - Quality Assurance',
           'quality@sankaraeye.in',
-          '+91 80 2854 2728',
+          '+91 99169 73590',
           'Internal staff conclave. Participation is by institutional delegation and nomination across Sankara Eye Hospital units.',
           '#0F172A',
           '#3B82F6',
