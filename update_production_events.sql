@@ -23,8 +23,9 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS spoc_email text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS external_photos_url text;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS external_photos_button_text text;
 
--- 2. Remove legacy / dummy events (leaving only Vision 2020 and SanQALP)
-DELETE FROM events WHERE slug NOT IN ('vision-2020-annual-conference', 'sanqualp-bangalore');
+-- 2. Migrate legacy 'sanqualp-bangalore' slug to 'sanqalp-bangalore' and remove dummy events
+UPDATE events SET slug = 'sanqalp-bangalore' WHERE slug = 'sanqualp-bangalore';
+DELETE FROM events WHERE slug NOT IN ('vision-2020-annual-conference', 'sanqalp-bangalore');
 
 -- 3. Upsert VISION 2020 as Concluded Flagship Conference (Past Event)
 INSERT INTO events (
@@ -91,7 +92,7 @@ INSERT INTO events (
   badge_subtitle, badge_footer_text, agenda_json, pricing_tiers_json, status,
   post_event_completed, external_photos_url, external_photos_button_text
 ) VALUES (
-  'sanqualp-bangalore',
+  'sanqalp-bangalore',
   '12th SanQALP Conclave',
   'internal_staff',
   'The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery, the conclave explores policy management, daily work management (DWM), clinical safety protocols, patient value streams, and sustainable healthcare operations.',

@@ -678,20 +678,25 @@ export async function ensureSuperAdmin() {
     }
 
     // 3.2. Ensure 12th SanQALP Conclave exists as upcoming internal staff conclave
+    // Automatically migrate legacy 'sanqualp-bangalore' slug to correct 'sanqalp-bangalore'
+    try {
+      await db.execute(sql.raw(`UPDATE events SET slug = 'sanqalp-bangalore' WHERE slug = 'sanqualp-bangalore';`));
+    } catch {}
+
     const sanqualpCheck: any = await db.execute(sql.raw(`
-      SELECT id, slug, title, post_event_visitor_count, agenda_json FROM events WHERE slug = 'sanqualp-bangalore' LIMIT 1
+      SELECT id, slug, title, post_event_visitor_count, agenda_json FROM events WHERE slug = 'sanqalp-bangalore' LIMIT 1
     `));
 
     const sanqualpAgendaJsonStr = JSON.stringify(SANQALP_AGENDA);
 
     if (sanqualpCheck.rows && sanqualpCheck.rows.length > 0) {
       const existing = sanqualpCheck.rows[0];
-      const hasAgenda = existing.agenda_json && String(existing.agenda_json).length > 50 && existing.agenda_json !== "[]";
 
       // Important: Preserve post_event_visitor_count if updated after the event!
       await db.execute(sql.raw(`
         UPDATE events
         SET
+          slug = 'sanqalp-bangalore',
           status = 'published',
           registration_open = false,
           event_type = 'internal_staff',
@@ -707,9 +712,9 @@ export async function ensureSuperAdmin() {
           agenda_json = '${sanqualpAgendaJsonStr.replace(/'/g, "''")}',
           external_photos_url = NULL,
           external_photos_button_text = NULL
-        WHERE slug = 'sanqualp-bangalore';
+        WHERE slug = 'sanqalp-bangalore';
       `));
-      logger.info({ id: existing.id }, "Verified 12th SanQALP Conclave (dates: 21-22 Sep 2026, SPOC: Dr Geeta).");
+      logger.info({ id: existing.id }, "Verified 12th SanQALP Conclave (slug: sanqalp-bangalore, SPOC: Dr Geeta).");
     } else {
       const insertSanqualp: any = await db.execute(sql.raw(`
         INSERT INTO events (
@@ -722,7 +727,7 @@ export async function ensureSuperAdmin() {
           badge_subtitle, badge_footer_text, agenda_json, pricing_tiers_json, status, 
           post_event_completed, external_photos_url, external_photos_button_text
         ) VALUES (
-          'sanqualp-bangalore',
+          'sanqalp-bangalore',
           '12th SanQALP Conclave',
           'internal_staff',
           'The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery, the conclave explores policy management, daily work management (DWM), clinical safety protocols, patient value streams, and sustainable healthcare operations.',
@@ -765,12 +770,12 @@ export async function ensureSuperAdmin() {
           NULL
         ) RETURNING id
       `));
-      logger.info({ id: insertSanqualp.rows[0].id }, "Seeded 12th SanQALP Conclave (30 agenda sessions, 21-22 Sep 2026).");
+      logger.info({ id: insertSanqualp.rows[0].id }, "Seeded 12th SanQALP Conclave (slug: sanqalp-bangalore, 30 agenda sessions).");
     }
 
     // 3.3. Clean up any dummy / unwanted events (only Vision 2020 and SanQALP are valid)
     await db.execute(sql.raw(`
-      DELETE FROM events WHERE slug NOT IN ('vision-2020-annual-conference', 'sanqualp-bangalore');
+      DELETE FROM events WHERE slug NOT IN ('vision-2020-annual-conference', 'sanqalp-bangalore');
     `));
 
     // 3.4. Automatically link all records with event_id IS NULL to visionEventId

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useRoute } from "wouter";
+import { Link, useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -351,7 +351,15 @@ function Randomized3DPhotoGallery({ images, onEnlarge }: ConcludedPhotoGalleryPr
 
 export default function EventDetailPage() {
   const [, params] = useRoute("/events/:slug");
+  const [, setLocation] = useLocation();
   const slug = params?.slug;
+
+  useEffect(() => {
+    if (slug?.toLowerCase() === "sanqualp-bangalore") {
+      setLocation("/events/sanqalp-bangalore", { replace: true });
+    }
+  }, [slug, setLocation]);
+
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [agendaCategory, setAgendaCategory] = useState<string>("all");

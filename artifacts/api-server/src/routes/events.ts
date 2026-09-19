@@ -486,10 +486,12 @@ router.get("/events/:slugOrId", async (req: Request, res: Response): Promise<voi
         .from(eventsTable)
         .where(eq(eventsTable.id, parseInt(slugOrId, 10)));
     } else {
+      const lower = slugOrId.toLowerCase();
+      const alias = lower === "sanqualp-bangalore" ? "sanqalp-bangalore" : lower === "sanqalp-bangalore" ? "sanqualp-bangalore" : lower;
       [event] = await db
         .select()
         .from(eventsTable)
-        .where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+        .where(or(eq(sql`LOWER(${eventsTable.slug})`, lower), eq(sql`LOWER(${eventsTable.slug})`, alias)));
     }
 
     if (!event) {
@@ -533,7 +535,9 @@ router.get("/events/:slugOrId/agenda-likes", async (req: Request, res: Response)
     if (isNumeric) {
       [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, parseInt(slugOrId, 10)));
     } else {
-      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+      const lower = slugOrId.toLowerCase();
+      const alias = lower === "sanqualp-bangalore" ? "sanqalp-bangalore" : lower === "sanqalp-bangalore" ? "sanqualp-bangalore" : lower;
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(or(eq(sql`LOWER(${eventsTable.slug})`, lower), eq(sql`LOWER(${eventsTable.slug})`, alias)));
     }
 
     if (!event) {
@@ -599,7 +603,9 @@ router.post("/events/:slugOrId/agenda-likes/:slotId", async (req: Request, res: 
     if (isNumeric) {
       [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(eventsTable.id, parseInt(slugOrId, 10)));
     } else {
-      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(eq(sql`LOWER(${eventsTable.slug})`, slugOrId.toLowerCase()));
+      const lower = slugOrId.toLowerCase();
+      const alias = lower === "sanqualp-bangalore" ? "sanqalp-bangalore" : lower === "sanqalp-bangalore" ? "sanqualp-bangalore" : lower;
+      [event] = await db.select({ id: eventsTable.id }).from(eventsTable).where(or(eq(sql`LOWER(${eventsTable.slug})`, lower), eq(sql`LOWER(${eventsTable.slug})`, alias)));
     }
 
     if (!event) {

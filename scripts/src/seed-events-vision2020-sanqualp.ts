@@ -205,7 +205,7 @@ export async function seedEventsVision2020AndSanqualp() {
   // ─────────────────────────────────────────────────────────────────────────────
   console.log("\n1️⃣ Processing UPCOMING event: 12th SanQALP Conclave...");
 
-  const sanqualpSlug = "sanqualp-bangalore";
+  const sanqualpSlug = "sanqalp-bangalore";
   const sanqualpPayload = {
     slug: sanqualpSlug,
     title: "12th SanQALP Conclave",
@@ -214,7 +214,7 @@ export async function seedEventsVision2020AndSanqualp() {
       "12th SanQALP Conclave on 21st & 22nd September 2026 at Sankara Eye Hospital, Bangalore. Theme: From Vision to Value (TQM). Internal staff delegation.",
     description:
       "The 12th SanQALP Conclave brings together clinical leaders, quality champions, hospital administrators, and operational teams across all Sankara Eye Hospital units nationwide. Focused on embedding Total Quality Management (TQM) principles into everyday healthcare delivery, the conclave explores policy management, daily work management (DWM), clinical safety protocols, patient value streams, and sustainable healthcare operations.",
-    venue: "Sankara Eye Hospital, Bangalore",
+    venue: "Shri Shankara Vijayendram Auditorium (3rd floor), Sankara Eye Hospital",
     city: "Bangalore",
     locationMapUrl: "https://maps.google.com/?q=Sankara+Eye+Hospital+Varthur+Main+Road+Kundalahalli+Bangalore",
     startDate: "2026-09-21",
@@ -235,10 +235,10 @@ export async function seedEventsVision2020AndSanqualp() {
     organizerName: "Sankara Eye Care Institutions (SEFI)",
     organizerEmail: "quality@sankaraeye.in",
     organizerPhone: "+91 80 2854 2727",
-    spocName: "Quality Assurance Committee",
-    spocDesignation: "SanQALP Conclave Secretariat",
+    spocName: "Dr Geeta",
+    spocDesignation: "DGM - Quality Assurance",
     spocEmail: "quality@sankaraeye.in",
-    spocPhone: "+91 80 2854 2728",
+    spocPhone: "+91 99169 73590",
     cancellationPolicy: "Internal staff conclave. Participation is by institutional delegation and nomination across Sankara Eye Hospital units.",
     themeColor: "#0F172A",
     accentColor: "#3B82F6",
@@ -265,7 +265,7 @@ export async function seedEventsVision2020AndSanqualp() {
   const [existingSanqualp] = await db
     .select()
     .from(eventsTable)
-    .where(or(eq(eventsTable.slug, sanqualpSlug), eq(eventsTable.slug, "sankarasanqualp")))
+    .where(or(eq(eventsTable.slug, sanqualpSlug), eq(eventsTable.slug, "sanqualp-bangalore"), eq(eventsTable.slug, "sankarasanqualp")))
     .limit(1);
 
   let sanqualpEventId: number;

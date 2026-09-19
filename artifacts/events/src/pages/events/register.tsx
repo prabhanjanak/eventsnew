@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useRoute } from "wouter";
+import { Link, useRoute, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,15 @@ const BASE_URL = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
 export default function EventRegisterPage() {
   const [, params] = useRoute("/events/:slug/register");
+  const [, setLocation] = useLocation();
   const slug = params?.slug;
+
+  useEffect(() => {
+    if (slug?.toLowerCase() === "sanqualp-bangalore") {
+      setLocation("/events/sanqalp-bangalore/register", { replace: true });
+    }
+  }, [slug, setLocation]);
+
   const { toast } = useToast();
   const { user } = useAuth();
 

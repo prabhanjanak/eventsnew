@@ -17,7 +17,7 @@ async function main() {
   const [sanQalp] = await db
     .select()
     .from(eventsTable)
-    .where(eq(eventsTable.slug, "sanqualp-bangalore"))
+    .where(or(eq(eventsTable.slug, "sanqalp-bangalore"), eq(eventsTable.slug, "sanqualp-bangalore")))
     .limit(1);
 
   if (sanQalp) {
