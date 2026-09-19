@@ -93,6 +93,8 @@ lib/db/seed_master.cjs
 
 # Database dumps / exports
 *.sql
+!scripts/init_database.sql
+!update_production_events.sql
 *.dump
 
 # Logs
