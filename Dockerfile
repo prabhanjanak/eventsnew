@@ -19,7 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy repository config & workspace manifests
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY tsconfig.base.json tsconfig.json ./
 
 # Copy all source directories
@@ -27,6 +27,13 @@ COPY lib ./lib
 COPY artifacts ./artifacts
 COPY scripts ./scripts
 COPY attached_assets ./attached_assets
+
+# Configure pnpm network resilience (prevents TLS socket resets / firewall drops)
+RUN pnpm config set network-concurrency 4 && \
+    pnpm config set fetch-retries 5 && \
+    pnpm config set fetch-retry-mintimeout 20000 && \
+    pnpm config set fetch-retry-maxtimeout 120000 && \
+    pnpm config set fetch-timeout 120000
 
 # Install dependencies using frozen lockfile
 RUN pnpm install --frozen-lockfile
